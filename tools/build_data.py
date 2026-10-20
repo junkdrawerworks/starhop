@@ -87,6 +87,8 @@ for i, (mag, hip, ra, dec, bv) in enumerate(rows):
         bayer = 'υ' + bayer[len('undefined'):]
     flam = n.get('flam') or ''
     con = n.get('c') or ''
+    if hip == 78727 and not bayer:  # d3-celestial gives xi Scorpii only "Grafias", which it also gives zeta-2 Sco, and no letter or constellation
+        bayer, con = 'ξ', 'Sco'
     lab = (bayer or flam) + (' ' + con if con else '') if (bayer or flam) else ''
     if proper or (lab and (n.get('name') or (bayer and mag <= 4.5) or (flam and mag <= 4.0))):
         labels[i] = [proper, lab, con]

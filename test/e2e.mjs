@@ -548,6 +548,7 @@ const tapMap = async (page, k, id) => {
   await page.waitForFunction(() => !document.getElementById('sheet').hidden);
 };
 const starIndex = async name => { const n = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')).n; return +Object.keys(n).find(i => n[i][0] === name); };
+const starAt = async (ra, dec) => { const s = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')).s; for (let i = 0; i < s.length / 4; i++) if (s[i * 4] === ra && s[i * 4 + 1] === dec) return i; };
 
 check('a star card says a star stays a point, not how wide it is', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00' });
@@ -555,6 +556,17 @@ check('a star card says a star stays a point, not how wide it is', async () => {
     await tapMap(page, 'star', await starIndex('Vega'));
     assert.match(await text(page, '#sheet .hd h2'), /^Vega/);
     assert.equal(await advice(page), 'A star stays a point at any power. The 25 mm (2.0° field) shows it with the stars around it.');
+  } finally { await ctx.close(); }
+});
+
+// d3-celestial calls ξ Sco only "Grafias", a name it also gives ζ2 Sco, so dropping that name left its card saying just "Star".
+check('ξ Sco’s card names it', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-06-15T23:00:00-05:00' });
+  try {
+    await tapMap(page, 'star', await starAt(241.09, -11.37));
+    assert.equal(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), 'ξ Sco');
+    assert.equal(await text(page, '#sheet .hd h2 small'), 'Star · ξ Sco · in Scorpius');
+    assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
 
@@ -618,9 +630,16 @@ check('M40 and M73, which have no size, get no made-up size or cluster sketch', 
   } finally { await ctx.close(); }
 });
 
-check('star labels in the data are all real designations', async () => {
-  const n = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')).n;
+// A star brighter than 4.6 can be tapped, and its card goes by its name or label, or just "Star" with neither. The build
+// gives Bayer letters down to 4.5 and Flamsteed numbers down to 4.0, which leaves 126 tappable stars with no label (16 of
+// them have neither in d3-celestial), so one more is a star that lost its only label, as ξ Sco did with "Grafias".
+check('star labels in the data are all real designations, and no tappable star loses its label', async () => {
+  const { s, n } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8'));
   assert.deepEqual(Object.entries(n).filter(([, v]) => v.some(x => /undefined/.test(x))), [], 'labels with "undefined" in them');
+  const bare = [];
+  for (let i = 0; i < s.length / 4; i++) if (s[i * 4 + 2] < 4.6 && !(n[i] && (n[i][0] || n[i][1]))) bare.push(i);
+  assert.equal(bare.length, 126, 'tappable stars with no label');
+  assert.deepEqual(n[await starAt(241.09, -11.37)], ['', 'ξ Sco', 'Sco'], 'ξ Sco (HIP 78727)');
 });
 
 // d3-celestial gave some traditional names to several stars: Markab to α Peg and κ1 Pup, Tarazed to γ and η Aql,
