@@ -1891,11 +1891,12 @@ html.red .chart canvas{background:#050000}
     return best;
   }
   // Where it is at the time shown: up (with its height and direction), when it rises later in the night, or when it set.
+  // It rises later only if that's before sunrise, as its card says; one that rises in daylight gives when it set.
   function whereNow(o) {
     var aa = altAz(objHor(o, scene(T.t))), N = NIGHT;
     if (aa.alt > 0) return 'Up ' + Math.round(aa.alt) + '° ' + dirName(aa.az, true);
-    var obj = o.b ? { k: 'body', b: o.b } : { v: o.v || SVEC[o.i] }, lvl = o.k === 'moon' ? -0.3 : o.k === 'planet' ? 0 : -0.5;
-    var t0 = T.t < N.end ? T.t : N.end, rise = crossings(obj, t0, N.end, 12 * 60e3, lvl).filter(function (c) { return c.up; })[0];
+    var obj = o.b ? { k: 'body', b: o.b } : { v: o.v || SVEC[o.i] }, lvl = o.k === 'moon' ? -0.3 : o.k === 'planet' ? 0 : -0.5, w1 = N.sunrise || N.end;
+    var t0 = T.t < N.end ? T.t : N.end, rise = crossings(obj, t0, N.end, 12 * 60e3, lvl).filter(function (c) { return c.up && c.t < w1; })[0];
     if (rise) return 'Rises ' + tTime(rise.t);
     var set = T.t > N.start ? crossings(obj, N.start, T.t, 12 * 60e3, lvl).filter(function (c) { return !c.up; }).pop() : null;
     return set ? 'Set ' + tTime(set.t) : 'Not up tonight';

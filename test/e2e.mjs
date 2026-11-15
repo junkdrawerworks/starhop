@@ -549,6 +549,7 @@ check('Find takes a name, a catalogue number or a Greek letter, says where it is
     assert.match(sat[0], /^Saturn Planet Up \d+° S/);
     assert.match(sat[1], /^Saturn Nebula NGC 7009/);
     assert.match((await finds(page, 'mizar'))[0], /^Mizar and Alcor ζ UMa Rises 12:24 am$/);
+    assert.match((await finds(page, 'm12'))[0], /^M12 NGC 6218 Set 7:36 pm$/, 'it rises at 7:39 am, after sunrise, so when it set counts, as on its card');
     assert.match((await finds(page, 'jewel'))[0], /^Jewel Box NGC 4755 Not up tonight$/);
     assert.match((await finds(page, 'M3'))[0], /^M3 NGC 5272/, 'the number itself before M30 to M39');
     assert.match((await finds(page, 'ngc884'))[0], /^Double Cluster NGC 869 and NGC 884/);
