@@ -230,6 +230,7 @@ check('a page opened in the afternoon follows the clock once night falls, and mo
     await page.clock.fastForward('16:00:00'); // 2 pm the next day
     await until(page, '#nightTitle', /Nov 15/);
     assert.equal(await text(page, '#nightTitle'), 'Tonight · Sun, Nov 15');
+    await until(page, '#when', /pm Sun, Nov 15$/); // the map's time is drawn on the next frame
     assert.match(await text(page, '#when'), /^7:\d\d pm Sun, Nov 15$/, 'and nightfall of the new night');
     // a phone app brought back from the background catches up straight away, without waiting for the clock's tick
     await page.clock.setSystemTime(new Date('2026-11-15T21:00:00-06:00'));
@@ -684,6 +685,7 @@ check('pointing stays on the live sky when the night rolls over', async () => {
     await page.clock.fastForward('01:00:00');
     await until(page, '#nightTitle', /Nov 15/);
     assert.equal(await text(page, '#nightTitle'), 'Tonight · Sun, Nov 15');
+    await until(page, '#when', /^8:30 am/); // the map's time is drawn on the next frame
     assert.equal(await text(page, '#when'), '8:30 am Now · Sun, Nov 15', 'the map still shows the sky the phone points at');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
