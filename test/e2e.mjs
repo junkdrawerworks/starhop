@@ -1255,6 +1255,50 @@ check('A remembered compass correction can be reset', async () => {
 // Austin, Nov 15 2026: sunrise is 7:02 am, so the night that is ending runs until 7:52 am.
 // Stop sat at the left until a compass correction showed beside it, then jumped to the right, or on a narrow phone
 // stayed left while the correction took its row.
+// Turned sideways, a phone's map filled the screen and the list was a whole screen's scroll below it. Now the map and
+// the night sit on the left and the panel scrolls on the right, as on a desktop; sheets still come up from the bottom.
+check('A phone turned sideways puts the map and the night beside the list, and an upright one keeps them above it', async () => {
+  for (const size of [[844, 390], [667, 375], [390, 844]]) {
+    const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', size, init: fakeWakeLock });
+    const sideways = size[0] > size[1];
+    try {
+      const box = sel => page.$eval(sel, e => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, h: r.height }; });
+      const sky = await box('#skybox'), tl = await box('.tl'), panel = await box('#panel');
+      if (sideways) {
+        assert.ok(panel.l >= sky.r - 1 && panel.l >= tl.r - 1, `${size}: the panel is right of the map and the night`);
+        assert.ok(tl.t >= sky.b - 1 && tl.b <= size[1] + 1, `${size}: the night is under the map, all on screen`);
+        assert.ok(sky.h >= 180, `${size}: the map is ${sky.h}px tall`);
+        assert.ok(await page.evaluate(() => document.scrollingElement.scrollHeight <= innerHeight + 1), `${size}: the page itself doesn't scroll`);
+        const before = await page.$eval('#panel', p => { p.scrollTop = 600; return p.scrollTop; });
+        assert.ok(before > 300, `${size}: the panel scrolls on its own`);
+        assert.equal((await box('#skybox')).t, sky.t, `${size}: and the map stays put`);
+        // a card comes up from the bottom, and closing it leaves the list where it was
+        const row = page.locator('#targetSec .row').first();
+        await row.scrollIntoViewIfNeeded();
+        const at = await page.$eval('#panel', p => p.scrollTop);
+        await row.click();
+        await page.waitForFunction(() => !document.getElementById('sheet').hidden);
+        const sh = await box('#sheet .sheet');
+        assert.ok(Math.abs(sh.b - size[1]) <= 1 && sh.t > 0, `${size}: the card comes up from the bottom`);
+        await page.click('#sheet [data-close]');
+        await page.waitForTimeout(100);
+        assert.equal(await page.$eval('#panel', p => p.scrollTop), at, `${size}: the list is where it was`);
+        await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+        await point(page);
+        const full = await box('#skybox');
+        assert.ok(full.t <= 0 && full.b >= size[1] && full.r >= size[0], `${size}: Point fills the screen`);
+        await page.click('#ptBtn');
+        assert.deepEqual(await box('#skybox'), sky, `${size}: and gives it back after`);
+      } else {
+        assert.ok(panel.t >= tl.b - 1 && tl.t >= sky.b - 1, `${size}: upright, the map, the night and the panel stack`);
+        assert.ok(await page.evaluate(() => document.scrollingElement.scrollHeight > innerHeight * 2), `${size}: and the page scrolls`);
+      }
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${size}: nothing scrolls sideways`);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
 check('Stop stays under the right thumb when a compass correction shows', async () => {
   for (const size of [[320, 568], [360, 740], [375, 667], [390, 844], [667, 375], [844, 390]]) {
     const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', size, init: fakeWakeLock });

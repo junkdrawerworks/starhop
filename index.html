@@ -78,6 +78,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 a{color:var(--brass)}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+#say{top:0} /* at the top, not after the page, where it would make a page that fits the screen scroll */
 
 /* frame */
 .app{display:flex;flex-direction:column;min-height:100%}
@@ -349,6 +350,25 @@ html.red .chart canvas{background:#050000}
   .sheetbg{top:55px;justify-content:flex-end;align-items:stretch;background:transparent;pointer-events:none}
   .sheet{pointer-events:auto}
   .sheet{border-radius:0;border:0;border-left:1px solid var(--line2);max-height:none;height:100%;width:430px}
+}
+/* a phone turned sideways: the desktop's side by side, the map and the night on the left and the panel scrolling on the
+   right, so the list isn't a screen's scroll below a map that fills it. Sheets still come up from the bottom. Only the
+   screen's own edges keep clear of a camera housing (viewport-fit=cover), not the edges the two halves share. */
+@media (max-width:999.98px) and (orientation:landscape) and (max-height:540px){
+  html,body{height:100%}
+  .app{height:100%}
+  .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) min(380px,46%)}
+  .skywrap{min-height:0}
+  html:not(.pointing) .skywrap{--or:12px;--sr:16px}
+  .skybox{flex:1;height:auto;min-height:0}
+  .panel{position:relative;overflow:auto;overscroll-behavior:contain;border-left:1px solid var(--line);--sl:16px} /* its screen-reader words (.sr) stay inside it, not below the page */
+  /* the header and the night pack tighter, to leave the map as tall as they can */
+  .top{padding-top:calc(6px + env(safe-area-inset-top,0px));padding-bottom:6px}
+  .tl{padding-top:6px;padding-bottom:8px}
+  .tlhd{margin-bottom:2px}.tlhd h2{font-size:17px}
+  .navb{width:32px;height:32px}
+  #tlc{height:50px}
+  .keys{margin-top:4px;gap:2px 12px;font-size:12px}.keys b{font-size:12px}
 }
 @media (max-width:560px){
   .top{gap:6px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
@@ -1610,7 +1630,7 @@ html.red .chart canvas{background:#050000}
     if (!w) return;
     if (tl.width !== Math.round(w * dpr)) { tl.width = Math.round(w * dpr); tl.height = Math.round(h * dpr); }
     tg.setTransform(dpr, 0, 0, dpr, 0, 0); tg.clearRect(0, 0, w, h);
-    var N = NIGHT, sm = N.samples, top = 12, bh = 26;
+    var N = NIGHT, sm = N.samples, top = 12, bh = Math.max(14, h - 32); // 26 tall, or less on a phone turned sideways
     for (var i = 0; i < sm.length - 1; i++) {
       var x0 = tlX(sm[i].t, w), x1 = tlX(sm[i + 1].t, w), c = skyColor(sm[i].sun);
       tg.fillStyle = col('#' + c.map(function (v) { return ('0' + Math.round(Math.min(255, v * (sm[i].sun > -18 ? 1.45 : 1.8))).toString(16)).slice(-2); }).join(''), 1);
