@@ -301,6 +301,68 @@ check('under the midnight sun the banner and the verdict say the Sun doesn’t s
   } finally { await ctx.close(); }
 });
 
+// Every row of the target list: { k, id, kind (its glyph: gx, nb, pn, cl, ds), when, rate }.
+const targetRows = async page => {
+  if (await page.$('#moreT') && /Show all/.test(await text(page, '#moreT'))) await page.click('#moreT');
+  return page.$$eval('#targetSec .row', r => r.map(x => ({ k: x.dataset.k, id: x.dataset.id, kind: x.querySelector('.g i')?.className, when: x.querySelector('.dt').textContent, rate: x.querySelector('.rate').textContent })));
+};
+// Minutes after noon on the night's first day, for a time like '4:26 am'.
+const afterNoon = s => { const [, h, m, ap] = s.match(/(\d+):(\d\d) (am|pm)/); return (+h % 12) * 60 + +m + (ap === 'am' ? 720 : 0); };
+const EDINBURGH = { name: 'Edinburgh, GB', lat: 55.95, lon: -3.19, tz: 'Europe/London' };
+
+// Edinburgh, Jun 21 2026: sunset 10:02 pm, sunrise 4:26 am, and the Sun gets no lower than 10.6° below the horizon
+// (Astronomy Engine), so there's no time with it 12° down to sample. Deep-sky objects are sampled with it 6° down.
+check('a June night in Edinburgh gives no best time before sunset or after sunrise', async () => {
+  const { ctx, page, problems } = await open({ loc: EDINBURGH, time: '2026-06-21T23:30:00+01:00' });
+  try {
+    const k = await keys(page), rows = await targetRows(page);
+    assert.ok(rows.filter(r => r.k === 'dso' || r.k === 'double').length >= 10, 'bright clusters and double stars are still listed');
+    for (const r of rows) {
+      const t = afterNoon(r.when);
+      assert.ok(t > afterNoon(k.Sunset) && t < afterNoon(k.Sunrise), `${r.id}: "${r.when}" is outside ${k.Sunset} to ${k.Sunrise}`);
+    }
+    // In twilight a galaxy is no easy sight, and the faint ones drop off the list.
+    for (const r of rows.filter(r => r.kind === 'gx')) assert.notEqual(r.rate, 'Easy', r.id + ' is rated Easy in twilight');
+    assert.ok(!rows.some(r => r.id === 'M51'), 'the Whirlpool galaxy is not listed in twilight');
+    assert.match(await text(page, '#tonightSec .lede'), /never gets fully dark/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+check('under the midnight sun the list holds only the Moon and planets', async () => {
+  let { ctx, page, problems } = await open({ loc: TROMSO, time: '2026-06-21T23:30:00+02:00' });
+  try {
+    const rows = await targetRows(page);
+    assert.deepEqual(rows.filter(r => r.k !== 'moon' && r.k !== 'planet').map(r => r.id), [], 'nothing but the Moon and planets');
+    for (const id of ['Moon', 'Venus', 'Jupiter']) assert.ok(rows.some(r => r.id === id), id + ' is listed, as the map shows it');
+    const line = 'The sky stays too bright tonight for anything but the Moon and the brightest planets.';
+    assert.equal(await text(page, '#targetSec .lede'), line);
+    await page.click('#targetSec .chip[data-f="cluster"]');
+    assert.equal(await text(page, '#targetSec .lede'), line, 'and the clusters say why there are none');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // Fairbanks, Jun 21 2026: the Sun sets, but gets only 1.7° down (Astronomy Engine), and the verdict agrees with the list.
+  ({ ctx, page, problems } = await open({ loc: { name: 'Fairbanks, AK', lat: 64.84, lon: -147.72, tz: 'America/Anchorage' }, time: '2026-06-21T23:30:00-08:00' }));
+  try {
+    assert.match(await text(page, '#keys'), /Sunset/);
+    assert.deepEqual((await targetRows(page)).filter(r => r.k !== 'moon' && r.k !== 'planet').map(r => r.id), []);
+    assert.equal(await text(page, '#tonightSec .lede'), 'The sky stays bright all night — the Sun never gets 6° below the horizon. Stick to the Moon and the brightest planets.');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// Hay River, Sep 19 1999: Uranus is highest at 10:52 pm, 12° up, with the Sun 20.3° down (Astronomy Engine); full
+// dark starts at 10:26 pm.
+check('a planet low in full darkness is low, not low in twilight', async () => {
+  const { ctx, page, problems } = await open({ loc: { name: 'Hay River, CA', lat: 60.85, lon: -115.7, tz: 'America/Yellowknife' }, time: '1999-09-19T22:00:00-06:00' });
+  try {
+    const uranus = (await targetRows(page)).find(r => r.id === 'Uranus');
+    assert.match(uranus.when, /^Best 10:52 pm · 12° up/);
+    assert.equal(uranus.rate, 'Low');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026: the Sun sets at 7:01 pm and is 6° down by 7:28.
 check('stars come out steadily through dusk', async () => {
   const dusk = Date.parse('2026-10-13T19:00:00-05:00');

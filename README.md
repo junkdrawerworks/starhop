@@ -22,6 +22,7 @@
   - By day it shows tonight's sky once it's dark. Left open, it follows the clock from the start of the night and moves on to the next night in the morning.
 - **Tonight.** Sunset, when the sky is fully dark, sunrise, the Moon's phase and hours, and a verdict: a dark night for faint galaxies, or a moonlit one for planets, doubles and clusters.
 - **What to look at.** The Moon and planets, then the best-placed deep-sky objects and double stars, ranked for your telescope and your sky. Each shows when it's highest and where to look.
+  - On summer nights that never get properly dark, deep-sky objects and doubles are timed for when the Sun is at least 6° down; when it never gets that far, only the Moon and the brightest planets are listed.
 - **Object cards:**
   - **Where to look:** altitude in fists at arm's length, compass direction, and rise, set and highest times.
   - **Finder chart:** a naked-eye view around the target, a 5° finderscope circle, and a star-hop, e.g. "about a third of the way from η Her to Rutilicus" for M13.
@@ -44,7 +45,7 @@
 - **Map projection.** Stereographic, the projection planispheres use. It keeps constellation shapes true, and the horizon is always a circle, which makes the ground easy to draw.
 - **Time zones.** Every time is shown in the observing location's own time zone, whatever the device is set to.
 - **Difficulty ratings are a rule of thumb:**
-  - **Galaxies and nebulae:** the object's surface brightness is compared with the sky's, helped by aperture and penalized by moonlight. For big objects the rating uses the bright core, which is what you see first.
+  - **Galaxies and nebulae:** the object's surface brightness is compared with the sky's, helped by aperture and penalized by moonlight and twilight. For big objects the rating uses the bright core, which is what you see first.
   - **Double stars:** rated by the power needed to split them (roughly 240 ÷ separation in arcseconds), against your telescope's resolving limit and the highest power your eyepieces reach.
 - **Star-hops.** Starhop looks for two bright stars with the target on or near the line between them, preferring short, bright, well-aligned pairs. When there is no such pair, it falls back to the nearest bright star. The stars are ones that are up at the time the finder chart shows, and outside the object itself, so a cluster's hop doesn't start from one of its own stars. The chart labels both and widens, up to 60°, to take them in. The brightest stars, brighter than magnitude 1.5, need no hop.
 

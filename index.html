@@ -141,6 +141,7 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .filters .chip{height:30px;padding:0 11px;font-size:12.5px}
 .list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel)}
+.list+.lede{margin-top:12px}
 .row{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;background:none;border:0;border-bottom:1px solid var(--line);text-align:left;width:100%;color:var(--ink)}
 .row:last-child{border-bottom:0}
 .row:hover{background:var(--panel2)}
@@ -417,11 +418,23 @@ html.red .chart canvas{background:#050000}
     return (SCN[k] = { t: t, m: m, sun: sun, moon: moon, planets: pl });
   }
   function fixedHor(sc, ra, dec) { return rot(sc.m, vec(ra, dec)); }
+  // How faint a star the eye can see in twilight, from the Sun's altitude. Through civil twilight the limit climbs from
+  // -0.5 just after sunset to 3.2 at 6° down, where nautical twilight takes over; once the Sun is 18° down, the sky sets it.
+  function twilightLim(s) {
+    return s > -0.8 ? -2 : s > -6 ? -0.5 + (-0.8 - s) / 5.2 * 3.7 : s > -12 ? 3.2 + (-6 - s) * 0.12 : s > -18 ? 4.2 + (-12 - s) * 0.25 : 99;
+  }
+  // The sky's own limit with twilight on top, and the surface brightness (mag per square arcsecond) of a sky that
+  // bright, read off the skies above and carried on past the city's at its slope.
+  function nelmAt(sunAlt) { return Math.min(sky().nelm, twilightLim(sunAlt == null ? -90 : sunAlt)); }
+  function sbAt(sunAlt) {
+    var lim = nelmAt(sunAlt), k = SKIES;
+    if (lim >= sky().nelm) return sky().sb;
+    for (var i = 1; i < k.length - 1 && lim > k[i].nelm; i++);
+    return k[i - 1].sb + (lim - k[i - 1].nelm) * (k[i].sb - k[i - 1].sb) / (k[i].nelm - k[i - 1].nelm);
+  }
   // How faint a star the eye can see: the sky, twilight and the Moon all brighten the background.
   function limitMag(sc) {
-    var s = sc.sun.alt, lim = sky().nelm;
-    // through civil twilight the limit climbs from -0.5 just after sunset to 3.2 at 6° down, where nautical twilight takes over
-    if (s > -0.8) lim = -2; else if (s > -6) lim = Math.min(lim, -0.5 + (-0.8 - s) / 5.2 * 3.7); else if (s > -12) lim = Math.min(lim, 3.2 + (-6 - s) * 0.12); else if (s > -18) lim = Math.min(lim, 4.2 + (-12 - s) * 0.25);
+    var lim = nelmAt(sc.sun.alt);
     if (sc.moon.alt > 0) lim -= 1.1 * sc.moon.illum * Math.min(1, sc.moon.alt / 20 + 0.3);
     return lim;
   }
@@ -621,8 +634,9 @@ html.red .chart canvas{background:#050000}
   // eyepiece splits the pair when it reaches this power.
   function splitPower(o) { return Math.max(20, 240 / o.sep); }
   function splits(r, o) { return r.M >= splitPower(o); }
-  // How hard an object is: its surface brightness against the sky's, helped by aperture.
-  function rating(o, moonUp) {
+  // How hard an object is: its surface brightness against the sky's, helped by aperture. Twilight (the Sun's altitude)
+  // and moonlight brighten the sky.
+  function rating(o, moonUp, sunAlt) {
     if (o.k === 'double') {
       var need = splitPower(o), st = scopeStats(), rows = epRows();
       if (o.sep < st.dawes * 1.1) return { r: 'hard', label: 'Too close', d: 9 };
@@ -633,49 +647,57 @@ html.red .chart canvas{background:#050000}
     if (o.mag == null) return { r: 'fair', label: 'Fair', d: 2 };
     var a0 = o.dim[0] || 1, b0 = o.dim[1] || a0, area = Math.max(0.3, Math.PI / 4 * a0 * b0), mag = o.mag;
     if (a0 > 20 && o.kind !== 'cluster') { var k = 20 / a0, core = Math.max(0.3, Math.PI / 4 * a0 * k * b0 * k); mag = o.mag + 1.25 * Math.log10(area / core); area = core; }
-    var sbObj = mag + 2.5 * Math.log10(area), sbSky = sky().sb - 8.89;
+    var sbObj = mag + 2.5 * Math.log10(area), sbSky = sbAt(sunAlt) - 8.89;
     var d = sbObj - sbSky - 1.2 * Math.log10(S.scope.ap / 100);
     if (o.kind === 'cluster') d -= 1.2;
     if (o.kind === 'galaxy') d += 0.4;
     if (moonUp) d += o.kind === 'cluster' ? 0.4 : 1.4;
-    if (o.mag > scopeStats().lm - 1.5) d += 3;
+    if (o.mag > scopeStats().lm - (sky().nelm - nelmAt(sunAlt)) - 1.5) d += 3;
     if (o.mag < 5 && o.kind !== 'galaxy') d -= 0.7;
     return d < 1.6 ? { r: 'easy', label: 'Easy', d: d } : d < 3 ? { r: 'fair', label: 'Fair', d: d } : { r: 'hard', label: d < 4.2 ? 'Hard' : 'Very hard', d: d };
   }
 
-  var TARGETS = [], TFILTER = 'all', TMORE = false;
+  var TARGETS = [], TFILTER = 'all', TMORE = false, TOO_BRIGHT = false;
   function computeTargets() {
     var N = NIGHT, list = [];
-    // sample the dark hours every 10 minutes
-    var dk = N.nautical.length ? N.nautical : [{ a: N.start, b: N.end }];
+    function sunAt(t) { var s = N.samples[Math.round((t - N.start) / (5 * 60e3))]; return s ? s.sun : 0; }
+    // Sample the dark hours every 10 minutes: with the Sun 12° down, or on a night that never gets that dark, 6° down.
+    // Deep-sky objects and double stars need at least that, so on a night with none they aren't listed.
     var ts = [];
-    dk.forEach(function (sp) { for (var x = sp.a.getTime(); x <= sp.b.getTime(); x += 10 * 60e3) ts.push(new Date(x)); });
-    if (!ts.length) ts.push(new Date((N.start.getTime() + N.end.getTime()) / 2));
+    if (N.nautical.length) N.nautical.forEach(function (sp) { for (var x = sp.a.getTime(); x <= sp.b.getTime(); x += 10 * 60e3) ts.push(new Date(x)); });
+    else N.samples.forEach(function (s, i) { if (s.sun < -6 && !(i % 2)) ts.push(s.t); });
+    TOO_BRIGHT = !ts.length;
     var mats = ts.map(function (t) { return A.Rotation_EQJ_HOR(t, OBS).rot; });
     var moonUp = ts.map(function (t) { var s = N.samples[Math.round((t - N.start) / (5 * 60e3))]; return s ? s.moon > 0 && N.moonIllum > 0.3 : false; });
+    var sunTs = ts.map(sunAt);
+    // An object's highest point, and how dark the sky gets while it's still nearly that high (within 10°): one at its
+    // highest as twilight ends is rated for the dark that follows, not for the twilight.
     function best(v) {
-      var bi = 0, ba = -99;
-      for (var i = 0; i < ts.length; i++) { var a = altAz(rot(mats[i], v)).alt; if (a > ba) { ba = a; bi = i; } }
-      return { i: bi, alt: ba, t: ts[bi], az: altAz(rot(mats[bi], v)).az };
+      var bi = 0, ba = -99, alts = [], sun = 0;
+      for (var i = 0; i < ts.length; i++) { var a = alts[i] = altAz(rot(mats[i], v)).alt; if (a > ba) { ba = a; bi = i; } }
+      for (i = 0; i < ts.length; i++) if (alts[i] >= Math.max(18, ba - 10)) sun = Math.min(sun, sunTs[i]);
+      return { i: bi, alt: ba, t: ts[bi], az: altAz(rot(mats[bi], v)).az, sun: sun };
     }
     // Moon and planets: across the whole night, twilight included (Venus and Mercury live there)
     var tw = N.samples.filter(function (s) { return s.sun < -4; }).map(function (s) { return s.t; });
-    if (!tw.length) tw = [new Date((N.start.getTime() + N.end.getTime()) / 2)];
+    // and on a night that stays lighter than that, the darkest part of it, with the Sun within 3° of its lowest
+    if (!tw.length) { var low = Math.min.apply(null, N.samples.map(function (s) { return s.sun; })); tw = N.samples.filter(function (s) { return s.sun < low + 3; }).map(function (s) { return s.t; }); }
     function bestBody(b) {
       var bi = 0, ba = -99, bz = 0;
       tw.forEach(function (t, i) { if (i % 2) return; var eq = A.Equator(b, t, OBS, true, true), h = A.Horizon(t, OBS, eq.ra, eq.dec, 'normal'); if (h.altitude > ba) { ba = h.altitude; bi = i; bz = h.azimuth; } });
-      return { alt: ba, t: tw[bi], az: bz };
+      return { alt: ba, t: tw[bi], az: bz, sun: sunAt(tw[bi]) };
     }
     var mb = bestBody(A.Body.Moon);
     if (mb.alt > 5) list.push({ k: 'moon', id: 'Moon', name: 'The Moon', type: phaseName(N.moonPhase) + ', ' + Math.round(N.moonIllum * 100) + '% lit', best: mb, rate: { r: 'eye', label: 'Naked eye' }, score: 50 });
     PLANETS.forEach(function (p) {
       var bb = bestBody(A.Body[p.id]); if (bb.alt < 6) return;
       var il = A.Illumination(A.Body[p.id], bb.t);
-      list.push({ k: 'planet', id: p.id, name: p.id, type: 'Planet · mag ' + il.mag.toFixed(1), mag: il.mag, best: bb, rate: bb.alt < 12 ? { r: 'fair', label: 'Low in twilight' } : il.mag < 5.5 ? { r: 'eye', label: 'Naked eye' } : { r: 'easy', label: 'Telescope' }, score: 40 - il.mag - (bb.alt < 12 ? 8 : 0) });
+      if (TOO_BRIGHT && il.mag > 1) return; // only the brightest show in a sky this light
+      list.push({ k: 'planet', id: p.id, name: p.id, type: 'Planet · mag ' + il.mag.toFixed(1), mag: il.mag, best: bb, rate: bb.alt < 12 ? { r: 'fair', label: bb.sun > -12 ? 'Low in twilight' : 'Low' } : il.mag < 5.5 ? { r: 'eye', label: 'Naked eye' } : { r: 'easy', label: 'Telescope' }, score: 40 - il.mag - (bb.alt < 12 ? 8 : 0) });
     });
-    DSO.concat(DOUBLES).forEach(function (o) {
+    if (ts.length) DSO.concat(DOUBLES).forEach(function (o) {
       var b = best(o.v); if (b.alt < 18) return;
-      var rt = rating(o, moonUp[b.i]);
+      var rt = rating(o, moonUp[b.i], b.sun);
       if (rt.d > 5.2) return;
       var score = (SHOWPIECE[o.id] || 0) * 3 + b.alt / 12 - rt.d * 2 + (o.mag != null ? (8 - o.mag) * 0.4 : 1);
       list.push({ k: o.k, id: o.id, o: o, name: o.name || o.id, type: o.type, mag: o.mag, best: b, rate: rt, score: score });
@@ -1297,6 +1319,7 @@ html.red .chart canvas{background:#050000}
     var ml = N.moonless.map(function (s) { return s.b - s.a; }).reduce(function (a, b) { return a + b; }, 0) / 3600e3;
     var longest = N.moonless.slice().sort(function (a, b) { return (b.b - b.a) - (a.b - a.a); })[0];
     if (N.midnightSun) verdict = 'The Sun doesn’t set tonight, so the sky stays light. Stick to the Moon and the brightest planets.';
+    else if (!N.samples.some(function (s) { return s.sun < -6; })) verdict = 'The sky stays bright all night — the Sun never gets 6° below the horizon. Stick to the Moon and the brightest planets.';
     else if (!N.dark.length) verdict = 'The sky never gets fully dark tonight — the Sun stays less than 18° below the horizon. Stick to the Moon, planets, double stars and bright clusters.';
     else if (N.moonIllum < 0.08) verdict = 'A dark, moonless night from <b>' + esc(tTime(N.dark[0].a)) + '</b> to <b>' + esc(tTime(N.dark[N.dark.length - 1].b)) + '</b> — the best kind for faint galaxies and nebulae.';
     else if (ml >= 1 && longest) verdict = 'Darkest with the Moon down from <b>' + esc(tTime(longest.a)) + '</b> to <b>' + esc(tTime(longest.b)) + '</b>' + (ml < 3 ? ' — a short window for faint galaxies and nebulae.' : ' — time for faint galaxies and nebulae.');
@@ -1329,12 +1352,13 @@ html.red .chart canvas{background:#050000}
     var shown = TMORE ? list : list.slice(0, 14);
     var h = '<h2>What to look at <small>' + plural(list.length, 'target') + '</small></h2>' +
       '<div class="filters">' + FILTERS.map(function (f) { return '<button class="chip' + (TFILTER === f[0] ? ' on' : '') + '" type="button" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>';
-    if (!shown.length) h += '<p class="lede">Nothing of that kind is well placed on this night.</p>';
+    var bright = TOO_BRIGHT && TFILTER !== 'planets' ? '<p class="lede">The sky stays too bright tonight for anything but the Moon and the brightest planets.</p>' : '';
+    if (!shown.length) h += bright || '<p class="lede">Nothing of that kind is well placed on this night.</p>';
     else h += '<div class="list">' + shown.map(function (t) {
       var b = t.best, when = 'Best ' + tTime(b.t) + ' · ' + (b.alt > 78 ? 'overhead' : Math.round(b.alt) + '° up · ' + dirName(b.az, true));
       var id = t.k === 'dso' && t.o.id !== t.name ? '<small>' + esc(t.o.id) + '</small>' : '';
       return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen">✓ seen</span>' : '') + '</span><span class="dt">' + esc(when) + '</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
-    }).join('') + '</div>';
+    }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().name.toLowerCase()) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
     $('targetSec').innerHTML = h;
@@ -1529,7 +1553,7 @@ html.red .chart canvas{background:#050000}
     } else {
       sub = o.type + ' in ' + con + (o.cat && o.cat !== o.id ? ' · ' + o.cat : '');
       facts = [['Brightness', o.mag != null ? 'mag ' + o.mag.toFixed(1) : '—'], ['Size', !o.dim[0] ? '—' : o.dim[0] >= 60 ? (o.dim[0] / 60).toFixed(1) + '°' : Math.round(o.dim[0]) + '′' + (o.dim[1] && o.dim[1] !== o.dim[0] ? ' × ' + Math.round(o.dim[1]) + '′' : '')]];
-      var rt = rating(o, sc.moon.alt > 0 && sc.moon.illum > 0.3); facts.push(['Difficulty', rt.label]);
+      var rt = rating(o, sc.moon.alt > 0 && sc.moon.illum > 0.3, sc.sun.alt); facts.push(['Difficulty', rt.label]);
       about = NOTES[o.id] || NOTES[o.cat] || TYPE_NOTE[o.type] || '';
       if (NOTES[o.id] && TYPE_NOTE[o.type] && o.kind !== 'cluster') about += ' ' + (o.kind === 'galaxy' ? 'Averted vision — looking slightly to one side of it — brings out more.' : '');
       name = (o.name && o.name !== o.id ? o.name : o.id);
