@@ -1445,7 +1445,7 @@ html.red .chart canvas{background:#050000}
     var mid = nearMiddle();
     $('skyDesc').textContent = where + (/whole/.test(where) ? '' : ', ' + Math.round(V.fov) + '° wide,') + ' at ' + tTime(T.t) + '. ' +
       (names.length ? 'In view: ' + names.slice(0, 8).join(', ') + (names.length > 8 ? '…' : '.') : 'Nothing named is in view.') +
-      (mid ? ' Nearest the middle, which Enter opens: ' + (mid.k === 'dso' || mid.k === 'double' ? dsoName(mid) : mid.name) + '.' : '') +
+      (mid ? ' Nearest the middle, which Enter opens: ' + (mid.k === 'moon' ? 'the Moon' : mid.k === 'dso' || mid.k === 'double' ? dsoName(mid) : mid.name) + '.' : '') +
       ' What to look at, below the map, lists everything worth a look tonight.';
   }
   var KEEP = { k: '' }, LAYOUT = 0; // the buttons over the map, measured; LAYOUT counts resizes and font loads, which move them

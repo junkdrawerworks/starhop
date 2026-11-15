@@ -3549,6 +3549,14 @@ check('The map describes itself to a screen reader after it moves, and Enter ope
     assert.equal((await text(page, '#sheet .hd h2')).split(' ')[0], mid.split(' ')[0], 'Enter opens ' + mid);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
+  // mid-sentence, the Moon keeps a small "the"
+  const d = await open({ time: '2026-11-15T14:00:00-06:00' });
+  try {
+    await d.page.click('#nowBtn');
+    await d.page.click('#dirSeg button[data-d="180"]');
+    await d.page.waitForFunction(() => /Enter opens/.test(document.getElementById('skyDesc').textContent), null, { timeout: 5000 });
+    assert.match(await d.page.$eval('#skyDesc', e => e.textContent), /In view: the Moon, the Sun, .* Nearest the middle, which Enter opens: the Moon\./);
+  } finally { await d.ctx.close(); }
 });
 
 check('The direction buttons say which is chosen', async () => {
