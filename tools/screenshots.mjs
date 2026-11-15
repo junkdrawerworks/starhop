@@ -22,10 +22,12 @@ const server = createServer(async (req, res) => {
   res.end(body);
 }).listen(0);
 const base = `http://localhost:${server.address().port}/`;
-// Saved with a 256-colour palette, which keeps a starry picture a fraction of the size.
+// Saved with a 256-colour palette, which keeps a starry picture a fraction of the size. Says which files changed.
 async function save(shot, path) {
-  const img = UPNG.decode(shot);
-  await writeFile(join(root, path), Buffer.from(UPNG.encode(UPNG.toRGBA8(img), img.width, img.height, 256)));
+  const img = UPNG.decode(shot), png = Buffer.from(UPNG.encode(UPNG.toRGBA8(img), img.width, img.height, 256));
+  const was = await readFile(join(root, path)).catch(() => null);
+  await writeFile(join(root, path), png);
+  console.log((was && was.equals(png) ? 'unchanged  ' : 'changed    ') + path);
 }
 
 // A Friday night in October from Chicago: a crescent Moon setting in the southwest, Saturn in the southeast.
@@ -39,11 +41,14 @@ async function open(viewport, phone) {
   await ctx.route(url => !url.href.startsWith(base), route => route.abort());
   await ctx.addInitScript(save => localStorage.setItem('starhop.v1', save), JSON.stringify({ loc: PLACE }));
   const page = await ctx.newPage();
-  await page.clock.install({ time: new Date(TIME) });
+  // The clock stands still from the start. Left running while the page loaded, it set the once-a-minute clock going
+  // a little later or sooner each run, and that moved the sky a few milliseconds' worth in the last frame.
+  await page.clock.install({ time: new Date(Date.parse(TIME) - 1000) });
+  await page.clock.pauseAt(new Date(TIME));
   await page.goto(base);
   await page.waitForFunction(() => document.querySelector('#keys').children.length > 0, null, { timeout: 90000 });
   await page.evaluate(() => document.fonts.ready);
-  // Stop the clock at one moment, so every run draws the sky as it is then, and show that moment.
+  // Step the clock on to one moment, so every run draws the sky as it is then, and show that moment.
   await page.clock.pauseAt(new Date(Date.parse(TIME) + 30e3));
   await page.click('#nowBtn');
   await frames(page);
