@@ -3132,7 +3132,7 @@ html.red .chart canvas{background:#050000}
     if (planning) { T.t = zoned(clock.y, clock.mo, clock.d, clock.h, clock.mi, tz()); setNight(NDATE); }
     else { T.live = true; T.t = new Date(); setNight(currentNight(T.t), true); }
     toast((/^Near /.test(l.name) ? 'Showing the sky near ' + l.name.slice(5) : 'Showing the sky over ' + l.name) + (mine ? ', under ' + sky().adj + ' skies' : '')); }
-  $('locBtn').addEventListener('click', locSheet);
+  $('locBtn').addEventListener('click', function () { locSheet(); });
 
   // ---------- night vision ----------
   // The browser's own bar takes the page's colour from theme-color, so it goes red too.
