@@ -1987,9 +1987,15 @@ html.red .chart canvas{background:#050000}
   // ---------- location ----------
   var CITIES = null;
   function loadCities() { if (CITIES) return Promise.resolve(CITIES); return fetch('data/cities.json').then(function (r) { return r.json(); }).then(function (j) { CITIES = j; return j; }); }
-  // A name as it can be typed on any keyboard: accents dropped, and letters with no accent to drop (ø, æ, ð) spelt out.
-  var FOLD = { 'ø': 'o', 'æ': 'ae', 'ð': 'd', 'þ': 'th', 'ß': 'ss', 'ł': 'l', 'œ': 'oe', '’': "'", '‘': "'" };
-  function fold(s) { return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[øæðþßłœ’‘]/g, function (c) { return FOLD[c]; }); }
+  // A name as it can be typed on any keyboard: accents dropped, and letters with no accent to drop (ø, æ, ð) spelt out;
+  // full stops, commas and apostrophes dropped and hyphens read as spaces; and a leading Saint, Fort or Mount read the
+  // same as St., Ft. or Mt., which is how the list spells St. Louis and Ft. Worth.
+  var FOLD = { 'ø': 'o', 'æ': 'ae', 'ð': 'd', 'þ': 'th', 'ß': 'ss', 'ł': 'l', 'œ': 'oe', '’': '', '‘': '' };
+  var ABBR = { saint: 'st', fort: 'ft', mount: 'mt' };
+  function fold(s) {
+    return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[øæðþßłœ’‘]/g, function (c) { return FOLD[c]; })
+      .replace(/[.,']/g, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim().replace(/^(saint|fort|mount) /, function (m, w) { return ABBR[w] + ' '; });
+  }
   // A typed coordinate. "−97.74" with a real minus sign and "45,76" with a decimal comma are read as meant; anything
   // else that isn't a plain number ("97.74 W") is refused rather than half read.
   function coord(v) { v = String(v).trim().replace(/\u2212/g, '-'); if (/^[-+]?\d*,\d+$/.test(v)) v = v.replace(',', '.'); return v === '' ? NaN : Number(v); }
@@ -2006,7 +2012,8 @@ html.red .chart canvas{background:#050000}
       if (!CITIES || !$('lq')) return;
       var q = fold($('lq').value.trim()), out = [];
       if (q.length < 2) { $('lres').innerHTML = '<p style="padding:10px 12px;margin:0;color:var(--ink2);font-size:13.5px">Type at least two letters. ' + plural(CITIES.c.length, 'place') + ' to choose from.</p>'; return; }
-      for (var i = 0; i < CITIES.c.length && out.length < 12; i++) { var c = CITIES.c[i], nm = fold(c[0]); if (nm.indexOf(q) === 0 || (q.length > 3 && nm.indexOf(q) >= 0)) out.push(c); }
+      if (!CITIES.f) CITIES.f = CITIES.c.map(function (c) { return fold(c[0]); });
+      for (var i = 0; i < CITIES.c.length && out.length < 12; i++) { var c = CITIES.c[i], nm = CITIES.f[i]; if (nm.indexOf(q) === 0 || (q.length > 3 && nm.indexOf(q) >= 0)) out.push(c); }
       $('lres').innerHTML = out.length ? out.map(function (c, i) { return '<button type="button" data-i="' + CITIES.c.indexOf(c) + '"><span>' + esc(c[0]) + (c[1] ? ', ' + esc(c[1]) : '') + ' <span style="color:var(--ink3)">' + esc(c[2]) + '</span></span><small>' + c[3].toFixed(1) + '°, ' + c[4].toFixed(1) + '°</small></button>'; }).join('') : '<p style="padding:10px 12px;margin:0;color:var(--ink2);font-size:13.5px">No match — try a nearby larger town, or enter coordinates.</p>';
       $('lres').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { var c = CITIES.c[+b.dataset.i]; applyLoc({ name: c[0] + (c[1] && c[2] === 'US' ? ', ' + c[1] : c[2] && c[2] !== 'US' ? ', ' + c[2] : ''), lat: c[3], lon: c[4], tz: CITIES.tz[c[6]] }); }); });
     }

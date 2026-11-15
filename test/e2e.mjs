@@ -1002,6 +1002,25 @@ check('a town search finds Tromsø typed as Tromso, and St. John’s typed with 
   } finally { await ctx.close(); }
 });
 
+// The list spells them Ft. Worth, St. Louis and St. Paul, and only those spellings found them.
+check('Searching Fort Worth, St Louis or Saint Paul finds the town', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
+  try {
+    await page.click('#locBtn');
+    for (const [typed, found] of [['Fort Worth', 'Ft. Worth'], ['ft worth', 'Ft. Worth'], ['St Louis', 'St. Louis'], ['Saint Louis', 'St. Louis'], ['Saint Paul', 'St. Paul'],
+      ['Mount Hagen', 'Mt. Hagen'], ['St. Paul', 'St. Paul'], ['Winston Salem', 'Winston-Salem'], ['Tucs', 'Tucson']]) {
+      await page.fill('#lq', typed);
+      await page.waitForFunction(f => [...document.querySelectorAll('#lres button')].some(b => b.textContent.startsWith(f)), found, { timeout: 5000 })
+        .catch(() => assert.fail(`"${typed}" doesn't find ${found}`));
+    }
+    await page.fill('#lq', 'Fort Worth');
+    await page.waitForFunction(() => document.querySelector('#lres button')?.textContent.startsWith('Ft. Worth'));
+    await page.click('#lres button');
+    assert.equal(await text(page, '#locName'), 'Ft. Worth, TX');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('the location sheet can close before its list of places arrives', async () => {
   const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
