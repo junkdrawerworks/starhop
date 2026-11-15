@@ -1193,7 +1193,8 @@ html.red .chart canvas{background:#050000}
   document.querySelectorAll('#dirSeg button').forEach(function (b) { b.addEventListener('click', function () { stopPoint(); look(b.dataset.d); }); });
   $('zIn').addEventListener('click', function () { V.fov = clamp(V.fov / 1.4, 2, 200); redraw(); syncDir(); });
   $('zOut').addEventListener('click', function () { V.fov = clamp(V.fov * 1.4, 2, 200); redraw(); syncDir(); });
-  $('nowBtn').addEventListener('click', function () { T.live = true; T.auto = false; T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true); else { redraw(); renderTonight(); refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ); } });
+  // Now is the sky now, by day too, from whichever night was showing
+  $('nowBtn').addEventListener('click', function () { T.live = true; T.auto = false; T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true, true); else { redraw(); renderTonight(); refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ); } });
   function center(o) {
     var sc = scene(T.t), h = objHor(o, sc); if (!h) return;
     var aa = altAz(h); V.az = aa.az; V.alt = clamp(aa.alt, 5, 90); V.fov = o.k === 'planet' || o.k === 'moon' ? 30 : o.k === 'double' ? 25 : 40; redraw(); syncDir();

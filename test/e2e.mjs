@@ -993,6 +993,21 @@ check('A row says tonight whether it is up now, rises later or has set', async (
   } finally { await ctx.close(); }
 });
 
+// By day, Now from another night landed on tonight at nightfall with Now unlit, and only a second tap went to now.
+check('by day, Now from another night shows the sky now', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T15:00:00-06:00' });
+  try {
+    assert.match(await text(page, '#when'), /^7:10 pm Sun, Nov 15$/, 'by day it opens on tonight once it is dark');
+    await page.click('#nextN');
+    await page.click('#nowBtn');
+    await until(page, '#when', /^3:00 pm Now/);
+    assert.match(await text(page, '#when'), /^3:00 pm Now · Sun, Nov 15$/);
+    assert.equal(await page.$eval('#nowBtn', b => b.classList.contains('on')), true, 'Now is lit');
+    assert.equal(await text(page, '#nightTitle'), 'Tonight · Sun, Nov 15');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // The night of the New Moon, Dec 8 2026, Austin said "Up at dusk, sets 5:07 pm, rises 7:59 am", and its keys led with
 // Moonset 5:07 pm before Sunset 5:30 pm. Astronomy Engine 2.1.19: moonset 23:06:47Z, sunset 23:30:35Z, sunrise
 // 13:15:56Z, moonrise 13:59:51Z, so the Moon is down from sunset to sunrise.
