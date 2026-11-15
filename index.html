@@ -1714,7 +1714,8 @@ html.red .chart canvas{background:#050000}
     });
     (function next() {
       if (EV_KEY !== key) return; // the place or the day changed meanwhile, and a new list is on its way
-      if (steps.length) { try { steps.shift()(); } catch (e) { } setTimeout(next, 0); return; } // one part failing leaves the rest
+      // one part failing leaves the rest, and says so in the console
+      if (steps.length) { try { steps.shift()(); } catch (e) { if (window.console) console.error('Coming up:', e); } setTimeout(next, 0); return; }
       ev.sort(function (a, b) { return a.t - b.t; });
       ev = ev.filter(function (e) { return e.t > now - 12 * 3600e3; }).slice(0, 10);
       $('eventSec').innerHTML = '<h2>Coming up</h2><div class="list">' + ev.map(function (e) {

@@ -2461,6 +2461,18 @@ check('Coming up gives eclipses as seen from here', async () => {
   assert.ok(!lunar.some(e => e.d === 18 && e.mon === 'Jul'), 'a penumbral eclipse too slight to see is left out');
 });
 
+// A part of Coming up that broke was dropped without a word, so a check for problems couldn't see it. It is logged now,
+// and the other parts still show.
+check('a part of Coming up that breaks is logged, and the rest still shows', async () => {
+  const route = ['**/js/astronomy.browser.min.js', async r => { const res = await r.fetch(); r.fulfill({ response: res, body: (await res.text()) + '\nAstronomy.SearchLunarEclipse = function () { throw new Error("no lunar eclipses"); };' }); }];
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', route });
+  try {
+    const ev = await events(page);
+    assert.ok(ev.some(e => /Moon$/.test(e.title)), 'the Moon phases still show');
+    assert.ok(problems.some(p => /Coming up:.*no lunar eclipses/.test(p)), 'the broken part is logged: ' + problems.join(' | '));
+  } finally { await ctx.close(); }
+});
+
 // The muted labels (--ink3) are 10.5 to 12 px, so they need 4.5:1 on every surface they sit on.
 check('small muted labels have 4.5:1 contrast on the page and its panels', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00' });
