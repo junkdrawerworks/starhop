@@ -993,6 +993,20 @@ check('A row says tonight whether it is up now, rises later or has set', async (
   } finally { await ctx.close(); }
 });
 
+// The night of the New Moon, Dec 8 2026, Austin said "Up at dusk, sets 5:07 pm, rises 7:59 am", and its keys led with
+// Moonset 5:07 pm before Sunset 5:30 pm. Astronomy Engine 2.1.19: moonset 23:06:47Z, sunset 23:30:35Z, sunrise
+// 13:15:56Z, moonrise 13:59:51Z, so the Moon is down from sunset to sunrise.
+check('on a New Moon night the Moon is below the horizon all night, and the keys keep to sunset and sunrise', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-12-08T21:00:00-06:00' });
+  try {
+    assert.match(await text(page, '#tonightSec .moonrow'), /New Moon · 0% lit Below the horizon all night$/);
+    const keys = await text(page, '#keys');
+    assert.match(keys, /^Sunset 5:30 pm .* Sunrise 7:15 am$/, keys);
+    assert.doesNotMatch(keys, /Moon/, 'no moonset before sunset or moonrise after sunrise');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // At 11:30 pm M13 had had its best at dusk and set, yet its row led with the next morning's rise: "Rises 5:46 am · Best
 // 6:29 pm". A rise comes first only when the best is still to come.
 check('a target past its best says when it set, not when it rises again', async () => {

@@ -538,6 +538,12 @@ html.red .chart canvas{background:#050000}
     var moonObj = { k: 'body', b: A.Body.Moon }, MOON_UP = -0.3;
     N.moonEv = crossings(moonObj, N.start, N.end, 15 * 60e3, MOON_UP);
     N.moonUpAtStart = N.samples[0].moon > MOON_UP;
+    // The night's Moon in words is judged from sunset to sunrise, as a card's rise and set are (see riseSet), or from
+    // the window's ends where the Sun doesn't set or rise: up at sunset or not, and what it does in between. The band on
+    // the timeline shows the rest.
+    var w0 = N.sunset || N.start, w1 = N.sunrise || N.end;
+    N.moonUpAtDusk = altOf(moonObj, w0) > MOON_UP;
+    N.moonNight = N.moonEv.filter(function (e) { return e.t > w0 && e.t < w1; });
     var mid = new Date((N.start.getTime() + N.end.getTime()) / 2);
     var mi = A.Illumination(A.Body.Moon, mid); N.moonIllum = mi.phase_fraction; N.moonPhase = A.MoonPhase(mid);
     // dark (Sun 18° down) and moonless stretches
@@ -1410,7 +1416,7 @@ html.red .chart canvas{background:#050000}
     var keys = [];
     if (N.sunset) keys.push(['Sunset', N.sunset]);
     if (N.astD) keys.push(['Dark', N.astD]); else if (N.nauD) keys.push(['Darkest from', N.nauD]);
-    N.moonEv.forEach(function (e) { keys.push([e.up ? 'Moonrise' : 'Moonset', e.t]); });
+    N.moonNight.forEach(function (e) { keys.push([e.up ? 'Moonrise' : 'Moonset', e.t]); });
     if (N.astM) keys.push(['Dawn', N.astM]);
     if (N.sunrise) keys.push(['Sunrise', N.sunrise]);
     keys.sort(function (a, b) { return a[1] - b[1]; });
@@ -1426,8 +1432,8 @@ html.red .chart canvas{background:#050000}
     else if (ml >= 1 && longest) verdict = 'Darkest with the Moon down from <b>' + esc(tTime(longest.a)) + '</b> to <b>' + esc(tTime(longest.b)) + '</b>' + (ml < 3 ? ' — a short window for faint galaxies and nebulae.' : ' — time for faint galaxies and nebulae.');
     else verdict = 'The ' + (il > 60 ? 'bright ' : '') + 'Moon is up through the dark hours. A good night for the Moon itself, the planets, double stars and bright clusters; faint galaxies will struggle.';
     VERDICT = verdict.replace(/<\/?b>/g, '');
-    var mEv = N.moonEv.map(function (e) { return (e.up ? 'rises ' : 'sets ') + tTime(e.t); }).join(', ');
-    var moonTxt = (N.moonUpAtStart ? (N.moonEv.length ? 'Up at dusk, ' + mEv : 'Up all night') : (N.moonEv.length ? mEv.replace(/^./, function (c) { return c.toUpperCase(); }) : 'Below the horizon all night'));
+    var mEv = N.moonNight.map(function (e) { return (e.up ? 'rises ' : 'sets ') + tTime(e.t); }).join(', '), mEvC = mEv.replace(/^./, function (c) { return c.toUpperCase(); });
+    var moonTxt = !mEv ? (N.moonUpAtDusk ? 'Up all night' : 'Below the horizon all night') : N.moonUpAtDusk && N.sunset ? 'Up at dusk, ' + mEv : mEvC;
     $('tonightSec').innerHTML = '<h2>' + (isTonight ? 'Tonight' : 'That night') + ' <small>' + esc(S.loc ? S.loc.name : '') + '</small></h2>' +
       '<p class="lede">' + verdict + '</p>' +
       '<div class="facts">' +
