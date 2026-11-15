@@ -107,24 +107,29 @@ def find(bayer=None, flam=None, con=None, proper=None):
             return hip
     return None
 
+# Separations, position angles (degrees from north through east) and magnitudes are the latest measures in the
+# Washington Double Star Catalog's summary (USNO, wdsweb_summ2.txt, fetched November 2026), pair id in each row's comment.
+# The colours and notes were written for Starhop.
 DOUBLES = [
-    # key, name, lookup, separation ("), mags, note
-    ('albireo', 'Albireo', dict(bayer='β1', con='Cyg'), 34, '3.1 + 5.1', 'The showpiece double: a gold star and a blue one side by side. Splits at the lowest power.'),
-    ('mizar', 'Mizar and Alcor', dict(bayer='ζ', con='UMa'), 14, '2.2 + 3.9', 'Alcor sits beside Mizar to the naked eye; the telescope splits Mizar itself into two white stars.'),
-    ('epslyr', 'Epsilon Lyrae', dict(bayer='ε1', con='Lyr'), 208, '4.7 + 4.6', 'The Double Double. A wide pair at low power; at 100× or more each star splits again (about 2.3″ apart).'),
-    ('almach', 'Almach', dict(bayer='γ1', con='And'), 10, '2.3 + 5.0', 'An orange star with a small blue companion, like a fainter Albireo.'),
-    ('castor', 'Castor', dict(bayer='α', con='Gem'), 5, '1.9 + 3.0', 'Two bright white stars close together; needs about 100×.'),
-    ('corcaroli', 'Cor Caroli', dict(bayer='α2', con='CVn'), 19, '2.9 + 5.6', 'An easy pair, white with a faintly tinted companion.'),
-    ('polaris', 'Polaris', dict(bayer='α', con='UMi'), 18, '2.0 + 8.7', 'The North Star has a faint companion close by; a nice test for a small telescope.'),
-    ('rigel', 'Rigel', dict(bayer='β', con='Ori'), 9, '0.1 + 6.8', 'A tiny companion almost lost in Rigel’s glare; wait for steady air.'),
-    ('mesarthim', 'Mesarthim', dict(bayer='γ1', con='Ari'), 7, '4.5 + 4.6', 'Two matched white stars, like a pair of headlights.'),
-    ('izar', 'Izar', dict(bayer='ε', con='Boo'), 3, '2.6 + 4.8', 'A close orange and blue-green pair; needs steady air and high power.'),
-    ('61cyg', '61 Cygni', dict(flam='61', con='Cyg'), 31, '5.2 + 6.0', 'Two orange dwarfs, among the nearest stars to the Sun.'),
-    ('algieba', 'Algieba', dict(bayer='γ1', con='Leo'), 5, '2.4 + 3.6', 'A close pair of golden stars.'),
-    ('acrux', 'Acrux', dict(bayer='α1', con='Cru'), 4, '1.3 + 1.7', 'The brightest star of the Southern Cross splits into two blue-white stars.'),
+    # key, name, lookup, separation ("), position angle, mags, note
+    ('albireo', 'Albireo', dict(bayer='β1', con='Cyg'), 34.3, 54, '3.2 + 4.7', 'The showpiece double: a gold star and a blue one side by side. Splits at the lowest power.'),  # STFA 43AB, 2025
+    ('mizar', 'Mizar and Alcor', dict(bayer='ζ', con='UMa'), 14.4, 153, '2.2 + 3.9', 'Alcor sits beside Mizar to the naked eye; the telescope splits Mizar itself into two white stars.'),  # STF1744AB, 2026
+    ('epslyr', 'Epsilon Lyrae', dict(bayer='ε1', con='Lyr'), 209.4, 172, '4.7 + 4.6', 'The Double Double. A wide pair at low power; at 100× or more each star splits again (about 2.3″ apart).'),  # STFA 37AB,CD, 2021
+    # STF 205A,BC: the WDS's latest measure (2025) is 8.3", far off the pair's slow closing from 10.3" in 1830 to 9.6" in
+    # 1987, so this is the 1987 measure (9.6" at 63°, as the Bright Star Catalogue's page at alcyone.de gives it).
+    ('almach', 'Almach', dict(bayer='γ1', con='And'), 9.6, 63, '2.3 + 5.0', 'An orange star with a small blue companion, like a fainter Albireo.'),
+    ('castor', 'Castor', dict(bayer='α', con='Gem'), 5.7, 49, '1.9 + 3.0', 'Two bright white stars close together; needs about 100×.'),  # STF1110AB, 2026
+    ('corcaroli', 'Cor Caroli', dict(bayer='α2', con='CVn'), 19.2, 229, '2.9 + 5.5', 'An easy pair, white with a faintly tinted companion.'),  # STF1692AB, 2023
+    ('polaris', 'Polaris', dict(bayer='α', con='UMi'), 18.4, 236, '2.0 + 9.1', 'The North Star has a faint companion close by; a nice test for a small telescope.'),  # STF 93AB, 2016
+    ('rigel', 'Rigel', dict(bayer='β', con='Ori'), 9.4, 204, '0.3 + 6.8', 'A tiny companion almost lost in Rigel’s glare; wait for steady air.'),  # STF 668A,BC, 2023
+    ('mesarthim', 'Mesarthim', dict(bayer='γ1', con='Ari'), 7.2, 359, '4.5 + 4.6', 'Two matched white stars, like a pair of headlights.'),  # STF 180AB, 2025
+    ('izar', 'Izar', dict(bayer='ε', con='Boo'), 2.9, 345, '2.6 + 4.8', 'A close orange and blue-green pair; needs steady air and high power.'),  # STF1877AB, 2025
+    ('61cyg', '61 Cygni', dict(flam='61', con='Cyg'), 32.0, 154, '5.4 + 6.1', 'Two orange dwarfs, among the nearest stars to the Sun.'),  # STF2758AB, 2025
+    ('algieba', 'Algieba', dict(bayer='γ1', con='Leo'), 4.8, 127, '2.4 + 3.6', 'A close pair of golden stars.'),  # STF1424AB, 2026
+    ('acrux', 'Acrux', dict(bayer='α1', con='Cru'), 3.5, 111, '1.3 + 1.6', 'The brightest star of the Southern Cross splits into two blue-white stars.'),  # DUN 252AB, 2024
 ]
 doubles = []
-for key, nm, look, sep, mags, note in DOUBLES:
+for key, nm, look, sep, pa, mags, note in DOUBLES:
     hip = find(**look)
     if hip is None:
         # Some catalogs list the pair under the unnumbered letter.
@@ -136,7 +141,7 @@ for key, nm, look, sep, mags, note in DOUBLES:
     if i is None:
         sys.exit(f'double {nm}: star not found ({look})')
     ra, dec = flat[i * 4], flat[i * 4 + 1]
-    doubles.append({'id': key, 'name': nm, 'type': 'ds', 'ra': ra, 'dec': dec, 'mag': flat[i * 4 + 2], 'sep': sep, 'mags': mags, 'note': note, 'star': i})
+    doubles.append({'id': key, 'name': nm, 'type': 'ds', 'ra': ra, 'dec': dec, 'mag': flat[i * 4 + 2], 'sep': sep, 'pa': pa, 'mags': mags, 'note': note, 'star': i})
     print(f'  double {nm}: HIP {hip} mag {flat[i*4+2]}')
 
 # ---------- constellations ----------
@@ -216,13 +221,13 @@ for d in dso:
     d['mag'], d['dim'] = SEDS[d['id']][0], dims(SEDS[d['id']][1])
 assert len(SEDS) == 110 and {d['id'] for d in dso} == set(SEDS)
 
-# M40 is a double star, Winnecke 4 (WDS 12222+5805 WNC 4: 53.2" apart, magnitudes 9.74 and 10.18 at the latest
+# M40 is a double star, Winnecke 4 (WDS 12222+5805 WNC 4: 53.2" apart at 76°, magnitudes 9.74 and 10.18 at the latest
 # measure, 2017), so it goes with the doubles, keeping its Messier number. Its stars are fainter than the star catalog
 # goes, so it has no catalog star of its own.
 m40 = next(d for d in dso if d['id'] == 'M40')
 dso.remove(m40)
 doubles.append({'id': 'M40', 'name': 'Winnecke 4', 'cat': 'WNC 4', 'type': 'ds', 'ra': r(m40['ra']), 'dec': r(m40['dec']), 'mag': 9.7,
-                'sep': 53.2, 'mags': '9.7 + 10.2', 'star': None,
+                'sep': 53.2, 'pa': 76, 'mags': '9.7 + 10.2', 'star': None,
                 'note': 'A faint pair Messier logged while looking for a nebula Hevelius had reported.'})
 
 # Bright non-Messier showpieces, with their usual names.

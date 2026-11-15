@@ -89,6 +89,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
   - the Milky Way outline, resampled here into a grid of soft glows;
   - the positions and types of the Messier objects and other deep-sky objects.
 - The [SEDS Messier Catalog](http://www.messier.seds.org/data.html) by Hartmut Frommert and Christine Kronberg: the visual magnitudes and sizes of the Messier objects, used with acknowledgement for non-profit, educational use.
+- The [Washington Double Star Catalog](http://www.astro.gsu.edu/wds/) (U.S. Naval Observatory): the double stars' separations, position angles and magnitudes. This research has made use of the Washington Double Star Catalog maintained at the U.S. Naval Observatory.
 - [city-timezones](https://github.com/kevinroberts/city-timezones) 1.3.4 (MIT): 7,300 cities with their time zones.
 - The [IAU Catalog of Star Names](https://exopla.net/star-names/modern-iau-star-names/) (public domain), kept in `tools/wgsn.tsv`: where d3-celestial gives one traditional name to several stars, only the star the IAU gives it to keeps it, and the others go by their Bayer or Flamsteed labels.
 

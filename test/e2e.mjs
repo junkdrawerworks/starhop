@@ -1289,16 +1289,16 @@ check('a card says an object is wider than the field only when it is', async () 
   } finally { await ctx.close(); }
 });
 
-// Izar's stars are 3″ apart, which takes 80×. The example telescope's eyepieces reach 65×; the 8″ Dobsonian's reach 200×.
+// Izar's stars are 2.9″ apart, which takes 83×. The example telescope's eyepieces reach 65×; the 8″ Dobsonian's reach 200×.
 check('a double star is rated, advised and sketched by the same power, the one your eyepieces reach', async () => {
-  for (const [save, label] of [[{ loc: AUSTIN }, 'Needs 80×'], [{ loc: AUSTIN, scope: DOB8 }, 'Easy split']]) {
+  for (const [save, label] of [[{ loc: AUSTIN }, 'Needs 83×'], [{ loc: AUSTIN, scope: DOB8 }, 'Easy split']]) {
     const { ctx, page, problems } = await open({ save: JSON.stringify(save), time: '2026-06-15T22:00:00-05:00' });
     try {
       const split = label === 'Easy split', who = save.scope ? 'the 8″ Dobsonian' : 'the example telescope';
       await page.click('#targetSec .filters [data-f="double"]');
       assert.equal(await page.$eval('#targetSec .row[data-id="izar"] .rate', el => el.textContent), label, 'the list, ' + who);
       await openCard(page, 'izar');
-      assert.match(await advice(page), split ? /about 80× splits them, so start with the 6 mm \(200×\)\.$/ : /takes about 80×; your highest power is 65×\./, 'the card, ' + who);
+      assert.match(await advice(page), split ? /about 83× splits them, so start with the 6 mm \(200×\)\.$/ : /takes about 83×; your highest power is 65×\./, 'the card, ' + who);
       await page.waitForFunction(() => document.getElementById('epCap').textContent);
       (split ? assert.doesNotMatch : assert.match)(await text(page, '#epCap'), /not split at this power/, 'the eyepiece sketch, ' + who);
       assert.deepEqual(problems, []);
@@ -1372,7 +1372,30 @@ check('Albireo’s eyepiece sketch shows two stars', async () => {
     await openCard(page, 'albireo');
     await page.waitForFunction(() => /25 mm/.test(document.getElementById('epCap').textContent));
     assert.equal(await blobsNearCentre(page, 20), 2, 'stars drawn at the centre of Albireo’s eyepiece view');
-    assert.equal(await blobsNearCentre(page, 2), 0, 'a star drawn between the pair, where the catalogue has Albireo');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// The sketch drew every companion due west of its primary (position angle 270°), the same size whatever the two
+// magnitudes. The WDS's latest measures put Albireo B at 54° (northeast, so up and to the left in a north-up, east-left
+// view) and Mesarthim's matched pair (4.5 and 4.6) at 359°, due north.
+check('Albireo’s companion is drawn up and to the left', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  const pair = () => page.waitForFunction(() => document.getElementById('eyepiece').__pair?.b && document.getElementById('eyepiece').__pair).then(h => h.jsonValue());
+  try {
+    await openCard(page, 'albireo');
+    let { a, b } = await pair();
+    const { w, h } = await page.$eval('#eyepiece', c => { const r = c.getBoundingClientRect(); return { w: r.width, h: r.height }; });
+    assert.deepEqual([Math.round(a[0]), Math.round(a[1])], [Math.round(w / 2), Math.round(h / 2)], 'Albireo A is at the centre');
+    assert.ok(b[0] < a[0] && b[1] < a[1], `B is up and to the left of A: ${JSON.stringify({ a, b })}`);
+    const pa = Math.atan2(a[0] - b[0], a[1] - b[1]) * 180 / Math.PI;
+    assert.ok(Math.abs(pa - 54) < 1, 'at position angle 54°: ' + pa);
+    assert.ok(b[2] < a[2], 'B, 1.5 magnitudes fainter, is drawn smaller');
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'mesarthim');
+    ({ a, b } = await pair());
+    assert.ok(Math.abs(b[0] - a[0]) < 1 && b[1] < a[1], 'Mesarthim’s pair lies north–south');
+    assert.ok(b[2] / a[2] > 0.95, 'and is drawn matched');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });

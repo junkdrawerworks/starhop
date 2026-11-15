@@ -25,6 +25,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 The visual magnitudes and sizes of the 110 Messier objects in `dso.json` come from the data table of the SEDS Messier Catalog by Hartmut Frommert and Christine Kronberg (http://www.messier.seds.org/data.html, last modified April 26, 2013), in place of d3-celestial's. Its materials may be freely used for non-profit, educational purposes when the SEDS Messier Catalog online database is acknowledged as the source (http://www.messier.seds.org/usage.html).
 
+## Washington Double Star Catalog
+
+The separations, position angles and magnitudes of the double stars in `dso.json` are the latest measures in the Washington Double Star Catalog (WDS) summary, `wdsweb_summ2.txt`, as of November 2026 (Mason, Wycoff, Hartkopf, Douglass & Worley 2001, AJ 122, 3466; current version at http://www.astro.gsu.edu/wds/), except Almach's, which is explained in `tools/build_data.py`. This research has made use of the Washington Double Star Catalog maintained at the U.S. Naval Observatory.
+
 ## IAU Working Group on Star Names
 
 `tools/wgsn.tsv` lists the star names adopted by the IAU Working Group on Star Names (WGSN), from the IAU Catalog of Star Names at https://exopla.net/star-names/modern-iau-star-names/ as of October 2026. `build_data.py` uses it to keep each traditional name in `stars.json` on the one star the WGSN gives it to, where d3-celestial gives it to several. IAU star names are free to use and in the public domain.
@@ -55,4 +59,4 @@ SOFTWARE.
 
 ## Written for Starhop
 
-The double-star list (names, separations, colours and notes) and the object descriptions were written for Starhop and are covered by the project's MIT license.
+The double-star list (which pairs, their names, colours and notes) and the object descriptions were written for Starhop and are covered by the project's MIT license.
