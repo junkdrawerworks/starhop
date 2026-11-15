@@ -53,8 +53,9 @@ const browser = await pw.chromium.launch();
 
 // Opens Starhop at phone size (or desktop) with a saved location, or a raw save, and the clock set to `time`.
 // Anything the page asks of another site is refused and listed in `outside`.
-// `init` runs in the page before Starhop does.
-async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, reducedMotion = 'no-preference', init } = {}) {
+// `init` runs in the page before Starhop does. `route` is [url pattern, handler] for the page's requests, and with
+// `wait` false it returns as soon as the page has loaded, without waiting for the sky to be drawn.
+async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, reducedMotion = 'no-preference', init, route, wait = true } = {}) {
   const ctx = await browser.newContext({
     viewport: phone ? { width: 390, height: 844 } : { width: 1280, height: 800 },
     deviceScaleFactor: phone ? 2 : 1, isMobile: phone, hasTouch: phone, locale: 'en-US',
@@ -67,13 +68,14 @@ async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, re
     await ctx.addInitScript(([k, v]) => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('seeded', '1'); } }, ['starhop.v1', value]);
   }
   if (init) await ctx.addInitScript(init);
+  if (route) await ctx.route(...route);
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(e.message));
   // A refused request to another site shows up as a console error too; `outside` already has those.
   page.on('console', m => { if (m.type() === 'error' && (m.location().url || base).startsWith(base)) problems.push(m.text()); });
   if (time) await page.clock.install({ time: new Date(time) });
   await page.goto(base);
-  await ready(page);
+  if (wait) await ready(page);
   return { ctx, page, problems, outside };
 }
 const ready = page => page.waitForFunction(() => document.querySelector('#keys').children.length > 0 || /couldn|wrong/.test(document.querySelector('#tonightSec').textContent), null, { timeout: 90000 });
@@ -623,6 +625,25 @@ check('night vision has no light but red', async () => {
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
   assert.deepEqual(leaks, []);
+});
+
+// The red look came only once the star catalog had loaded, so every reload (after the phone drops the page, or on a
+// weak signal at a field) showed the cream-and-blue look first.
+check('Night vision is red before the star catalog arrives', async () => {
+  let release; const held = new Promise(r => { release = r; });
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, red: true }), time: '2026-11-15T21:00:00-06:00', wait: false,
+    route: ['**/data/stars.json', async r => { await Promise.race([held, new Promise(ok => setTimeout(ok, 2000))]); await r.continue().catch(() => {}); }] });
+  try {
+    assert.equal(await page.$eval('#keys', k => k.children.length), 0, 'the catalog is still on its way');
+    assert.ok(await page.evaluate(() => document.documentElement.classList.contains('red')), 'the page is red already');
+    assert.equal(await page.$eval('.brand', b => getComputedStyle(b).color), 'rgb(226, 74, 60)', 'the name is red');
+    assert.equal(await page.$eval('meta[name=theme-color]', m => m.content), '#070000', 'and so is the browser bar');
+    const leak = await notRed(page, 'the page while the catalog loads');
+    release();
+    await ready(page);
+    assert.equal(leak, '');
+    assert.deepEqual(problems, []);
+  } finally { release(); await ctx.close(); }
 });
 
 // A stand-in for the Screen Wake Lock API, which headless Chromium refuses, and for the page being hidden, when the
