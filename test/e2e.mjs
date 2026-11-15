@@ -652,6 +652,20 @@ check('A plan lists its picks by best time, marks what is badly placed, and open
     assert.ok(rows.some(r => r[0] === 'Jupiter'));
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
+  // Albireo the star (whose card the map opens) and Albireo the double are one pick, and a plan holds 100 at most
+  ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, plan: Array.from({ length: 98 }, (_, i) => 'M' + (i + 1)) }), time: '2026-11-15T21:00:00-06:00', hash: '#plan=Albireo,albireo,betaCyg,M99,M100,M101' }));
+  try {
+    const plan = await savedPlan(page);
+    assert.deepEqual(plan.slice(97), ['M98', 'albireo', 'M99']);
+    assert.equal(plan.length, 100);
+    const rows = await planRows(page);
+    assert.equal(rows.length, 100);
+    assert.equal(rows.filter(r => r[0] === 'albireo').length, 1);
+    assert.equal(await text(page, '#toast'), 'Added 2 targets from a shared plan to yours');
+    await page.goto(base + '#plan=M102'); await ready(page);
+    assert.equal(await text(page, '#toast'), 'Your plan holds 100 targets at most');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
 });
 
 // Saved places, each with its own sky: a trip doesn't overwrite home, and the ratings follow the place. Fort Davis

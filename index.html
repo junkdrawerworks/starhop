@@ -1919,23 +1919,27 @@ html.red .chart canvas{background:#050000}
   var PLAN_UNDO = null, PLAN_ROWS = [];
   function planToken(o) {
     if (o.k === 'moon') return 'Moon';
-    if (o.k === 'star') { var n = NAMES[o.i] || []; return n[0] || n[1] || null; }
+    if (o.k === 'star') { var d = dblOf(o.i), n = NAMES[o.i] || []; return d ? String(d.id) : n[0] || n[1] || null; }
     return String(o.id);
   }
+  // A star that is one of the double stars (Albireo, from the map) goes in the plan as that double, as Find lists it,
+  // so it's in a plan once.
+  function dblOf(i) { return DOUBLES.filter(function (d) { return d.star === i; })[0] || null; }
+  function starOrDbl(i) { return dblOf(i) || objById('star', i); }
   // The object a plan's name stands for: exactly as kept, or as a link spells it (no spaces, Greek spelt out, any case:
-  // NGC869, nuOph, saturn). Deep-sky objects and doubles first, so albireo is the double and Albireo the star.
+  // NGC869, nuOph, saturn). Deep-sky objects and doubles first; a double's star (Albireo) is its double (albireo).
   function planObj(tok) {
     function c(x) { return ffold(x).replace(/ /g, ''); }
     var dd = DSO.concat(DOUBLES), i, k = Object.keys(NAMES);
     if (tok === 'Moon') return objById('moon');
     for (i = 0; i < PLANETS.length; i++) if (PLANETS[i].id === tok) return objById('planet', tok);
     for (i = 0; i < dd.length; i++) if (dd[i].id === tok) return dd[i];
-    for (i = 0; i < k.length; i++) if (NAMES[k[i]][0] === tok || NAMES[k[i]][1] === tok) return objById('star', +k[i]);
+    for (i = 0; i < k.length; i++) if (NAMES[k[i]][0] === tok || NAMES[k[i]][1] === tok) return starOrDbl(+k[i]);
     var q = c(tok); if (!q) return null;
     if (q === 'moon' || q === 'themoon') return objById('moon');
     for (i = 0; i < PLANETS.length; i++) if (c(PLANETS[i].id) === q) return objById('planet', PLANETS[i].id);
     for (i = 0; i < dd.length; i++) if (c(dd[i].id) === q) return dd[i];
-    for (i = 0; i < k.length; i++) if ((NAMES[k[i]][0] && c(NAMES[k[i]][0]) === q) || (NAMES[k[i]][1] && c(NAMES[k[i]][1]) === q)) return objById('star', +k[i]);
+    for (i = 0; i < k.length; i++) if ((NAMES[k[i]][0] && c(NAMES[k[i]][0]) === q) || (NAMES[k[i]][1] && c(NAMES[k[i]][1]) === q)) return starOrDbl(+k[i]);
     return null;
   }
   // in a link: no spaces and the Greek spelt out, so it reads plainly (#plan=M31,NGC869,albireo,Saturn,nuOph)
@@ -1991,12 +1995,12 @@ html.red .chart canvas{background:#050000}
   function openPlanLink() {
     var m = /^#plan=(.*)$/.exec(location.hash); if (!m || !NIGHT) return false;
     var toks = m[1].split(',').map(function (x) { try { return decodeURIComponent(x).trim(); } catch (e) { return ''; } }).filter(Boolean).slice(0, 100);
-    var got = 0, added = 0, before = S.plan.length;
-    toks.forEach(function (x) { var o = planObj(x), k = o && planToken(o); if (!k) return; got++; if (S.plan.indexOf(k) < 0) { S.plan.push(k); added++; } });
+    var got = 0, added = 0, full = 0, before = S.plan.length;
+    toks.forEach(function (x) { var o = planObj(x), k = o && planToken(o); if (!k) return; got++; if (S.plan.indexOf(k) >= 0) return; if (S.plan.length >= 100) { full++; return; } S.plan.push(k); added++; });
     try { history.replaceState(history.state, '', location.href.split('#')[0]); } catch (e) { }
     if (added) { save(); PLAN_UNDO = null; }
     TFILTER = 'plan'; TMORE = false; renderTargets();
-    toast(!toks.length ? 'That link has no plan in it' : !got ? 'Starhop doesn’t know what’s in that plan' : !added ? 'That plan is in yours already' : before ? 'Added ' + plural(added, 'target') + ' from a shared plan to yours' : 'Opened a shared plan of ' + plural(added, 'target'));
+    toast(!toks.length ? 'That link has no plan in it' : !got ? 'Starhop doesn’t know what’s in that plan' : !added && full ? 'Your plan holds 100 targets at most' : !added ? 'That plan is in yours already' : before ? 'Added ' + plural(added, 'target') + ' from a shared plan to yours' : 'Opened a shared plan of ' + plural(added, 'target'));
     if (window.innerWidth < 1000) setTimeout(function () { var r = $('targetSec').getBoundingClientRect(); window.scrollTo(0, Math.max(0, r.top + window.scrollY - 64)); }, 0);
     return true;
   }
@@ -2646,6 +2650,7 @@ html.red .chart canvas{background:#050000}
     // Add to plan puts it in your plan, and a second tap takes it out
     if ($('planB')) $('planB').addEventListener('click', function () {
       var i = S.plan.indexOf(ptok);
+      if (i < 0 && S.plan.length >= 100) { toast('Your plan holds 100 targets at most'); return; }
       if (i >= 0) S.plan.splice(i, 1); else S.plan.push(ptok);
       PLAN_UNDO = null; save(); openObject(o); renderTargets(); toast(i >= 0 ? 'Taken out of your plan' : 'Added to your plan');
     });
