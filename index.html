@@ -224,6 +224,8 @@ html.red .chart canvas{background:#050000}
 .fld{display:flex;flex-direction:column;gap:5px;min-width:0}
 .fld>span{font:700 10.5px var(--body);letter-spacing:.11em;text-transform:uppercase;color:var(--ink3)}
 .fld input,.fld select{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;min-width:0;width:100%;font-size:16px}
+.hint{margin:-6px 0 0;font-size:12.5px;color:var(--ink2)}
+.fld .hint{margin:0 0 2px}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .epl{display:flex;flex-direction:column;gap:6px}
 .epr{display:grid;grid-template-columns:1fr 1fr 34px;gap:8px;align-items:end}
@@ -336,16 +338,19 @@ html.red .chart canvas{background:#050000}
     { id: 'dark', name: 'Dark site', sub: 'The Milky Way casts shadows', nelm: 6.6, sb: 21.6 }
   ];
   var PRESETS = [
+    { name: '70 mm refractor', ap: 70, fl: 700 },
+    { name: '80 mm refractor', ap: 80, fl: 400 },
+    { name: '102 mm refractor', ap: 102, fl: 660 },
+    { name: '114 mm reflector', ap: 114, fl: 900 },
     { name: '130 mm reflector', ap: 130, fl: 650 },
     { name: '6″ Dobsonian', ap: 150, fl: 1200 },
     { name: '8″ Dobsonian', ap: 203, fl: 1200 },
     { name: '10″ Dobsonian', ap: 254, fl: 1270 },
-    { name: '80 mm refractor', ap: 80, fl: 400 },
-    { name: '102 mm refractor', ap: 102, fl: 660 },
     { name: '127 mm Maksutov', ap: 127, fl: 1500 },
     { name: '8″ Schmidt-Cassegrain', ap: 203, fl: 2032 }
   ];
-  var S = { loc: null, scope: { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], set: false }, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, seen: {} };
+  var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], set: false };
+  var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, seen: {} };
   try { var saved = JSON.parse(localStorage.getItem(LS) || 'null'); if (plain(saved)) S = checkSave(saved, S); } catch (e) { }
   function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { } }
   // A save edited by hand or damaged in storage can have parts missing or the wrong shape. Keep each part that makes
@@ -1881,15 +1886,19 @@ html.red .chart canvas{background:#050000}
   }
 
   // ---------- telescope settings ----------
+  var INCHES = 'Aperture is in millimetres — 8 inches is 203 mm';
   function scopeSheet() {
     var sc = S.scope, eps = sc.eps.map(function (e) { return { f: e.f, a: e.a }; });
     openSheet('<div class="hd"><h2>Your telescope<small>Used for difficulty ratings and eyepiece views</small></h2><button class="btn sec sm" type="button" data-close>Cancel</button><button class="btn sm" type="button" id="scSave">Save</button></div><div class="bd">' +
       '<div class="fld"><span>Quick pick</span><select id="scPre"><option value="">Choose a common telescope…</option>' + PRESETS.map(function (p, i) { return '<option value="' + i + '">' + esc(p.name) + ' (' + p.ap + ' mm, f/' + (p.fl / p.ap).toFixed(1) + ')</option>'; }).join('') + '</select></div>' +
-      '<div class="grid2"><label class="fld"><span>Name</span><input id="scName" autocomplete="off" maxlength="40"></label><label class="fld"><span>Aperture (mm)</span><input id="scAp" inputmode="decimal" autocomplete="off"></label><label class="fld"><span>Focal length (mm)</span><input id="scFl" inputmode="decimal" autocomplete="off"></label></div>' +
-      '<div class="fld"><span>Eyepieces — focal length and apparent field</span><div class="epl" id="epl"></div><button class="btn sec sm" type="button" id="epAdd" style="align-self:flex-start">+ Add an eyepiece</button></div>' +
+      '<div class="grid2"><label class="fld"><span>Name</span><input id="scName" autocomplete="off" maxlength="40" placeholder="e.g. 70 mm refractor"></label><label class="fld"><span>Aperture (mm)</span><input id="scAp" inputmode="decimal" autocomplete="off"></label><label class="fld"><span>Focal length (mm)</span><input id="scFl" inputmode="decimal" autocomplete="off"></label></div>' +
+      '<p class="hint">Printed on the tube or box: 70/700 means a 70 mm aperture and 700 mm focal length.</p>' +
+      '<div class="fld"><span>Eyepieces — focal length and apparent field</span><p class="hint">The number on each eyepiece (H20mm, K25). Not sure of the field? Leave 52°.</p><div class="epl" id="epl"></div><button class="btn sec sm" type="button" id="epAdd" style="align-self:flex-start">+ Add an eyepiece</button></div>' +
       '<div class="fld"><span>Your sky</span><div class="opts" id="skyOpts"></div></div>' +
       '<div class="card" id="scStats"></div></div>');
-    $('scName').value = sc.name || ''; $('scAp').value = sc.ap; $('scFl').value = sc.fl;
+    // Until a telescope is set, the example's name stays out of the field, so one typed in by hand isn't saved under it.
+    $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = sc.fl;
+    var picked = null; // the name a quick pick put in the field
     var skyv = S.sky;
     function drawEps() {
       $('epl').innerHTML = eps.map(function (e, i) { return '<div class="epr"><label class="fld"><span>mm</span><input data-i="' + i + '" data-k="f" inputmode="decimal" value="' + e.f + '"></label><label class="fld"><span>Apparent field °</span><input data-i="' + i + '" data-k="a" inputmode="decimal" value="' + e.a + '"></label><button class="x" type="button" data-del="' + i + '" aria-label="Remove">✕</button></div>'; }).join('');
@@ -1899,18 +1908,22 @@ html.red .chart canvas{background:#050000}
     function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '"><b>' + s.name + '</b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
     function stats() {
       var ap = parseFloat($('scAp').value), fl = parseFloat($('scFl').value);
-      if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>Enter the aperture and focal length.</p>'; return; }
+      if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES : 'Enter the aperture and focal length.') + '</p>'; return; }
       var nelm = SKIES.filter(function (s) { return s.id === skyv; })[0].nelm;
       $('scStats').innerHTML = '<h3>What it can do</h3><div class="kv"><div><span>Focal ratio</span><b>f/' + (fl / ap).toFixed(1) + '</b></div><div><span>Faintest stars</span><b>mag ' + (nelm + 5 * Math.log10(ap / 7) - 0.6).toFixed(1) + '</b></div><div><span>Splits pairs to</span><b>' + (116 / ap).toFixed(1) + '″</b></div><div><span>Highest useful power</span><b>' + Math.round(Math.min(2 * ap, 350)) + '×</b></div></div>' +
         (eps.length ? '<p style="margin-top:10px">' + eps.slice().sort(function (a, b) { return b.f - a.f; }).map(function (e) { var M = fl / e.f; return e.f + ' mm → ' + Math.round(M) + '×, ' + (e.a / M).toFixed(2) + '° field'; }).join(' · ') + '</p>' : '');
     }
-    $('scPre').addEventListener('change', function () { var p = PRESETS[+this.value]; if (!p) return; $('scName').value = p.name; $('scAp').value = p.ap; $('scFl').value = p.fl; stats(); });
-    ['scAp', 'scFl'].forEach(function (id) { $(id).addEventListener('input', stats); });
+    $('scPre').addEventListener('change', function () { var p = PRESETS[+this.value]; if (!p) return; $('scName').value = picked = p.name; $('scAp').value = p.ap; $('scFl').value = p.fl; stats(); });
+    // new numbers after a quick pick make it some other telescope, so the pick's name goes unless it was typed over
+    ['scAp', 'scFl'].forEach(function (id) { $(id).addEventListener('input', function () { if (picked && $('scName').value === picked) $('scName').value = ''; picked = null; stats(); }); });
     $('epAdd').addEventListener('click', function () { eps.push({ f: eps.length ? Math.max(4, Math.round(eps[eps.length - 1].f / 2)) : 20, a: 52 }); drawEps(); stats(); });
     $('scSave').addEventListener('click', function () {
       var ap = parseFloat($('scAp').value), fl = parseFloat($('scFl').value);
-      if (!(ap > 20 && ap < 2000 && fl > 100 && fl < 20000)) { toast('Check the aperture and focal length'); return; }
-      S.scope = { name: $('scName').value.trim() || (ap + ' mm telescope'), ap: ap, fl: fl, eps: eps.filter(function (e) { return e.f > 1 && e.a > 10; }), set: true }; S.sky = skyv; save();
+      if (!(ap > 20 && ap < 2000 && fl > 100 && fl < 20000)) { toast(ap >= 2 && ap <= 16 ? INCHES : 'Check the aperture and focal length'); return; }
+      // A name left empty, or a quick pick's or the example's with other numbers, gives way to one from the numbers.
+      var name = $('scName').value.trim();
+      if (!name || PRESETS.concat(DEFAULT_SCOPE).some(function (p) { return p.name === name && (p.ap !== ap || p.fl !== fl); })) name = ap + ' mm, f/' + Math.round(fl / ap * 10) / 10;
+      S.scope = { name: name, ap: ap, fl: fl, eps: eps.filter(function (e) { return e.f > 1 && e.a > 10; }), set: true }; S.sky = skyv; save();
       closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Saved');
     });
     drawEps(); drawSky(); stats();

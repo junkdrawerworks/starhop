@@ -767,6 +767,35 @@ check('the telescope sheet closes with Cancel, which drops the changes', async (
   } finally { await ctx.close(); }
 });
 
+// The example telescope's name was put in the Name field of a fresh sheet, so a telescope typed in by hand was saved
+// as "130 mm reflector" and the list said it rated for one.
+check('a telescope typed in by hand is called by its own size', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
+  try {
+    await page.click('#scopeBtn');
+    assert.equal(await page.inputValue('#scName'), '', 'a fresh sheet has no name in it');
+    assert.equal(await page.getAttribute('#scName', 'placeholder'), 'e.g. 70 mm refractor');
+    await page.fill('#scAp', '8');
+    await page.click('#scSave');
+    assert.match(await text(page, '#toast'), /^Aperture is in millimetres — 8 inches is 203 mm$/, 'an aperture in inches is explained');
+    await page.fill('#scAp', '70');
+    await page.fill('#scFl', '700');
+    await page.click('#scSave');
+    assert.equal(await text(page, '#scopeName'), '70 mm, f/10');
+    assert.match(await text(page, '#targetSec .note'), /^Ratings assume your 70 mm, f\/10 under /);
+    // a quick pick's name goes when its numbers are changed, and a pick's name with other numbers isn't kept
+    await page.click('#scopeBtn');
+    await page.selectOption('#scPre', { label: '114 mm reflector (114 mm, f/7.9)' });
+    assert.equal(await page.inputValue('#scName'), '114 mm reflector');
+    await page.fill('#scFl', '1000');
+    assert.equal(await page.inputValue('#scName'), '', 'changing the numbers clears the pick’s name');
+    await page.fill('#scName', '8″ Dobsonian');
+    await page.click('#scSave');
+    assert.equal(await text(page, '#scopeName'), '114 mm, f/8.8');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('an open card follows the time shown, and other sheets stay as they are', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   const cardAt = () => page.$eval('#sheet .card h3', h => h.textContent);
