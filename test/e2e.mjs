@@ -1809,6 +1809,18 @@ check('Star names follow the IAU’s spelling, and ε1 Lyr goes by its letter', 
   for (const [des, name] of [['α Cas', 'Schedar'], ['μ Cep', 'Garnet Star'], ['λ Vir', 'Khambalia'], ['σ CMa', 'Nganurganity'], ['ε1 Lyr', '']]) assert.equal(named(des), name, des);
 });
 
+// "The Milky Way casts shadows" is how Bortle's scale (Sky & Telescope, February 2001) describes its darkest class, 1,
+// but the dark site's faintest stars, magnitude 6.6, put it in class 3 by that scale's own limiting magnitudes.
+check('The dark-site sky choice promises no more than its numbers', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  try {
+    await page.click('#scopeBtn');
+    const dark = await page.$eval('#skyOpts [data-s="dark"]', b => b.innerText.replace(/\s+/g, ' ').trim());
+    assert.equal(dark, 'Dark site The Milky Way is full of detail');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('Show in the sky view jumps straight up when motion is reduced', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', reducedMotion: 'reduce' });
   try {
