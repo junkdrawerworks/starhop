@@ -3788,6 +3788,32 @@ check('an eyepiece typed as printed or with a decimal comma is saved as meant', 
 });
 
 // How a card and the page sound read aloud: no primes, one main heading, charts described by their captions.
+check('Each card ends with what the numbers mean, folded away until asked for', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
+  try {
+    for (const id of ['M13', 'albireo', 'Saturn', 'Moon']) {
+      await openCard(page, id);
+      assert.equal(await page.$eval('#sheet .bd > :last-child', el => el.id), 'gloss', id + ': it is the last thing on the card');
+      assert.equal(await page.$eval('#gloss', el => el.open), false, id + ': it starts closed');
+      assert.equal(await text(page, '#gloss summary'), 'WHAT THE NUMBERS MEAN');
+      await page.keyboard.press('Escape');
+    }
+    await openCard(page, 'M13');
+    await page.click('#gloss summary');
+    const said = await text(page, '#gloss');
+    for (const re of [/smaller the number, the brighter\. About 6 is the faintest you see by eye/, /60″ make 1′, and 60′ make 1°\. The full Moon is about 31′ across/, /A fist held at arm’s length covers about 10°/, /δ And is Delta Andromedae, a star in Andromeda/, /Split means seeing a double star as two stars/]) assert.match(said, re);
+    await page.focus('#tlc');
+    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(() => document.querySelector('#sheet .card h3').textContent === 'At 10:00 pm', null, { timeout: 5000 }).catch(() => {});
+    assert.equal(await text(page, '#sheet .card h3'), 'AT 10:00 PM', 'the card moves on with the time');
+    assert.equal(await page.$eval('#gloss', el => el.open), true, 'and keeps it open');
+    await page.keyboard.press('Escape');
+    await openCard(page, 'M13');
+    assert.equal(await page.$eval('#gloss', el => el.open), false, 'opened again, the card starts with it closed');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('A card says arcminutes and arcseconds, and the page has one main heading', async () => {
   const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
   try {
