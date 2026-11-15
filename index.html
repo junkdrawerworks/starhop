@@ -1934,7 +1934,9 @@ html.red .chart canvas{background:#050000}
   // ---------- location ----------
   var CITIES = null;
   function loadCities() { if (CITIES) return Promise.resolve(CITIES); return fetch('data/cities.json').then(function (r) { return r.json(); }).then(function (j) { CITIES = j; return j; }); }
-  function fold(s) { return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  // A name as it can be typed on any keyboard: accents dropped, and letters with no accent to drop (ø, æ, ð) spelt out.
+  var FOLD = { 'ø': 'o', 'æ': 'ae', 'ð': 'd', 'þ': 'th', 'ß': 'ss', 'ł': 'l', 'œ': 'oe', '’': "'", '‘': "'" };
+  function fold(s) { return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[øæðþßłœ’‘]/g, function (c) { return FOLD[c]; }); }
   // A typed coordinate. "−97.74" with a real minus sign and "45,76" with a decimal comma are read as meant; anything
   // else that isn't a plain number ("97.74 W") is refused rather than half read.
   function coord(v) { v = String(v).trim().replace(/\u2212/g, '-'); if (/^[-+]?\d*,\d+$/.test(v)) v = v.replace(',', '.'); return v === '' ? NaN : Number(v); }

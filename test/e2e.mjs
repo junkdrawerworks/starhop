@@ -840,6 +840,23 @@ check("typed coordinates take a decimal comma and a real minus sign, and refuse 
   } finally { await ctx.close(); }
 });
 
+// Town search dropped accents but left ø, æ, ð and the curly apostrophe as they were, so Tromsø, København, Egilsstaðir
+// and St. John’s couldn't be found from a plain keyboard.
+check('a town search finds Tromsø typed as Tromso, and St. John’s typed with a plain apostrophe', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
+  try {
+    await page.click('#locBtn');
+    for (const [typed, found] of [['Tromso', 'Tromsø'], ["St. John's", 'St. John’s'], ['Kobenhavn', 'København'], ['Egilsstadir', 'Egilsstaðir'], ['Svolvaer', 'Svolvær']]) {
+      await page.fill('#lq', typed);
+      await page.waitForFunction(f => [...document.querySelectorAll('#lres button')].some(b => b.textContent.startsWith(f)), found, { timeout: 10000 })
+        .catch(() => assert.fail(`"${typed}" doesn't find ${found}`));
+    }
+    await page.click('#lres button');
+    assert.equal(await text(page, '#locName'), 'Svolvær, NO');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('the location sheet can close before its list of places arrives', async () => {
   const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
