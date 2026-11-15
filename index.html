@@ -1160,7 +1160,7 @@ html.red .chart canvas{background:#050000}
       window.addEventListener('deviceorientationabsolute', onOri, true); window.addEventListener('deviceorientation', onOri, true);
       V.fov = 70;
       if (!T.live) { T.live = true; T.auto = false; T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true, true); }
-      try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { PT.wl = l; }, function () { }); } catch (err) { }
+      keepScreenOn();
       redraw();
       setTimeout(function () {
         if (!PT.on || PT.got) { if (PT.on && !PT.abs) toast('This phone isn’t reporting compass direction — drag the map to line it up with the sky'); return; }
@@ -1178,8 +1178,22 @@ html.red .chart canvas{background:#050000}
     window.removeEventListener('deviceorientationabsolute', onOri, true); window.removeEventListener('deviceorientation', onOri, true);
     document.documentElement.classList.remove('pointing'); $('app').classList.remove('pointing');
     $('ptTxt').textContent = 'Point'; $('ptBtn').classList.remove('on'); $('ptHint').hidden = true;
-    if (PT.wl) { try { PT.wl.release(); } catch (err) { } PT.wl = null; }
+    if (PT.wl && PT.wl.release) { try { PT.wl.release(); } catch (err) { } }
+    PT.wl = null;
     redraw(); syncDir();
+  }
+  // The screen stays on while pointing. The browser lets go of the lock whenever the page is hidden (the Screen Wake
+  // Lock API, W3C), so it's asked for again when the page comes back.
+  function keepScreenOn() {
+    if (PT.wl || !navigator.wakeLock) return;
+    var asked = PT.wl = {};
+    try {
+      navigator.wakeLock.request('screen').then(function (l) {
+        if (PT.wl !== asked) { l.release(); return; } // Point stopped while it was being asked for
+        PT.wl = l;
+        l.addEventListener('release', function () { if (PT.wl === l) PT.wl = null; });
+      }, function () { if (PT.wl === asked) PT.wl = null; });
+    } catch (err) { PT.wl = null; }
   }
   $('ptBtn').addEventListener('click', function () { if (PT.on) stopPoint(); else startPoint(); });
 
@@ -1821,7 +1835,7 @@ html.red .chart canvas{background:#050000}
     var now = new Date();
     if (T.live || T.auto) {
       var n = currentNight(now);
-      if (!sameNight(n, NDATE)) { setNight(n, true); return; }
+      if (!sameNight(n, NDATE)) { setNight(n, true, PT.on); return; }
       if (T.auto && now >= NIGHT.start) { T.live = true; T.auto = false; T.t = now; redraw(); renderTonight(); if (SHEET_OBJ) openObject(SHEET_OBJ); return; }
       if (T.live) { T.t = now; redraw(); }
     }
@@ -1832,6 +1846,7 @@ html.red .chart canvas{background:#050000}
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible') return;
     tick();
+    if (PT.on) keepScreenOn();
   });
   window.addEventListener('pageshow', function (e) { if (e.persisted) tick(); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);

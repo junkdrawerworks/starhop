@@ -473,6 +473,71 @@ check('pointing a little below the horizon keeps the ground below and the stars 
   }
 });
 
+// A stand-in for the Screen Wake Lock API, which headless Chromium refuses, and for the page being hidden, when the
+// browser lets go of every lock (W3C Screen Wake Lock API, "Handling document loss of visibility").
+const fakeWakeLock = () => {
+  const w = window.__wake = { asked: 0, held: new Set() };
+  Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: { request: () => {
+    w.asked++;
+    const s = new EventTarget();
+    s.released = false;
+    s.release = () => { if (!s.released) { s.released = true; w.held.delete(s); s.dispatchEvent(new Event('release')); } return Promise.resolve(); };
+    w.held.add(s);
+    return Promise.resolve(s);
+  } } });
+  let shown = 'visible';
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => shown });
+  w.hide = () => { shown = 'hidden'; [...w.held].forEach(s => s.release()); document.dispatchEvent(new Event('visibilitychange')); };
+  w.show = () => { shown = 'visible'; document.dispatchEvent(new Event('visibilitychange')); };
+};
+const point = async page => {
+  await page.click('#ptBtn');
+  await page.waitForFunction(() => document.documentElement.classList.contains('pointing'));
+  await page.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: 90, beta: 80, gamma: 0, absolute: true })));
+};
+const wake = page => page.evaluate(() => ({ asked: window.__wake.asked, held: window.__wake.held.size }));
+
+check('the screen stays on while pointing, after switching apps too, and lets go when pointing stops', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
+  try {
+    await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    for (let i = 1; i <= 5; i++) {
+      await point(page);
+      await page.waitForFunction(() => window.__wake.held.size === 1);
+      await page.evaluate(() => window.__wake.hide());
+      assert.equal((await wake(page)).held, 0);
+      await page.evaluate(() => window.__wake.show());
+      await page.waitForFunction(() => window.__wake.held.size === 1, null, { timeout: 3000 }).catch(() => {});
+      assert.equal((await wake(page)).held, 1, 'the screen is kept on again when the page comes back, round ' + i);
+      await page.evaluate(() => window.__wake.show()); // brought back twice: still one lock
+      await page.waitForTimeout(50);
+      assert.equal((await wake(page)).held, 1, 'one lock, not two, round ' + i);
+      await page.click('#ptBtn');
+      await page.waitForTimeout(50);
+      assert.deepEqual(await wake(page), { asked: 2 * i, held: 0 }, 'stopping lets go of the lock, round ' + i);
+    }
+    await page.evaluate(() => { window.__wake.hide(); window.__wake.show(); });
+    await page.waitForTimeout(50);
+    assert.equal((await wake(page)).held, 0, 'nothing keeps the screen on once pointing has stopped');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// Austin, Nov 15 2026: sunrise is 7:02 am, so the night that is ending runs until 7:52 am.
+check('pointing stays on the live sky when the night rolls over', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T07:30:00-06:00', init: fakeWakeLock });
+  try {
+    await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    await point(page);
+    await until(page, '#when', /Now/);
+    await page.clock.fastForward('01:00:00');
+    await until(page, '#nightTitle', /Nov 15/);
+    assert.equal(await text(page, '#nightTitle'), 'Tonight · Sun, Nov 15');
+    assert.equal(await text(page, '#when'), '8:30 am Now · Sun, Nov 15', 'the map still shows the sky the phone points at');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('on a desktop an open card covers only the side panel', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
