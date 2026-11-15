@@ -17,7 +17,7 @@
 - **Sky map.** Tonight's sky for your location and time: stars down to about magnitude 6, constellation lines and names, the Milky Way, the planets and the Moon (with its phase), plus clusters, nebulae and galaxies.
   - Drag to look around and pinch or scroll to zoom.
   - **Up** shows the whole dome overhead, laid out like a planisphere you hold above your head; **N / E / S / W** face a direction.
-  - It shows only what the sky allows: twilight, the Moon and how dark your sky is all change which stars appear.
+  - It shows only what the sky allows: twilight, the Moon and how dark your sky is all change which stars appear. Clusters, nebulae and galaxies follow the sky too: they fade as twilight or moonlight makes them harder in your telescope, and come out once the Sun is 6° down.
 - **Night timeline.** Sunset to sunrise, shaded through civil, nautical and astronomical twilight, with a band for when the Moon is up. Drag along it (or use the arrow keys) to see the sky at any hour, or step to other nights. Changing place keeps the night you're planning.
   - By day it shows tonight's sky once it's dark. Left open, it follows the clock from the start of the night and moves on to the next night in the morning.
 - **Tonight.** Sunset, when the sky is fully dark, sunrise, the Moon's phase and hours, and a verdict: a dark night for faint galaxies, or a moonlit one for planets, doubles and clusters.

@@ -487,6 +487,35 @@ check('stars come out steadily through dusk', async () => {
   } finally { await ctx.close(); }
 });
 
+// Six minutes after sunset in Austin on Nov 15 the map facing west marked 31 clusters, nebulae and galaxies (M8, M17,
+// M20, M22, M51, M101 …) under the banner saying only the brightest stars show yet, and the dawn sky facing east
+// marked M3, M64, M101 and M104.
+check('Clusters and galaxies follow the sky: none in early twilight, the showpieces once it darkens', async () => {
+  const dso = page => page.evaluate(() => document.getElementById('sky').__hits().filter(h => h.obj.k === 'dso').map(h => h.obj.id));
+  const at = async (page, time, d) => {
+    await page.clock.pauseAt(new Date(time));
+    await page.click('#nowBtn');
+    await page.click(`#dirSeg button[data-d="${d}"]`);
+    await page.clock.runFor(200);
+    return dso(page);
+  };
+  const { ctx, page, problems } = await open({ time: '2026-11-15T17:39:00-06:00' });
+  try {
+    assert.deepEqual(await at(page, '2026-11-15T17:40:00-06:00', '270'), [], 'deep-sky marks at 5:40 pm, 6 minutes after sunset');
+    // what you pick still shows
+    await openCard(page, 'M13');
+    await page.clock.runFor(200);
+    assert.deepEqual(await dso(page), ['M13'], 'only the object whose card is open shows at 5:40 pm');
+    await page.click('#sheet [data-close]');
+    const e = await at(page, '2026-11-15T18:15:00-06:00', '90');
+    for (const id of ['M31', 'M45']) assert.ok(e.includes(id), `${id} shows at 6:15 pm with the Sun 9° down (${e.join(' ')})`);
+    assert.ok((await at(page, '2026-11-15T21:00:00-06:00', '90')).length >= 10, 'a dark night shows them all');
+    assert.ok((await at(page, '2026-11-16T05:50:00-06:00', '270')).includes('M42'), 'M42 shows at 5:50 am with the Sun 12° down');
+    assert.deepEqual(await at(page, '2026-11-16T06:30:00-06:00', '90'), ['M13'], 'deep-sky marks at 6:30 am, half an hour before sunrise, besides M13, still picked');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 const DOB8 = { name: '8″ Dobsonian', ap: 203, fl: 1200, eps: [{ f: 25, a: 52 }, { f: 6, a: 52 }], set: true };
 const openCard = async (page, id) => {
   if (!await page.$(`#targetSec .row[data-id="${id}"]`) && await page.$('#moreT')) await page.click('#moreT');

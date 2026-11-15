@@ -940,22 +940,33 @@ html.red .chart canvas{background:#050000}
     // deep-sky objects
     var fovDeg = vw.fov;
     if ((S.layers.dso || o.dso) && !o.noDso) {
+      // Clusters, nebulae and galaxies follow the sky too: in twilight, or with the Moon up, one fades as its rating
+      // for your telescope gets worse than it is on a dark night (or worse than Fair, for one that's easy then), and
+      // goes once it's 1.2 points past that. None shows before the Sun is 6° down, and the showpieces keep a faint
+      // mark once it's 8° down. The target and the selection always show.
+      var tw = clamp((-sc.sun.alt - 6) / 6, 0, 1), mUp = sc.moon.alt > 0 && sc.moon.illum > 0.3;
       // with the doubles too faint for the star catalog (M40), which would otherwise have nothing on the map
       DSO.concat(DOUBLES.filter(function (d) { return d.star == null; })).forEach(function (d) {
-        var isT = o.target && o.target.id === d.id, sp = SHOWPIECE[d.id] || 0;
+        var isT = o.target && o.target.id === d.id, isS = o.sel && o.sel.id === d.id, sp = SHOWPIECE[d.id] || 0;
         if (!isT && fovDeg > 150 && sp < 2) return;
         if (!isT && fovDeg > 90 && sp < 1 && (d.mag == null || d.mag > 7)) return;
         var hv = rot(sc.m, d.v); if (hv[2] < -0.02 && !o.target) return;
         var p = proj(P, hv); if (!p || p[0] < -20 || p[1] < -20 || p[0] > w + 20 || p[1] > h + 20) return;
+        var v = 1;
+        if (!isT && !isS) {
+          v = tw * clamp((Math.max(rating(d, false, null).d, 3) + 1.2 - rating(d, mUp, sc.sun.alt).d) / 1.2, 0, 1);
+          if (sp >= 2 && sc.sun.alt <= -8) v = Math.max(v, 0.35);
+          if (v < 0.15) return;
+        }
         var rpx = Math.max(4.5, (d.dim[0] || 5) / 60 * D2R * P.s), ry = Math.max(3, rpx * ((d.dim[1] || d.dim[0] || 5) / (d.dim[0] || 5)));
         var c = d.kind === 'galaxy' ? '#9DB5FF' : d.kind === 'nebula' ? '#E48FAD' : '#7CC8B7';
-        g.strokeStyle = col(c, 0.85); g.lineWidth = 1.2; g.beginPath();
+        g.strokeStyle = col(c, 0.85 * v); g.lineWidth = 1.2; g.beginPath();
         if (d.kind === 'galaxy') g.ellipse(p[0], p[1], rpx, ry, -0.5, 0, 2 * Math.PI);
         else if (d.kind === 'nebula') { if (g.roundRect) g.roundRect(p[0] - rpx, p[1] - rpx, rpx * 2, rpx * 2, rpx * 0.35); else g.rect(p[0] - rpx, p[1] - rpx, rpx * 2, rpx * 2); }
         else { g.setLineDash([2, 2.5]); g.arc(p[0], p[1], rpx, 0, 2 * Math.PI); }
         g.stroke(); g.setLineDash([]);
         var dObj = { k: 'dso', id: d.id }; hits.push({ x: p[0], y: p[1], r: Math.max(rpx, 9), dr: Math.max(rpx, ry), pr: 2, obj: dObj });
-        if ((fovDeg < 110 || (sp >= 2.5 && w > 600)) && S.layers.names && !o.noLabels && (hv[2] >= 0 || isT)) label(dObj, d.id.indexOf('M') === 0 ? d.id : d.short || (d.name && d.name.length < 18 ? d.name : d.id), p[0], p[1], rpx, 3, 4, '400 11.5px "Atkinson Hyperlegible", sans-serif', col(c, 0.85), 5 - sp / 10, isT ? 't' : o.sel && o.sel.id === d.id ? 's' : '');
+        if ((fovDeg < 110 || (sp >= 2.5 && w > 600)) && S.layers.names && !o.noLabels && (hv[2] >= 0 || isT) && v >= 0.35) label(dObj, d.id.indexOf('M') === 0 ? d.id : d.short || (d.name && d.name.length < 18 ? d.name : d.id), p[0], p[1], rpx, 3, 4, '400 11.5px "Atkinson Hyperlegible", sans-serif', col(c, 0.85 * Math.max(v, 0.6)), 5 - sp / 10 + (1 - v), isT ? 't' : isS ? 's' : '');
       });
     }
     // stars, batched by colour
