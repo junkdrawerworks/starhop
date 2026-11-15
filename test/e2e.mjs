@@ -3011,7 +3011,7 @@ check('Not seen yet hides what you’ve marked, and a line counts what you’ve 
   let { ctx, page, problems } = await open({ time: '2026-11-15T20:30:00-06:00' });
   try {
     assert.equal(await page.$('#targetSec .tally'), null, 'no count before anything is marked');
-    assert.deepEqual(await page.$$eval('#targetSec .filters button', b => b.map(x => x.textContent)), ['All', 'Moon & planets', 'Clusters', 'Nebulae', 'Galaxies', 'Double stars', 'Not seen yet']);
+    assert.deepEqual(await page.$$eval('#targetSec .filters button', b => b.map(x => x.textContent)), ['All', 'Moon & planets', 'Clusters', 'Nebulae', 'Galaxies', 'Double stars', 'Not seen yet', 'Your plan']);
   } finally { await ctx.close(); }
   ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, seen: { M31: '2026-11-14', M45: '2026-11-14', albireo: '2026-10-13' } }), time: '2026-11-15T20:30:00-06:00' }));
   try {
@@ -3101,7 +3101,7 @@ check('The Moon has no seen mark, and the planets keep theirs', async () => {
     assert.equal(await page.$eval('#targetSec .row[data-id="Moon"]', r => !!r.querySelector('.tick, .seen')), false, 'a mark saved for it doesn’t show in the list');
     await openCard(page, 'Moon');
     assert.equal(await page.$('#seenB'), null, 'its card has no Mark as seen');
-    assert.equal(await text(page, '#sheet .btnrow'), 'Show in the sky view');
+    assert.equal(await text(page, '#sheet .btnrow'), 'Show in the sky view Add to plan', 'no Mark as seen, though it can go in a plan');
     await page.click('#sheet [data-close]');
     await openCard(page, 'Saturn');
     assert.equal(await text(page, '#seenB'), 'Mark as seen', 'a planet’s card still has it');
