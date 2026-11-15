@@ -821,7 +821,7 @@ html.red .chart canvas{background:#050000}
     var tStar = o.target ? (o.target.k === 'star' ? o.target.i : o.target.star) : null, sStar = o.sel ? (o.sel.k === 'star' ? o.sel.i : o.sel.star) : null;
     var hopStars = o.hop ? o.hop.stars : []; // a finder chart's star-hop names these, so they're labelled next after the target
     // obj is what a tap on the label opens
-  function label(obj, text, x, y, r, gap, dy, font, color, pri, ring, more) { labs.push({ obj: obj, t: text, x: x, y: y, r: ring === 't' ? Math.max(r, 12) : ring === 's' ? Math.max(r, 27) : r, gap: gap, dy: dy, font: font, color: color, pri: ring === 't' ? 0 : pri, more: more }); }
+    function label(obj, text, x, y, r, gap, dy, font, color, pri, ring, more) { labs.push({ obj: obj, t: text, x: x, y: y, r: ring === 't' ? Math.max(r, 12) : ring === 's' ? Math.max(r, 27) : r, gap: gap, dy: dy, font: font, color: color, pri: ring === 't' ? 0 : pri, more: more }); }
     var lim = Math.min(6.2, limitMag(sc) + (vw.fov < 70 ? 0.6 : 0) + (vw.fov < 35 ? 0.8 : 0) + (vw.fov < 15 ? 0.6 : 0));
     if (o.lim != null) lim = o.lim;
     var bg = skyColor(sc.sun.alt), bgc = 'rgb(' + bg.map(Math.round).join(',') + ')';
@@ -1523,10 +1523,10 @@ html.red .chart canvas{background:#050000}
     // 2000's by 5028.796195″ a Julian century (IERS Conventions 2010, eq. 5.39), about 0.38° (9 hours) by 2026.
     // The search looks only as far as the list does: asked for a year, it finds next year's peak when today is a few
     // days before this year's.
-    var T = (now - Date.UTC(2000, 0, 1, 12)) / (36525 * 86400e3);
+    var cent = (now - Date.UTC(2000, 0, 1, 12)) / (36525 * 86400e3);
     SHOWERS.forEach(function (s) {
       steps.push(function () {
-        var pk = A.SearchSunLongitude(norm360(s[1] + 5028.796195 / 3600 * T), new Date(now.getTime() - 86400e3), 160);
+        var pk = A.SearchSunLongitude(norm360(s[1] + 5028.796195 / 3600 * cent), new Date(now.getTime() - 86400e3), 160);
         if (pk && pk.date - now <= 150 * 86400e3) add(showerEvent(s, pk.date));
       });
     });
@@ -1911,7 +1911,7 @@ html.red .chart canvas{background:#050000}
     function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '"><b>' + s.name + '</b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
     function stats() {
       var ap = parseFloat($('scAp').value), fl = parseFloat($('scFl').value);
-      if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES : 'Enter the aperture and focal length.') + '</p>'; return; }
+      if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES + '.' : 'Enter the aperture and focal length.') + '</p>'; return; }
       var nelm = SKIES.filter(function (s) { return s.id === skyv; })[0].nelm;
       $('scStats').innerHTML = '<h3>What it can do</h3><div class="kv"><div><span>Focal ratio</span><b>f/' + (fl / ap).toFixed(1) + '</b></div><div><span>Faintest stars</span><b>mag ' + (nelm + 5 * Math.log10(ap / 7) - 0.6).toFixed(1) + '</b></div><div><span>Splits pairs to</span><b>' + (116 / ap).toFixed(1) + '″</b></div><div><span>Highest useful power</span><b>' + Math.round(Math.min(2 * ap, 350)) + '×</b></div></div>' +
         (eps.length ? '<p style="margin-top:10px">' + eps.slice().sort(function (a, b) { return b.f - a.f; }).map(function (e) { var M = fl / e.f; return e.f + ' mm → ' + Math.round(M) + '×, ' + (e.a / M).toFixed(2) + '° field'; }).join(' · ') + '</p>' : '');
