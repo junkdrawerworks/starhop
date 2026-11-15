@@ -2688,6 +2688,36 @@ check('a star marked as seen stays marked after a reload', async () => {
   } finally { await ctx.close(); }
 });
 
+// A seen mark only put a small tick on a row: there was no way to list what's still to see, or to see how far along
+// you are (a Messier marathon is all 110).
+check('Not seen yet hides what you’ve marked, and a line counts what you’ve seen', async () => {
+  let { ctx, page, problems } = await open({ time: '2026-11-15T20:30:00-06:00' });
+  try {
+    assert.equal(await page.$('#targetSec .tally'), null, 'no count before anything is marked');
+    assert.deepEqual(await page.$$eval('#targetSec .filters button', b => b.map(x => x.textContent)), ['All', 'Moon & planets', 'Clusters', 'Nebulae', 'Galaxies', 'Double stars', 'Not seen yet']);
+  } finally { await ctx.close(); }
+  ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, seen: { M31: '2026-11-14', M45: '2026-11-14', albireo: '2026-10-13' } }), time: '2026-11-15T20:30:00-06:00' }));
+  try {
+    const ids = () => page.$$eval('#targetSec .row', r => r.map(x => x.dataset.id));
+    assert.equal(await text(page, '#targetSec .tally'), 'You’ve marked 3 objects as seen, 2 of the 110 Messier objects.');
+    const count = () => page.$eval('#targetSec h2 small', e => e.textContent), all = parseInt(await count());
+    await page.click('#targetSec [data-f="unseen"]');
+    assert.equal(await page.$eval('#targetSec [data-f="unseen"]', b => b.getAttribute('aria-pressed')), 'true');
+    if (await page.$('#moreT')) await page.click('#moreT');
+    const left = await ids();
+    for (const id of ['M31', 'M45', 'albireo', 'Moon']) assert.ok(!left.includes(id), id + ' is left out');
+    assert.ok(left.includes('Jupiter') && left.includes('M15'), 'what you haven’t seen stays');
+    assert.equal(await count(), (all - 4) + ' targets', 'and the count above the list says how many (the Moon is up)');
+    // marking one from its card takes it off the list and adds it to the count
+    await openCard(page, 'M15');
+    await page.click('#seenB');
+    await page.click('#sheet [data-close]');
+    assert.ok(!(await ids()).includes('M15'), 'a mark takes it off');
+    assert.equal(await text(page, '#targetSec .tally'), 'You’ve marked 4 objects as seen, 3 of the 110 Messier objects.');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Everyone has seen the Moon, so its card offered a mark that only left a tick on the top row of every night's list.
 check('The Moon has no seen mark, and the planets keep theirs', async () => {
   const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, seen: { Moon: '2026-10-17' } }), time: '2026-10-18T20:00:00-05:00' });

@@ -1669,7 +1669,7 @@ html.red .chart canvas{background:#050000}
   }
 
   // ---------- targets panel ----------
-  var FILTERS = [['all', 'All'], ['planets', 'Moon & planets'], ['cluster', 'Clusters'], ['nebula', 'Nebulae'], ['galaxy', 'Galaxies'], ['double', 'Double stars']];
+  var FILTERS = [['all', 'All'], ['planets', 'Moon & planets'], ['cluster', 'Clusters'], ['nebula', 'Nebulae'], ['galaxy', 'Galaxies'], ['double', 'Double stars'], ['unseen', 'Not seen yet']];
   function glyph(t) {
     if (t.k === 'moon') return '<span class="g"><canvas data-moon="1"></canvas></span>';
     if (t.k === 'planet') { var p = PLANETS.filter(function (x) { return x.id === t.id; })[0]; return '<span class="g"><i class="pl" style="background:' + col(p.col) + ';box-shadow:0 0 8px ' + col(p.col, 0.55) + '"></i></span>'; }
@@ -1680,19 +1680,21 @@ html.red .chart canvas{background:#050000}
     var ae = document.activeElement, sec = $('targetSec'), had = sec.contains(ae) && ae !== sec ? (ae.dataset.f ? '[data-f="' + ae.dataset.f + '"]' : ae.id ? '#' + ae.id : ae.classList.contains('row') ? '.row[data-id="' + ae.dataset.id.replace(/["\\]/g, '\\$&') + '"]' : '') : '';
     var st = scopeStats(), list = TARGETS.filter(function (t) {
       if (TFILTER === 'all') return true; if (TFILTER === 'planets') return t.k === 'planet' || t.k === 'moon'; if (TFILTER === 'double') return t.k === 'double';
+      if (TFILTER === 'unseen') return t.k !== 'moon' && !S.seen[t.id]; // the Moon can't be marked, so it never leaves
       return t.o && t.o.kind === TFILTER && t.k === 'dso';
     });
     var shown = TMORE ? list : list.slice(0, 14);
     var h = '<h2>What to look at <small>' + plural(list.length, 'target') + '</small></h2>' +
       '<div class="filters">' + FILTERS.map(function (f) { return '<button class="chip' + (TFILTER === f[0] ? ' on' : '') + '" type="button" data-f="' + f[0] + '" aria-pressed="' + (TFILTER === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>';
     var bright = TOO_BRIGHT && TFILTER !== 'planets' ? '<p class="lede">The sky stays too bright tonight for anything but the Moon and the brightest planets.</p>' : '';
-    if (!shown.length) h += bright || '<p class="lede">Nothing of that kind is well placed on this night.</p>';
+    if (!shown.length) h += bright || '<p class="lede">' + (TFILTER === 'unseen' && TARGETS.length ? 'You’ve marked everything well placed on this night as seen.' : 'Nothing of that kind is well placed on this night.') + '</p>';
     else h += '<div class="list">' + shown.map(function (t) {
       // the catalogue number; the Double Cluster's row gives both of its numbers, as its card does
       var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.parts ? t.o.cat : t.o.id) + '</small>' : '';
       return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + (id && ' ' + id) + (S.seen[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (S.seen[t.id] ? ', seen ' + esc(seenText(S.seen[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
+    h += tally();
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
     $('targetSec').innerHTML = h;
     $('targetSec').querySelectorAll('.filters button').forEach(function (b) { b.addEventListener('click', function () { TFILTER = b.dataset.f; TMORE = false; renderTargets(); say((TFILTER === 'all' ? 'All ' : b.textContent + ': ') + $('targetSec').querySelector('h2 small').textContent); }); });
@@ -1701,6 +1703,12 @@ html.red .chart canvas{background:#050000}
     if ($('moreT')) $('moreT').addEventListener('click', function () { TMORE = !TMORE; renderTargets(); });
     if ($('setScope')) $('setScope').addEventListener('click', scopeSheet);
     var back = had && sec.querySelector(had); if (back) back.focus({ preventScroll: true });
+  }
+  // How many objects you've marked as seen, on any night, and how many of them are Messier objects (all 110 are in
+  // Starhop, M40 among the doubles); nothing until there's one.
+  function tally() {
+    var ids = Object.keys(S.seen), m = ids.filter(function (k) { return /^M\d+$/.test(k); }).length;
+    return ids.length ? '<p class="note tally">You’ve marked ' + plural(ids.length, 'object') + ' as seen' + (m ? ', ' + m + ' of the 110 Messier objects' : '') + '.</p>' : '';
   }
   // A row's second line: when it's best, and tonight where it stands at the time shown, up now, rising later or set.
   // Its rise and set times are found once a night, at the levels the card uses (see riseSet).
