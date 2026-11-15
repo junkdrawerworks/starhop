@@ -55,11 +55,11 @@ const browser = await pw.chromium.launch();
 // Anything the page asks of another site is refused and listed in `outside`.
 // `init` runs in the page before Starhop does. `route` is [url pattern, handler] for the page's requests, and with
 // `wait` false it returns as soon as the page has loaded, without waiting for the sky to be drawn. `geo` is where the
-// device says it is, { latitude, longitude }, with leave to ask.
-async function open({ loc = AUSTIN, save, time, tz, phone = true, size, sw = false, reducedMotion = 'no-preference', init, route, wait = true, geo } = {}) {
+// device says it is, { latitude, longitude }, with leave to ask. `locale` is the browser's language.
+async function open({ loc = AUSTIN, save, time, tz, phone = true, size, sw = false, reducedMotion = 'no-preference', init, route, wait = true, geo, locale = 'en-US' } = {}) {
   const ctx = await browser.newContext({
     viewport: size ? { width: size[0], height: size[1] } : phone ? { width: 390, height: 844 } : { width: 1280, height: 800 },
-    deviceScaleFactor: phone ? 2 : 1, isMobile: phone, hasTouch: phone, locale: 'en-US',
+    deviceScaleFactor: phone ? 2 : 1, isMobile: phone, hasTouch: phone, locale,
     timezoneId: tz || (loc && loc.tz) || 'America/Chicago', serviceWorkers: sw ? 'allow' : 'block', reducedMotion,
     ...(geo ? { geolocation: geo, permissions: ['geolocation'] } : {}),
   });
@@ -2080,6 +2080,36 @@ check('ξ Sco’s card names it', async () => {
     assert.equal(await text(page, '#sheet .hd h2 small'), 'Star · ξ Sco · in Scorpius');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
+});
+
+// The card's italic headline set '24 °' with IM Fell's degree sign well apart from its number, ξ Sco's Greek letter fell
+// out of the italic, words such as 'Easy' and 'Not tonight' were in DM Mono, Saturn was '1301 million km', and on a
+// German phone the Moon was '399.799 km'.
+check('Cards keep the degree sign with its number, words in the body face and distances the same in any language', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', locale: 'de-DE' });
+  try {
+    const face = (sel) => page.$eval(sel, el => { const s = getComputedStyle(el); return s.fontFamily + ' ' + s.fontStyle; });
+    assert.match(await face('#tonightSec .fact.wide b'), /DM Mono/, 'fully dark is a time');
+    await openCard(page, 'Saturn');
+    assert.match(await text(page, '#sheet .big .num'), /^\d+°$/, 'the altitude and its degree sign go together');
+    assert.match(await face('#sheet .big .num'), /Atkinson.* normal$/);
+    assert.match(await text(page, '#sheet .kv'), /Distance 1,\d{3} million km/i);
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'Moon');
+    assert.match(await text(page, '#sheet .kv'), /Distance \d{3},\d{3} km/i);
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'M31');
+    const diff = await page.$$eval('#sheet .kv div', ds => ds.map(d => [d.firstChild.textContent, d.lastChild.className, getComputedStyle(d.lastChild).fontFamily]));
+    for (const [k, cls, f] of diff) assert.ok(k === 'Difficulty' ? cls === 'w' && /Atkinson/.test(f) : /DM Mono/.test(f), `${k} is in ${f}`);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  const sco = await open({ time: '2026-06-15T23:00:00-05:00' });
+  try {
+    await tapMap(sco.page, 'star', await starAt(241.09, -11.37));
+    assert.equal(await sco.page.$eval('#sheet .hd h2 .gk', e => e.textContent + ' ' + getComputedStyle(e).fontStyle), 'ξ normal', 'ξ Sco’s letter is upright');
+    assert.equal(await sco.page.$eval('#sheet .hd h2', h => h.firstChild.textContent), 'ξ Sco');
+    assert.deepEqual(sco.problems, []);
+  } finally { await sco.ctx.close(); }
 });
 
 // Astronomy Engine: full at 14:54 UT on 24 Nov 2026; at 9 pm in Austin that evening the Moon is 99.5% lit, but it was

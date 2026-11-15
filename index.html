@@ -164,6 +164,7 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .fact{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;min-width:0}
 .fact span{display:block;font:700 10.5px var(--body);letter-spacing:.11em;text-transform:uppercase;color:var(--ink3)}
 .fact b{display:block;font:500 16px var(--mono);margin-top:2px}
+.fact b.w{font:700 16px var(--body)}
 .fact em{display:block;font-style:normal;font-size:12.5px;color:var(--ink2);margin-top:1px}
 .moonrow{display:flex;gap:12px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}
 .moonrow canvas{flex:none;width:44px;height:44px}
@@ -225,6 +226,7 @@ html.red .sheetbg{background:rgba(4,0,0,.62)}
 .sheet:focus{outline:none}
 .sheet .hd{display:flex;align-items:center;gap:10px;padding:14px 16px 8px}
 .sheet .hd h2{margin:0;flex:1;font:italic 400 25px/1.1 var(--disp);min-width:0;text-wrap:balance;overflow-wrap:anywhere}
+.sheet .hd h2 .gk{font-family:var(--body);font-style:normal}
 .sheet .hd h2 small{display:block;font:400 13px var(--body);font-style:normal;color:var(--ink2);margin-top:3px}
 .sheet .bd{overflow:auto;overscroll-behavior:contain;padding:4px 16px 20px;display:flex;flex-direction:column;gap:14px;-webkit-overflow-scrolling:touch}
 /* on a phone a sheet covers the page, which holds still behind it: a swipe past a card's end, or on its heading or the
@@ -239,9 +241,11 @@ html.red .sheetbg{background:rgba(4,0,0,.62)}
 .card p{margin:0;color:var(--ink2)}
 .card p+p{margin-top:6px}
 .big{font:italic 400 20px/1.25 var(--disp);color:var(--ink)}
+.big .num{font:500 .95em var(--body);white-space:nowrap}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px 14px;margin-top:8px}
 .kv div>span{display:block;font:700 10.5px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
 .kv div b{font:500 15px var(--mono)}
+.kv div b.w{font:700 15px var(--body)}
 .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:12px}
 .chart{display:flex;flex-direction:column;gap:6px}
 .chart canvas{width:100%;aspect-ratio:1;max-width:100%;border-radius:10px;background:#04070F;display:block}
@@ -1505,6 +1509,8 @@ html.red .chart canvas{background:#050000}
   }
   var SHOWN_TONIGHT = null; // whether the panel last said Tonight or That night
   var VERDICT = ''; // the night's verdict in plain words, said when the night is stepped
+  // A fact's value: figures in DM Mono, words ('Not tonight', 'Easy') in the body face
+  function val(v, html) { return '<b' + (/\d/.test(v) ? '' : ' class="w"') + '>' + (html || esc(v)) + '</b>'; }
   function renderTonight() {
     var N = NIGHT, isTonight = SHOWN_TONIGHT = sameNight(N.n, currentNight(new Date()));
     var noonName = tLong(N.noon);
@@ -1537,7 +1543,7 @@ html.red .chart canvas{background:#050000}
     // all night, the midnight sun, or polar night, which keeps whatever twilight it has.
     function fact(name, at, tw, twName, allNight) {
       var b = at ? tTime(at) : 'None', em = !at && N.midnightSun ? 'The Sun stays up all night' : tw ? twName + tTime(tw) : at ? allNight : 'The Sun doesn’t rise today';
-      return '<div class="fact"><span>' + name + '</span><b>' + esc(b) + '</b><em>' + esc(em) + '</em></div>';
+      return '<div class="fact"><span>' + name + '</span>' + val(b) + '<em>' + esc(em) + '</em></div>';
     }
     var mEv = N.moonNight.map(function (e) { return (e.up ? 'rises ' : 'sets ') + tTime(e.t); }).join(', '), mEvC = mEv.replace(/^./, function (c) { return c.toUpperCase(); });
     var moonTxt = !mEv ? (N.moonUpAtDusk ? 'Up all night' : 'Below the horizon all night') : N.moonUpAtDusk && N.sunset ? 'Up at dusk, ' + mEv : mEvC;
@@ -1546,7 +1552,7 @@ html.red .chart canvas{background:#050000}
       '<div class="facts">' +
       fact('Sunset', N.sunset, N.astD || N.nauD, 'Twilight until ', 'Twilight lasts all night') +
       fact('Sunrise', N.sunrise, N.astM || N.nauM, 'First light ', 'Never fully dark') +
-      '<div class="fact wide"><span>Fully dark</span><b>' + (N.dark.length ? esc(tTime(N.dark[0].a)) + ' – ' + esc(tTime(N.dark[N.dark.length - 1].b)) : 'Not tonight') + '</b><em>' + (N.dark.length ? 'The Sun is 18° or more below the horizon; twilight is over' : N.midnightSun ? 'The Sun doesn’t set tonight' : 'The Sun stays within 18° of the horizon all night') + '</em></div>' +
+      '<div class="fact wide"><span>Fully dark</span>' + val(N.dark.length ? tTime(N.dark[0].a) + ' – ' + tTime(N.dark[N.dark.length - 1].b) : 'Not tonight') + '<em>' + (N.dark.length ? 'The Sun is 18° or more below the horizon; twilight is over' : N.midnightSun ? 'The Sun doesn’t set tonight' : 'The Sun stays within 18° of the horizon all night') + '</em></div>' +
       '</div>' +
       '<div class="moonrow"><canvas id="moonIc" aria-hidden="true"></canvas><div><b>' + esc(ph) + ' · ' + il + '% lit</b><span>' + esc(moonTxt) + '</span></div></div>';
     moonIcon($('moonIc'), N.moonIllum, N.moonPhase, 44);
@@ -1998,6 +2004,7 @@ html.red .chart canvas{background:#050000}
     if (hi && hi.a > 0) bits.push((N.sunset && hi.t - d0 < 20 * 60e3 ? 'Highest at sunset' : +hi.t === d1 && N.civM ? 'Highest as it gets light, ' + tTime(hi.t) : 'Highest ' + tTime(hi.t)) + ' (' + Math.round(hi.a) + '°)');
     return { text: bits.join(' · '), hi: hi };
   }
+  var KM = new Intl.NumberFormat('en-US'); // 1,301 million km, 399,799 km, whatever the phone's language
   function openObject(o) {
     var again = !$('sheet').hidden && SHEET_OBJ === o, keep = again ? $('sheet').querySelector('.bd').scrollTop : 0; // a redraw keeps its place
     var sc = scene(T.t), hv = objHor(o, sc), aa = hv ? altAz(hv) : null, rs = riseSet(o);
@@ -2006,7 +2013,7 @@ html.red .chart canvas{background:#050000}
     if (o.k === 'planet') {
       var p = sc.planets.filter(function (x) { return x.id === o.id; })[0];
       sub = 'Planet in ' + con;
-      facts = [['Brightness', 'mag ' + p.mag.toFixed(1)], ['Size', p.diam.toFixed(1) + '″'], ['Distance', (p.gd * AU_KM / 1e6).toFixed(0) + ' million km']];
+      facts = [['Brightness', 'mag ' + p.mag.toFixed(1)], ['Size', p.diam.toFixed(1) + '″'], ['Distance', KM.format(Math.round(p.gd * AU_KM / 1e6)) + ' million km']];
       if (o.id === 'Venus' || o.id === 'Mercury' || o.id === 'Mars') facts.push(['Lit', Math.round(p.frac * 100) + '%']);
       if (o.id === 'Saturn') facts.push(['Rings tilted', Math.abs(p.tilt).toFixed(1) + '°']);
       about = {
@@ -2021,7 +2028,7 @@ html.red .chart canvas{background:#050000}
     } else if (o.k === 'moon') {
       sub = phaseName(sc.moon.phase, sc.moon.illum) + ' · ' + Math.round(sc.moon.illum * 100) + '% lit · in ' + con;
       var age = sc.moon.phase / 360 * 29.53;
-      facts = [['Age', age.toFixed(1) + ' days'], ['Distance', Math.round(sc.moon.dist * AU_KM).toLocaleString() + ' km'], ['Size', (sc.moon.diam * 60).toFixed(1) + '′']];
+      facts = [['Age', age.toFixed(1) + ' days'], ['Distance', KM.format(Math.round(sc.moon.dist * AU_KM)) + ' km'], ['Size', (sc.moon.diam * 60).toFixed(1) + '′']];
       about = 'Craters, mountains and lava plains show best along the terminator, where the Sun is low and shadows are long. The full Moon is the flattest and brightest view — a Moon filter helps.';
     } else if (o.k === 'double') {
       sub = 'Double star in ' + con + (o.cat ? ' · ' + o.cat : ''); facts = [['Stars', o.mags], ['Separation', o.sep + '″']]; about = o.note;
@@ -2039,7 +2046,8 @@ html.red .chart canvas{background:#050000}
       name = (o.name && o.name !== o.id ? o.name : o.id);
       if (o.name && o.name !== o.id && o.id.indexOf('M') === 0) name = o.name + ' · ' + o.id;
     }
-    var nowTxt = aa ? (aa.alt > 0 ? Math.round(aa.alt) + '° up in the ' + dirName(aa.az) + ' — ' + fists(aa.alt) + '.' : 'Below the horizon right now.') : '';
+    // the altitude in the body face, where the degree sign keeps to its number (IM Fell's stands well apart)
+    var nowTxt = aa ? (aa.alt > 0 ? '<span class="num">' + Math.round(aa.alt) + '°</span> up in the ' + esc(dirName(aa.az) + ' — ' + fists(aa.alt)) + '.' : 'Below the horizon right now.') : '';
     var rows = epRows(o, sc), adv = adviceFor(o, sc, rows), st = scopeStats();
     if (!again || EPS.o !== o || EPS.i >= rows.length) EPS = { o: o, i: -1 };
     var shown = EPS.i >= 0 ? EPS.i : adv.pick; // the eyepiece the sketch shows
@@ -2051,8 +2059,9 @@ html.red .chart canvas{background:#050000}
     var ct = chartTime(o, rs), bright = o.k === 'star' && o.mag < 1.5, hop = o.k === 'planet' || o.k === 'moon' || bright || eyeStar || !ct ? null : hopFor(o, ct.t);
     var eyeTxt = eyeStar ? ((NAMES[o.star] || [])[0] || o.name) + ' is the naked-eye star itself (mag ' + own.toFixed(1) + '), at the centre of the chart. ' :
       eyeSees ? 'Visible without a telescope from your sky: ' + (o.type === 'Globular cluster' ? 'a fuzzy star' : o.kind === 'cluster' ? 'a misty patch or a knot of faint stars' : 'a misty patch') + ' at the centre of the chart. ' : '';
-    var h = '<div class="hd"><h2>' + esc(name) + '<small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
-      '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + esc(nowTxt) + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span><b>' + spokenArcs(esc(f[1])) + '</b></div>'; }).join('') + '</div>' : '') + '</div>' +
+    // IM Fell has no Greek, so a Bayer letter (ξ Sco) is set upright in the body face, as in the line under it
+    var h = '<div class="hd"><h2><span>' + esc(name).replace(/^[\u0370-\u03ff]/, '<span class="gk">$&</span>') + '</span><small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
+      '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + nowTxt + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span>' + val(f[1], spokenArcs(esc(f[1]))) + '</div>'; }).join('') + '</div>' : '') + '</div>' +
       '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart" aria-describedby="finderCap"></canvas><div class="cap" id="finderCap">' + esc(eyeTxt) + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + 'The dashed circle is a typical finderscope field (5°).</div></div>' +
       '<div class="chart"><canvas id="eyepiece" aria-label="Simulated eyepiece view" aria-describedby="epCap"></canvas><div class="cap" id="epCap"></div></div></div>' +
       '<div class="card"><h3>In your telescope</h3><p>' + esc(adv.txt) + '</p><div class="epsw"><table class="eps"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th><th></th></tr></thead><tbody>' +
