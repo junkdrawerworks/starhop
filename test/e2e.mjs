@@ -3004,7 +3004,11 @@ check('The dark-site sky choice promises no more than its numbers', async () => 
   try {
     await page.click('#scopeBtn');
     const dark = await page.$eval('#skyOpts [data-s="dark"]', b => b.innerText.replace(/\s+/g, ' ').trim());
-    assert.equal(dark, 'Dark site The Milky Way is full of detail');
+    assert.equal(dark, 'Dark site Bortle 3 The Milky Way is full of detail');
+    // each sky's Bortle class by its faintest naked-eye star, on Bortle's scale: 9 at 4.0 or brighter, 7 for 4.6–5.0,
+    // 5 for 5.6–6.0, 3 for 6.6–7.0
+    assert.deepEqual(await page.$$eval('#skyOpts .bt', b => b.map(x => x.textContent)), ['Bortle 9', 'Bortle 7', 'Bortle 5', 'Bortle 3']);
+    assert.match(await page.$eval('#skyOpts', o => o.previousElementSibling.textContent), /faintest star you see by eye.*February 2001/);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });

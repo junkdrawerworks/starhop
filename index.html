@@ -283,6 +283,7 @@ html.red .chart canvas{background:#050000}
 .opt b{display:block;font-size:14px}
 .opt small{display:block;color:var(--ink2);font-size:12px;margin-top:2px}
 .opt.on{border-color:var(--brass);background:var(--brass-soft)}
+.opt .bt{font:500 11px var(--mono);color:var(--ink2);margin-left:4px;white-space:nowrap}
 .res{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .res button{display:flex;justify-content:space-between;gap:10px;text-align:left;background:var(--panel);border:0;border-bottom:1px solid var(--line);padding:10px 12px;color:var(--ink)}
 .res button:last-child{border-bottom:0}
@@ -394,10 +395,10 @@ html.red .chart canvas{background:#050000}
   // ---------- settings ----------
   var LS = 'starhop.v1';
   var SKIES = [
-    { id: 'city', name: 'City', adj: 'city', sub: 'Only the brightest stars', nelm: 3.6, sb: 18.0 },
-    { id: 'suburb', name: 'Suburbs', adj: 'suburban', sub: 'The Milky Way is hard to see', nelm: 5.0, sb: 19.6 },
-    { id: 'rural', name: 'Countryside', adj: 'country', sub: 'The Milky Way is plain', nelm: 6.0, sb: 21.0 },
-    { id: 'dark', name: 'Dark site', adj: 'dark-site', sub: 'The Milky Way is full of detail', nelm: 6.6, sb: 21.6 }
+    { id: 'city', name: 'City', adj: 'city', sub: 'Only the brightest stars', nelm: 3.6, sb: 18.0, bortle: 9 },
+    { id: 'suburb', name: 'Suburbs', adj: 'suburban', sub: 'The Milky Way is hard to see', nelm: 5.0, sb: 19.6, bortle: 7 },
+    { id: 'rural', name: 'Countryside', adj: 'country', sub: 'The Milky Way is plain', nelm: 6.0, sb: 21.0, bortle: 5 },
+    { id: 'dark', name: 'Dark site', adj: 'dark-site', sub: 'The Milky Way is full of detail', nelm: 6.6, sb: 21.6, bortle: 3 }
   ];
   var PRESETS = [
     { name: '70 mm refractor', ap: 70, fl: 700 },
@@ -2344,7 +2345,7 @@ html.red .chart canvas{background:#050000}
       '<div class="grid2"><label class="fld"><span>Name</span><input id="scName" autocomplete="off" maxlength="40" placeholder="e.g. 70 mm refractor"></label><label class="fld"><span>Aperture (mm)</span><input id="scAp" inputmode="decimal" autocomplete="off"></label><label class="fld"><span>Focal length (mm)</span><input id="scFl" inputmode="decimal" autocomplete="off"></label></div>' +
       '<p class="hint">Printed on the tube or box: 70/700 means a 70 mm aperture and 700 mm focal length.</p>' +
       '<div class="fld"><span>Eyepieces — focal length and apparent field</span><p class="hint">The number on each eyepiece (H20mm, K25). Not sure of the field? Leave 52°.</p><div class="epl" id="epl"></div><button class="btn sec sm" type="button" id="epAdd" style="align-self:flex-start">+ Add an eyepiece</button></div>' +
-      '<div class="fld"><span>Your sky</span><div class="opts" id="skyOpts"></div></div>' +
+      '<div class="fld"><span>Your sky</span><p class="hint">Each sky’s Bortle class goes by the faintest star you see by eye, as Bortle’s scale gives it (Sky &amp; Telescope, February 2001).</p><div class="opts" id="skyOpts"></div></div>' +
       '<div class="card" id="scStats"></div></div>');
     // Until a telescope is set, the example's name stays out of the field, so one typed in by hand isn't saved under it.
     $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = sc.fl;
@@ -2358,7 +2359,7 @@ html.red .chart canvas{background:#050000}
       $('epl').querySelectorAll('[data-del]').forEach(function (b) { b.addEventListener('click', function () { eps.splice(+b.dataset.del, 1); drawEps(); stats(); }); });
     }
     function delName(i) { return epOk(eps[i], 'f') ? 'Remove the ' + eps[i].f + ' mm eyepiece' : 'Remove eyepiece ' + (i + 1); }
-    function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '" aria-pressed="' + (s.id === skyv) + '"><b>' + s.name + '</b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
+    function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '" aria-pressed="' + (s.id === skyv) + '"><b>' + s.name + ' <span class="bt">Bortle ' + s.bortle + '</span></b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
     function stats() {
       var ap = reading($('scAp').value, true), fl = reading($('scFl').value);
       if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES + '.' : 'Enter the aperture and focal length.') + '</p>'; return; }
