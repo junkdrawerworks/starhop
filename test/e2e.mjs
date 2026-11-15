@@ -1157,6 +1157,8 @@ check('the screen stays on while pointing, after switching apps too, and lets go
 // what Point is for. Austin at 9 pm on Nov 15: M31 is 77° up in the northeast.
 const face = (page, az, alt) => page.evaluate(([az, alt]) => { for (let i = 0; i < 30; i++) window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: (360 - az) % 360, beta: 90 + alt, gamma: 0, absolute: true })); }, [az, alt]);
 const guide = page => page.$eval('#sky', c => c.__point());
+// true when a box covers the crosshair, which reaches 14px out from the middle
+const overCross = (b, w, h) => b.x < w / 2 + 14 && b.x + b.w > w / 2 - 14 && b.y < h / 2 + 14 && b.y + b.h > h / 2 - 14;
 check('Point says which way to turn to the object picked, and There once it is in the middle', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
   try {
@@ -1183,9 +1185,21 @@ check('Point says which way to turn to the object picked, and There once it is i
       assert.equal(at.text, 'There: M31', 'facing it, it says There, round ' + i);
       assert.ok(at.ring && Math.hypot(at.ring.x - w / 2, at.ring.y - h / 2) < 60, 'with a ring round it near the middle, round ' + i);
       if (i === 1) { await until(page, '#say', /There: M31/); assert.equal(await text(page, '#say'), 'There: M31', 'and a screen reader hears it'); }
+      for (const [g, what] of [[off, 'the arrow'], [at, 'There']]) assert.ok(!overCross(g.plate, w, h), `the words beside ${what} keep off the crosshair, round ${i}`);
       await page.click('#ptBtn');
       assert.equal(await guide(page), null, 'Stop puts it away, round ' + i);
     }
+    // a target straight to the left or right put its words, beside the arrow at the edge, over the crosshair
+    await openCard(page, 'Moon');
+    await page.click('#ctr');
+    await point(page);
+    await page.evaluate(() => { document.getElementById('ptHint').hidden = true; });
+    await face(page, 20, 10);
+    await page.waitForTimeout(100);
+    const side = await guide(page), w = await page.evaluate(() => innerWidth), h = await page.evaluate(() => innerHeight);
+    assert.match(side.text, /^Moon · up \d+° · left \d+°$/);
+    assert.ok(!overCross(side.plate, w, h), 'the words beside a left arrow keep off the crosshair ' + JSON.stringify(side.plate));
+    await page.click('#ptBtn');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
   // and stays red in night vision
