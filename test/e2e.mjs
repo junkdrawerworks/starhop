@@ -1478,6 +1478,9 @@ check('target rows show their whole line on a phone', async () => {
     assert.ok(ids.length > 60, 'the whole list shows');
     const lines = sel => page.$$eval(sel, d => d.map(e => Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight))));
     assert.ok(Math.max(...await lines('#targetSec .row .dt')) <= 2, 'a row’s second line takes two lines at most');
+    // where the line wraps, each time stays with its word: never "Best" at the end of one line and "6:34 am" on the next
+    const parted = await page.$$eval('#targetSec .row .dt', ds => ds.filter(d => [...d.querySelectorAll('.nw')].some(n => /\d:\d\d [ap]m$/.test(n.textContent) && !/^(Rises|Set|Best) /.test(n.textContent))).map(d => d.textContent));
+    assert.deepEqual(parted, [], 'a time keeps its word with it');
     // every row seen, last year, for the longest line there can be
     await page.evaluate(ids => { const s = JSON.parse(localStorage.getItem('starhop.v1')); s.seen = Object.fromEntries(ids.map(i => [i, '2025-11-10'])); localStorage.setItem('starhop.v1', JSON.stringify(s)); }, ids);
     await page.reload(); await ready(page);

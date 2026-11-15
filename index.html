@@ -1624,10 +1624,10 @@ html.red .chart canvas{background:#050000}
   // The same with its last part, the short direction or "overhead", hidden from screen readers: the row gives them the
   // direction's full name after it, and "rated" before the rating (the line is a block, so that text can't follow it
   // directly).
-  // A time, or the height with the direction, is kept on one line when the line wraps.
+  // A time with its word ("Best 6:34 am"), or the height with the direction, is kept on one line when the line wraps.
   function whenHtml(t) {
     var w = rowWhen(t), d = t.best.alt > 78 ? 'overhead' : dirName(t.best.az, true), head = esc(w.slice(0, -d.length)), end = /\d+° up · $/.exec(head) || { index: head.length, 0: '' };
-    head = head.slice(0, end.index).replace(/\d+:\d\d [ap]m/g, '<span class="nw">$&</span>');
+    head = head.slice(0, end.index).replace(/(?:(?:Rises|Set|Best) )?\d+:\d\d [ap]m/g, '<span class="nw">$&</span>');
     return head + '<span class="nw">' + end[0] + '<span aria-hidden="true">' + d + '</span></span>';
   }
   // and with the night it was seen, if it was, at the end; a screen reader hears that after the direction instead
