@@ -1688,7 +1688,7 @@ check('The timeline is a slider the keyboard can move from end to end', async ()
 });
 
 // The list, the direction buttons and the town results clip what lies outside them, so a focus ring drawn outside the
-// element showed as a stray line.
+// element showed as a stray line; the map's box hid its ring altogether.
 check('A focused row’s ring lies inside the list', async () => {
   const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
   // where the ring's outer edge falls, and the box that clips it
@@ -1704,6 +1704,9 @@ check('A focused row’s ring lies inside the list', async () => {
       assert.ok(r.visible, 'the ' + which + ' row shows a focus ring');
       assert.ok(r.inside, 'the ' + which + ' row’s ring lies inside the list');
     }
+    await page.locator('#sky').focus();
+    const sky = await ring('.skybox');
+    assert.ok(sky.visible && sky.inside, 'the sky map’s ring lies inside its box');
     await page.locator('#eventSec .ev').first().waitFor();
     await page.locator('#eventSec .ev').first().focus();
     assert.ok((await ring('.list')).inside, 'a Coming up row’s ring lies inside its list');
