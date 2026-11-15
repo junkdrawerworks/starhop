@@ -114,11 +114,11 @@ DOUBLES = [
     # key, name, lookup, separation ("), position angle, mags, note
     ('albireo', 'Albireo', dict(bayer='β1', con='Cyg'), 34.3, 54, '3.2 + 4.7', 'The showpiece double: a gold star and a blue one side by side. Splits at the lowest power.'),  # STFA 43AB, 2025
     ('mizar', 'Mizar and Alcor', dict(bayer='ζ', con='UMa'), 14.4, 153, '2.2 + 3.9', 'Alcor sits beside Mizar to the naked eye; the telescope splits Mizar itself into two white stars.'),  # STF1744AB, 2026
-    ('epslyr', 'Epsilon Lyrae', dict(bayer='ε1', con='Lyr'), 209.4, 172, '4.7 + 4.6', 'The Double Double. A wide pair at low power; at 100× or more each star splits again (about 2.3″ apart).'),  # STFA 37AB,CD, 2021
+    ('epslyr', 'Epsilon Lyrae', dict(bayer='ε1', con='Lyr'), 209.4, 172, '4.7 + 4.6', 'The Double Double: a wide pair at low power, and each of its stars is itself a close pair.'),  # STFA 37AB,CD, 2021
     # STF 205A,BC: the WDS's latest measure (2025) is 8.3", far off the pair's slow closing from 10.3" in 1830 to 9.6" in
     # 1987, so this is the 1987 measure (9.6" at 63°, as the Bright Star Catalogue's page at alcyone.de gives it).
     ('almach', 'Almach', dict(bayer='γ1', con='And'), 9.6, 63, '2.3 + 5.0', 'An orange star with a small blue companion, like a fainter Albireo.'),
-    ('castor', 'Castor', dict(bayer='α', con='Gem'), 5.7, 49, '1.9 + 3.0', 'Two bright white stars close together; needs about 100×.'),  # STF1110AB, 2026
+    ('castor', 'Castor', dict(bayer='α', con='Gem'), 5.7, 49, '1.9 + 3.0', 'Two bright white stars close together; more power shows a clean gap between them.'),  # STF1110AB, 2026
     ('corcaroli', 'Cor Caroli', dict(bayer='α2', con='CVn'), 19.2, 229, '2.9 + 5.5', 'An easy pair, white with a faintly tinted companion.'),  # STF1692AB, 2023
     ('polaris', 'Polaris', dict(bayer='α', con='UMi'), 18.4, 236, '2.0 + 9.1', 'The North Star has a faint companion close by; a nice test for a small telescope.'),  # STF 93AB, 2016
     ('rigel', 'Rigel', dict(bayer='β', con='Ori'), 9.4, 204, '0.3 + 6.8', 'A tiny companion almost lost in Rigel’s glare; wait for steady air.'),  # STF 668A,BC, 2023
@@ -128,6 +128,8 @@ DOUBLES = [
     ('algieba', 'Algieba', dict(bayer='γ1', con='Leo'), 4.8, 127, '2.4 + 3.6', 'A close pair of golden stars.'),  # STF1424AB, 2026
     ('acrux', 'Acrux', dict(bayer='α1', con='Cru'), 3.5, 111, '1.3 + 1.6', 'The brightest star of the Southern Cross splits into two blue-white stars.'),  # DUN 252AB, 2024
 ]
+# Each of Epsilon Lyrae's stars is a close pair: STF2382AB 2.1" (5.15 + 6.10, 2025) and STF2383CD 2.4" (5.25 + 5.38, 2025).
+INNER = {'epslyr': [2.1, 2.4]}
 doubles = []
 for key, nm, look, sep, pa, mags, note in DOUBLES:
     hip = find(**look)
@@ -142,6 +144,8 @@ for key, nm, look, sep, pa, mags, note in DOUBLES:
         sys.exit(f'double {nm}: star not found ({look})')
     ra, dec = flat[i * 4], flat[i * 4 + 1]
     doubles.append({'id': key, 'name': nm, 'type': 'ds', 'ra': ra, 'dec': dec, 'mag': flat[i * 4 + 2], 'sep': sep, 'pa': pa, 'mags': mags, 'note': note, 'star': i})
+    if key in INNER:
+        doubles[-1]['inner'] = INNER[key]
     print(f'  double {nm}: HIP {hip} mag {flat[i*4+2]}')
 
 # ---------- constellations ----------

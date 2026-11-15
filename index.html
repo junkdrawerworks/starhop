@@ -671,8 +671,11 @@ html.red .chart canvas{background:#050000}
     return { lm: nelm + 5 * Math.log10(ap / 7) - 0.6, dawes: 116 / ap, maxMag: Math.round(Math.min(2 * ap, 350)), fr: S.scope.fl / ap };
   }
   // The power that splits a double star. The list's rating, the card's advice and the eyepiece sketch all go by it: an
-  // eyepiece splits the pair when it reaches this power.
-  function splitPower(o) { return Math.max(20, 240 / o.sep); }
+  // eyepiece splits the pair when it reaches this power. A rule of thumb: about 240 ÷ the separation in arcseconds, and
+  // a quarter more for each magnitude the companion is fainter than the primary beyond the first, since a faint one is
+  // lost in the glare (so Rigel's, 6.5 magnitudes fainter at 9.4″, takes about 61×, not 26×). At least 20×.
+  function pairPower(sep, dm) { return Math.max(20, 240 / sep * (1 + 0.25 * Math.max(0, dm - 1))); }
+  function splitPower(o) { var m = mags(o); return pairPower(o.sep, m[1] - m[0]); }
   // A double's two magnitudes, from text like '3.2 + 4.7'.
   function mags(o) { var m = String(o.mags).split('+').map(parseFloat); return [m[0], m[1] != null && !isNaN(m[1]) ? m[1] : m[0]]; }
   function splits(r, o) { return r.M >= splitPower(o); }
@@ -683,8 +686,10 @@ html.red .chart canvas{background:#050000}
       var need = splitPower(o), st = scopeStats(), rows = epRows();
       if (o.sep < st.dawes * 1.1) return { r: 'hard', label: 'Too close', d: 9 };
       // without eyepieces entered, the telescope's highest useful power stands in for them
-      var can = rows.length ? rows.some(function (r) { return splits(r, o); }) : need <= st.maxMag;
-      return can ? { r: 'easy', label: 'Easy split', d: 0.5 } : { r: 'fair', label: 'Needs ' + Math.round(need) + '×', d: 2 };
+      var top = rows.length ? Math.max.apply(null, rows.map(function (r) { return r.M; })) : st.maxMag;
+      // an easy split has room to spare: 0.6 of the highest power, and twice the telescope's resolving limit
+      if (need <= top * 0.6 && o.sep >= st.dawes * 2) return { r: 'easy', label: 'Easy split', d: 0.5 };
+      return need <= top ? { r: 'fair', label: 'Splits at ' + Math.round(need) + '×', d: 1.2 } : { r: 'fair', label: 'Needs ' + Math.round(need) + '×', d: 2 };
     }
     if (o.mag == null) return { r: 'fair', label: 'Fair', d: 2 };
     var a0 = o.dim[0] || 1, b0 = o.dim[1] || a0, area = Math.max(0.3, Math.PI / 4 * a0 * b0), mag = o.mag;
@@ -1731,8 +1736,8 @@ html.red .chart canvas{background:#050000}
       var need = splitPower(o);
       rows.forEach(function (r, i) { if (pick < 0 && splits(r, o)) pick = i; });
       if (o.sep < st.dawes * 1.1) return { txt: 'At ' + o.sep + '″ these stars are closer than your telescope can split (about ' + st.dawes.toFixed(1) + '″).', pick: -1 };
-      if (pick < 0) return { txt: 'Splitting a ' + o.sep + '″ pair takes about ' + Math.round(need) + '×; your highest power is ' + Math.round(rows[rows.length - 1].M) + '×. A shorter eyepiece or a 2× Barlow will do it.', pick: rows.length - 1 };
-      return { txt: 'The two stars are ' + o.sep + '″ apart; about ' + Math.round(need) + '× splits them, so start with the ' + rows[pick].f + ' mm (' + Math.round(rows[pick].M) + '×).', pick: pick };
+      if (pick < 0) return { txt: 'Splitting a ' + o.sep + '″ pair takes about ' + Math.round(need) + '×; your highest power is ' + Math.round(rows[rows.length - 1].M) + '×. A shorter eyepiece or a 2× Barlow will do it.' + again(o, rows, st), pick: rows.length - 1 };
+      return { txt: 'The two stars are ' + o.sep + '″ apart; about ' + Math.round(need) + '× splits them, so start with the ' + rows[pick].f + ' mm (' + Math.round(rows[pick].M) + '×).' + again(o, rows, st), pick: pick };
     }
     if (o.k === 'star') return { txt: 'A star stays a point at any power. The ' + rows[0].f + ' mm (' + field(rows[0].tf) + ' field) shows it with the stars around it.', pick: 0 };
     var sz = (o.dim && o.dim[0]) || 5, size = sz >= 60 ? (sz / 60).toFixed(1) + '°' : Math.round(sz) + '′', low = rows[0];
@@ -1741,6 +1746,17 @@ html.red .chart canvas{background:#050000}
     else if (pick < 0 && sz * 1.6 > low.tf * 60) { pick = 0; txt = 'At ' + size + ' across, it fills most of your lowest-power field (' + field(low.tf) + '). Use the ' + low.f + ' mm, or try binoculars.'; }
     else { pick = Math.max(pick, 0); txt = (o.dim && o.dim[0] ? 'It spans ' + size + '. ' : '') + 'Find it with the ' + low.f + ' mm (' + field(low.tf) + ' field)' + (pick ? ', then try the ' + rows[pick].f + ' mm (' + Math.round(rows[pick].M) + '×) for a closer look.' : '.'); }
     return { txt: txt, pick: pick };
+  }
+  // Epsilon Lyrae's two stars are each a close pair as well: whether your eyepieces split them.
+  function again(o, rows, st) {
+    if (!o.inner) return '';
+    var top = rows[rows.length - 1], need = o.inner.map(function (sp) { return pairPower(sp, 0); }); // each pair is within a magnitude
+    var lead = ' Each star splits again, ' + o.inner[0] + '″ and ' + o.inner[1] + '″ apart, at about ' + Math.round(need[0]) + '× and ' + Math.round(need[1]) + '×';
+    if (Math.max.apply(null, o.inner) < st.dawes * 1.1) return ' Each star is itself a close pair, ' + o.inner[0] + '″ and ' + o.inner[1] + '″ apart, closer than your telescope can split.';
+    var hi = Math.max.apply(null, need), lo = Math.min.apply(null, need), at = function (x) { return rows.filter(function (r) { return r.M >= x; })[0]; };
+    if (top.M >= hi) return lead + ': the ' + at(hi).f + ' mm (' + Math.round(at(hi).M) + '×) splits both.';
+    if (top.M >= lo) return lead + ': the ' + at(lo).f + ' mm (' + Math.round(at(lo).M) + '×) splits the ' + o.inner[need.indexOf(lo)] + '″ pair but not the ' + o.inner[need.indexOf(hi)] + '″ one.';
+    return lead + '; your highest power is ' + Math.round(top.M) + '×, so they need a shorter eyepiece or a 2× Barlow.';
   }
   function riseSet(o) {
     var N = NIGHT, obj = o.b ? { k: 'body', b: o.b } : { v: o.v || vec(o.ra, o.dec) };

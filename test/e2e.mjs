@@ -1289,16 +1289,16 @@ check('a card says an object is wider than the field only when it is', async () 
   } finally { await ctx.close(); }
 });
 
-// Izar's stars are 2.9″ apart, which takes 83×. The example telescope's eyepieces reach 65×; the 8″ Dobsonian's reach 200×.
+// Izar's stars are 2.9″ apart and 2.2 magnitudes different, which takes 108× (240 ÷ 2.9, and 30% more for the faint companion). The example telescope's eyepieces reach 65×; the 8″ Dobsonian's reach 200×.
 check('a double star is rated, advised and sketched by the same power, the one your eyepieces reach', async () => {
-  for (const [save, label] of [[{ loc: AUSTIN }, 'Needs 83×'], [{ loc: AUSTIN, scope: DOB8 }, 'Easy split']]) {
+  for (const [save, label] of [[{ loc: AUSTIN }, 'Needs 108×'], [{ loc: AUSTIN, scope: DOB8 }, 'Easy split']]) {
     const { ctx, page, problems } = await open({ save: JSON.stringify(save), time: '2026-06-15T22:00:00-05:00' });
     try {
       const split = label === 'Easy split', who = save.scope ? 'the 8″ Dobsonian' : 'the example telescope';
       await page.click('#targetSec .filters [data-f="double"]');
       assert.equal(await page.$eval('#targetSec .row[data-id="izar"] .rate', el => el.textContent), label, 'the list, ' + who);
       await openCard(page, 'izar');
-      assert.match(await advice(page), split ? /about 83× splits them, so start with the 6 mm \(200×\)\.$/ : /takes about 83×; your highest power is 65×\./, 'the card, ' + who);
+      assert.match(await advice(page), split ? /about 108× splits them, so start with the 6 mm \(200×\)\.$/ : /takes about 108×; your highest power is 65×\./, 'the card, ' + who);
       await page.waitForFunction(() => document.getElementById('epCap').textContent);
       (split ? assert.doesNotMatch : assert.match)(await text(page, '#epCap'), /not split at this power/, 'the eyepiece sketch, ' + who);
       assert.deepEqual(problems, []);
@@ -1350,6 +1350,43 @@ check('Tapping an eyepiece row shows its view', async () => {
     assert.doesNotMatch(await cap(), /not split/);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
+});
+
+// The split power was 240 ÷ separation whatever the magnitudes, so Rigel's companion, 6.5 magnitudes fainter and
+// "almost lost in Rigel’s glare", took 27× and the card said to start with the 25 mm; and Castor's card said about 48×
+// beside a note saying it needs about 100×.
+check('Rigel’s card no longer suggests the 25 mm', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T23:00:00-06:00' });
+  try {
+    await page.click('#targetSec .filters [data-f="double"]');
+    const rows = await targetRows(page), rate = id => rows.find(r => r.id === id)?.rate;
+    assert.equal(rate('rigel'), 'Splits at 61×', 'Rigel on the list');
+    assert.equal(rate('albireo'), 'Easy split', 'Albireo on the list');
+    await openCard(page, 'rigel');
+    assert.equal(await advice(page), 'The two stars are 9.4″ apart; about 61× splits them, so start with the 10 mm (65×).');
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'castor');
+    assert.match(await advice(page), /about 43× splits them/);
+    assert.doesNotMatch(await text(page, '#sheet'), /100×/, 'Castor’s card gives one power');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// The card covered only the wide pair, 209″ apart. Each of its stars is a close pair, 2.1″ and 2.4″ apart (WDS), which
+// takes about 114× and 100×.
+check('Epsilon Lyrae says whether your telescope splits each star again', async () => {
+  const scopes = [[null, /Each star splits again, 2\.1″ and 2\.4″ apart, at about 114× and 100×; your highest power is 65×, so they need a shorter eyepiece or a 2× Barlow\.$/],
+    [DOB8, /Each star splits again, 2\.1″ and 2\.4″ apart, at about 114× and 100×: the 6 mm \(200×\) splits both\.$/],
+    [{ name: '', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 6, a: 52 }], set: true }, /: the 6 mm \(108×\) splits the 2\.4″ pair but not the 2\.1″ one\.$/]];
+  for (const [scope, want] of scopes) {
+    const { ctx, page, problems } = await open({ save: JSON.stringify(scope ? { loc: AUSTIN, scope } : { loc: AUSTIN }), time: '2026-10-13T21:00:00-05:00' });
+    try {
+      await page.click('#targetSec .filters [data-f="double"]');
+      await openCard(page, 'epslyr');
+      assert.match(await advice(page), want);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
 });
 
 // Separate lit blobs within r px of the eyepiece view's centre.

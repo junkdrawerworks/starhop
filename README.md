@@ -48,7 +48,7 @@
 - **Time zones.** Every time is shown in the observing location's own time zone, whatever the device is set to.
 - **Difficulty ratings are a rule of thumb:**
   - **Galaxies and nebulae:** the object's surface brightness is compared with the sky's, helped by aperture and penalized by moonlight and twilight. For big objects the rating uses the bright core, which is what you see first.
-  - **Double stars:** rated by the power needed to split them (roughly 240 ÷ separation in arcseconds), against your telescope's resolving limit and the highest power your eyepieces reach.
+  - **Double stars:** rated by the power needed to split them, against your telescope's resolving limit and the highest power your eyepieces reach; a pair that needs no more than 0.6 of that highest power, and is at least twice as wide as the telescope can resolve, is an easy split. The power is a rule of thumb, not a published formula: about 240 ÷ the separation in arcseconds, and a quarter more again for each magnitude the companion is fainter than the primary beyond the first, since a faint companion is lost in the glare. Epsilon Lyrae's card also says whether your eyepieces split each of its two stars again.
 - **Star-hops.** Starhop looks for two bright stars with the target on or near the line between them, preferring short, bright, well-aligned pairs. When there is no such pair, it falls back to the nearest bright star. The stars are ones that are up at the time the finder chart shows, and outside the object itself, so a cluster's hop doesn't start from one of its own stars. The chart labels both and widens, up to 60°, to take them in. The brightest stars, brighter than magnitude 1.5, need no hop.
 
 ## Running it
