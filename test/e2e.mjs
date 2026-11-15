@@ -527,6 +527,44 @@ check('a planet low in full darkness is low, not low in twilight', async () => {
 
 const cardRiseSet = page => page.$eval('#sheet .card p:not(.big)', p => p.textContent);
 
+// At 7:30 pm in New York on Nov 15 2026 the list put Venus, Jupiter and Mercury, which rise before dawn, above Saturn,
+// up now. Astronomy Engine 2.1.19 has Jupiter rising at 11:17 pm there, and Saturn setting at 1:44 am.
+const NEW_YORK = { name: 'New York, NY', lat: 40.71, lon: -74.01, tz: 'America/New_York' };
+check('in the evening what is up before midnight comes first, and what has set is dimmed', async () => {
+  // up now or rising before midnight, rising after it, set for the night
+  const group = when => /^Set /.test(when) ? 2 : /^Rises \d+:\d\d am/.test(when) ? 1 : 0;
+  let { ctx, page, problems } = await open({ loc: NEW_YORK, time: '2026-11-15T19:30:00-05:00' });
+  try {
+    const rows = await targetRows(page), at = id => rows.findIndex(r => r.id === id);
+    assert.ok(at('Saturn') < at('Venus') && at('Saturn') < at('Mercury'), rows.slice(0, 8).map(r => r.id).join());
+    assert.match(rows[at('Jupiter')].when, /^Rises 11:17 pm · Best 6:07 am/);
+    assert.match(rows[at('Venus')].when, /^Rises 4:09 am · Best 6:17 am/);
+    rows.slice(1).forEach((r, i) => assert.ok(group(rows[i].when) <= group(r.when), `${rows[i].id} (${rows[i].when}) before ${r.id} (${r.when})`));
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // At 11:30 pm the Moon has set (9:50 pm), and M13 (9:39 pm): their rows go last, dimmed.
+  ({ ctx, page, problems } = await open({ loc: NEW_YORK, time: '2026-11-15T23:30:00-05:00' }));
+  try {
+    const rows = await targetRows(page), dim = await page.$$eval('#targetSec .row.gone', r => r.map(x => x.dataset.id));
+    assert.match(rows.find(r => r.id === 'M13').when, /^Set 9:39 pm/);
+    assert.ok(dim.includes('Moon') && dim.includes('M13'), dim.join());
+    assert.deepEqual(rows.filter(r => group(r.when) === 2).map(r => r.id), dim, 'every set row is dimmed, and only those');
+    assert.deepEqual(rows.slice(-dim.length).map(r => r.id), dim, 'and they come last');
+    // the name steps down to the second line's colour
+    const [nm, dt] = await page.$eval('#targetSec .row.gone', r => [getComputedStyle(r.querySelector('.nm')).color, getComputedStyle(r.querySelector('.dt')).color]);
+    assert.equal(nm, dt);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // After midnight the order is the list's own: Venus, best at dawn, above Saturn, which sets at 1:44 am.
+  ({ ctx, page, problems } = await open({ loc: NEW_YORK, time: '2026-11-16T01:00:00-05:00' }));
+  try {
+    const rows = await targetRows(page), at = id => rows.findIndex(r => r.id === id);
+    assert.ok(at('Venus') < at('Saturn'), rows.slice(0, 8).map(r => r.id).join());
+    assert.ok(await page.$('#targetSec .row.gone[data-id="Moon"]'), 'the Moon, set, is still dimmed');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Hay River, Sep 19 1999: Mesarthim is 0.4° below the horizon at the start of the night and never gets lower than
 // 0.5° down, the level that allows for refraction, so it never sets; at 9 pm it's 12° up.
 check('a card calls something up all night when it is', async () => {
@@ -1579,6 +1617,7 @@ check('A row says tonight whether it is up now, rises later or has set', async (
   const line = id => page.$eval(`#targetSec .row[data-id="${id}"] .dt`, d => d.textContent);
   const order = () => page.$$eval('#targetSec .row', rs => rs.map(r => r.dataset.id).join());
   try {
+    await targetRows(page); // the whole list: Jupiter, rising after midnight, comes after what's up before it
     const before = await order();
     assert.match(await line('Moon'), /^Up now · Best 5:54 pm/);
     assert.match(await line('Jupiter'), /^Rises 12:08 am · Best /);

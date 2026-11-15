@@ -180,6 +180,8 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .row:last-child{border-bottom:0}
 .row:hover{background:var(--panel2)}
 .row.sel{background:var(--raise)}
+/* set for the night: its name steps down to the second line's colour and its marks fade, so it stays legible */
+.row.gone .nm{color:var(--ink2)}.row.gone .g,.row.gone .rate{opacity:.6}
 .row .nm{display:block;font-weight:700;min-width:0;overflow-wrap:anywhere}
 .row .nm small{font:500 11.5px var(--mono);color:var(--ink3);margin-left:2px;white-space:nowrap}
 .row .nm .tick{color:var(--good);font-size:12px;margin-left:6px}
@@ -1724,6 +1726,7 @@ html.red .chart canvas{background:#050000}
       if (TFILTER === 'unseen') return t.k !== 'moon' && !SEEN[t.id]; // the Moon can't be marked, so it never leaves
       return t.o && t.o.kind === TFILTER && t.k === 'dso';
     });
+    list = eveningOrder(list);
     var shown = TMORE ? list : list.slice(0, 14);
     var h = '<h2>What to look at <small>' + plural(list.length, 'target') + '</small></h2>' +
       '<div class="filters">' + FILTERS.map(function (f) { return '<button class="chip' + (TFILTER === f[0] ? ' on' : '') + '" type="button" data-f="' + f[0] + '" aria-pressed="' + (TFILTER === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>';
@@ -1732,7 +1735,7 @@ html.red .chart canvas{background:#050000}
     else h += '<div class="list">' + shown.map(function (t) {
       // the catalogue number; the Double Cluster's row gives both of its numbers, as its card does
       var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.parts ? t.o.cat : t.o.id) + '</small>' : '';
-      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + (id && ' ' + id) + (SEEN[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (SEEN[t.id] ? ', seen ' + esc(seenText(SEEN[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
+      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + (gone(t) ? ' gone' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + (id && ' ' + id) + (SEEN[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (SEEN[t.id] ? ', seen ' + esc(seenText(SEEN[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += tally();
@@ -1756,17 +1759,37 @@ html.red .chart canvas{background:#050000}
   // Its rise and set times are found once a night, at the levels the card uses (see riseSet).
   function rowWhen(t) {
     var b = t.best, when = 'Best ' + tTime(b.t) + ' · ' + (b.alt > 78 ? 'overhead' : Math.round(b.alt) + '° up · ' + dirName(b.az, true));
-    if (!sameNight(NIGHT.n, currentNight(new Date()))) return when;
+    var st = standing(t); if (!st) return when;
+    var state = st.up ? (T.live ? 'Up now' : '') : st.rise ? 'Rises ' + tTime(st.rise.t) : st.set ? 'Set ' + tTime(st.set.t) : '';
+    return (state ? state + ' · ' : '') + when;
+  }
+  // Tonight, where a target stands at the time shown: up, rising later, or set for the night; null on another night.
+  // Down, it rises later only if its best is still to come; past its best, it's when it set that counts.
+  function standing(t) {
+    if (!sameNight(NIGHT.n, currentNight(new Date()))) return null;
     if (!t.cross) {
       var o = t.o || objById(t.k, t.id), obj = o.b ? { k: 'body', b: o.b } : { v: o.v }, lvl = t.k === 'moon' ? -0.3 : t.k === 'planet' ? 0 : -0.5;
       t.cross = { up: altOf(obj, NIGHT.start) > lvl, at: crossings(obj, NIGHT.start, NIGHT.end, 12 * 60e3, lvl) };
     }
     var up = t.cross.up, set = null, rise = null;
     t.cross.at.forEach(function (c) { if (c.t <= T.t) { up = c.up; if (!c.up) set = c; } else if (c.up && !rise) rise = c; });
-    // Down, it rises later only if its best is still to come; past its best, it's when it set that counts.
-    var state = up ? (T.live ? 'Up now' : '') : rise && rise.t <= b.t ? 'Rises ' + tTime(rise.t) : set ? 'Set ' + tTime(set.t) : '';
-    return (state ? state + ' · ' : '') + when;
+    if (up) return { up: true };
+    return rise && rise.t <= t.best.t ? { rise: rise } : { set: set };
   }
+  // Tonight in the evening, what's up before midnight comes first, then what rises after it, then what has set for the
+  // night, each in the list's own order: at 7:30 pm Saturn, up now, comes before Jupiter, which rises at 11:17 pm.
+  // Later in the night, and on any other night, the order stays the list's.
+  function eveningOrder(list) {
+    if (!sameNight(NIGHT.n, currentNight(new Date()))) return list;
+    var nn = addDays(NIGHT.n, 1), mid = zoned(nn.y, nn.mo, nn.d, 0, 0, tz());
+    if (T.t >= mid) return list;
+    return list.map(function (t, i) {
+      var st = standing(t);
+      return { t: t, i: i, g: !st || st.up || (st.rise && st.rise.t < mid) ? 0 : st.rise ? 1 : st.set ? 2 : 0 };
+    }).sort(function (a, b) { return a.g - b.g || a.i - b.i; }).map(function (x) { return x.t; });
+  }
+  // a row whose target has set for the night is dimmed
+  function gone(t) { var st = standing(t); return !!st && !st.up && !st.rise && !!st.set; }
   // The same with its last part, the short direction or "overhead", hidden from screen readers: the row gives them the
   // direction's full name after it, and "rated" before the rating (the line is a block, so that text can't follow it
   // directly).
@@ -1778,7 +1801,7 @@ html.red .chart canvas{background:#050000}
   }
   // and with the night it was seen, if it was, at the end; a screen reader hears that after the direction instead
   function rowDt(t) { return whenHtml(t) + (SEEN[t.id] ? '<span aria-hidden="true"> · <span class="seen">Seen ' + esc(seenText(SEEN[t.id])) + '</span></span>' : ''); }
-  function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) d.innerHTML = rowDt(t); }); }
+  function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) { d.innerHTML = rowDt(t); r.classList.toggle('gone', gone(t)); } }); }
   function markRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { r.classList.toggle('sel', !!SEL && r.dataset.id === String(SEL.id)); }); }
   function select(o, open) { if (!o) return; SEL = o; redraw(); markRows(); if (open) openObject(o); }
 
