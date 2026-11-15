@@ -974,10 +974,12 @@ html.red .chart canvas{background:#050000}
       g.textAlign = 'left';
     }
     // target marker and rings
+    var ring = null; // the first ring, for tests
     if (o.target) {
       var tv = objHor(o.target, sc), tp = tv && proj(P, tv);
       if (tp) {
-        (o.rings || []).forEach(function (rg) { var rp = Math.tan(rg.deg / 2 * D2R) * 2 * P.s; g.strokeStyle = col('#DDB05A', rg.a || 0.5); g.lineWidth = 1.2; g.setLineDash(rg.dash ? [4, 4] : []); g.beginPath(); g.arc(tp[0], tp[1], rp, 0, 2 * Math.PI); g.stroke(); g.setLineDash([]); if (rg.label) { g.font = '400 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#DDB05A', 0.75); g.fillText(rg.label, tp[0] + rp * 0.72 + 3, tp[1] - rp * 0.72 - 3); } });
+        // a ring's deg is its diameter, so its edge, rg.deg / 2 from the centre, lands 2 tan(rg.deg / 4) s out
+        (o.rings || []).forEach(function (rg) { var rp = 2 * Math.tan(rg.deg / 4 * D2R) * P.s; if (!ring) ring = { x: tp[0], y: tp[1], r: rp }; g.strokeStyle = col('#DDB05A', rg.a || 0.5); g.lineWidth = 1.2; g.setLineDash(rg.dash ? [4, 4] : []); g.beginPath(); g.arc(tp[0], tp[1], rp, 0, 2 * Math.PI); g.stroke(); g.setLineDash([]); if (rg.label) { g.font = '400 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#DDB05A', 0.75); g.fillText(rg.label, tp[0] + rp * 0.72 + 3, tp[1] - rp * 0.72 - 3); } });
         g.strokeStyle = col('#FFFFFF', 0.9); g.lineWidth = 1.6; g.beginPath(); g.arc(tp[0], tp[1], 11, 0, 2 * Math.PI); g.stroke();
         keep.push({ x: tp[0] - 12, y: tp[1] - 12, w: 24, h: 24 });
       }
@@ -989,7 +991,7 @@ html.red .chart canvas{background:#050000}
     }
     var placed = placeLabels(g, w, h, labs, keep);
     placed.forEach(function (l) { if (l.obj) l.obj.lab = true; }); // a labelled star is the likelier one to be tapped
-    return { hits: hits, P: P, sc: sc, labels: compass.concat(placed) };
+    return { hits: hits, P: P, sc: sc, labels: compass.concat(placed), ring: ring };
   }
   function circle3(a, b, c) {
     var d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1])); if (Math.abs(d) < 1e-6) return null;
@@ -1809,7 +1811,9 @@ html.red .chart canvas{background:#050000}
     var vw = { az: aa.az, alt: aa.alt, fov: fov }, stamp = 'Naked-eye view · ' + tTime(t);
     g.font = '700 11px "Atkinson Hyperlegible", sans-serif';
     var clearStrip = { x: 0, y: f.h - 21, w: g.measureText(stamp).width + 14, h: 21, t: stamp }; // no labels under the stamp
-    c.__labels = render(g, f.w, f.h, vw, t, { target: o, hop: hop && hop.a && hop.b ? { a: hop.a, b: hop.b, stars: hop.stars || [] } : null, rings: [{ deg: 5, dash: true, a: 0.6 }], lim: 5.6, labelMag: 3.9, noMW: false, noGrid: true, dso: true, noCompass: false, reserve: [clearStrip] }).labels;
+    var res = render(g, f.w, f.h, vw, t, { target: o, hop: hop && hop.a && hop.b ? { a: hop.a, b: hop.b, stars: hop.stars || [] } : null, rings: [{ deg: 5, dash: true, a: 0.6 }], lim: 5.6, labelMag: 3.9, noMW: false, noGrid: true, dso: true, noCompass: false, reserve: [clearStrip] });
+    c.__labels = res.labels; c.__ring = res.ring; // tests read where the labels and the finderscope circle went,
+    c.__at = function (ra, dec) { return proj(res.P, rot(res.sc.m, vec(ra, dec))); }; // and where a J2000 position lands
     c.__stamp = clearStrip; // tests check the labels kept off it, and the time it shows
     // a plate behind the stamp, so lines and markers don't run through its words
     g.fillStyle = col('#04070F', 0.8); g.beginPath(); if (g.roundRect) g.roundRect(clearStrip.x + 2, clearStrip.y, clearStrip.w - 2, clearStrip.h - 2, 5); else g.rect(clearStrip.x + 2, clearStrip.y, clearStrip.w - 2, clearStrip.h - 2); g.fill();

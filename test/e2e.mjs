@@ -1176,6 +1176,23 @@ check('the Moon’s band on the timeline is one even bar', async () => {
 
 // The finder chart's stamp had nothing behind it, so lines and markers ran through it. From New York at 8:30 pm on Nov 15
 // a line of Andromeda crosses M31's stamp.
+// The caption calls the dashed circle a 5° finderscope field, but it was drawn with a 5° radius, 10° across.
+check('The finder circle is as wide as the field it names', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  try {
+    await openCard(page, 'M13');
+    await page.waitForFunction(() => document.getElementById('finder').__ring, null, { timeout: 5000 });
+    const m = await page.$eval('#finder', c => {
+      const at = c.__at(250.4217, 36.4613), off = c.__at(250.4217, 36.4613 + 2.5), r = c.__ring; // M13, and 2.5° north of it
+      return { centre: Math.hypot(at[0] - r.x, at[1] - r.y), half: Math.hypot(off[0] - at[0], off[1] - at[1]), r: r.r };
+    });
+    assert.ok(m.centre < 0.5, 'the circle is centred on M13');
+    assert.ok(Math.abs(m.r - m.half) < 0.01 * m.half, `the circle's radius is ${m.r.toFixed(1)} px; 2.5° is ${m.half.toFixed(1)} px`);
+    assert.match(await text(page, '#sheet .chart .cap'), /finderscope field \(5°\)/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('the finder chart’s stamp sits on a plate', async () => {
   const { ctx, page } = await open({ loc: { name: 'New York, NY', lat: 40.71, lon: -74.01, tz: 'America/New_York' }, time: '2026-11-15T20:30:00-05:00' });
   try {
