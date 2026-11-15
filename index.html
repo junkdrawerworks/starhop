@@ -148,7 +148,7 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 /* panel */
 .panel{padding:6px var(--sr) 28px var(--sl);display:flex;flex-direction:column;gap:22px}
 .sec h2{margin:14px 0 10px;font:italic 400 24px/1.1 var(--disp);display:flex;align-items:baseline;gap:10px;text-wrap:balance}
-.sec h2 small{font:700 11px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.sec h2 small{min-width:0;overflow-wrap:anywhere;font:700 11px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
 .lede{margin:0 0 12px;color:var(--ink2);max-width:62ch}
 .lede b{color:var(--ink)}
 .facts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -216,7 +216,7 @@ html.red .sheetbg{background:rgba(4,0,0,.62)}
 .sheet{background:var(--bg);border:1px solid var(--line2);border-bottom:0;border-radius:18px 18px 0 0;width:min(620px,100%);max-height:92%;display:flex;flex-direction:column;box-shadow:0 -20px 50px -10px #000;padding-bottom:env(safe-area-inset-bottom,0px)}
 .sheet:focus{outline:none}
 .sheet .hd{display:flex;align-items:center;gap:10px;padding:14px 16px 8px}
-.sheet .hd h2{margin:0;flex:1;font:italic 400 25px/1.1 var(--disp);min-width:0;text-wrap:balance}
+.sheet .hd h2{margin:0;flex:1;font:italic 400 25px/1.1 var(--disp);min-width:0;text-wrap:balance;overflow-wrap:anywhere}
 .sheet .hd h2 small{display:block;font:400 13px var(--body);font-style:normal;color:var(--ink2);margin-top:3px}
 .sheet .bd{overflow:auto;overscroll-behavior:contain;padding:4px 16px 20px;display:flex;flex-direction:column;gap:14px;-webkit-overflow-scrolling:touch}
 /* on a phone a sheet covers the page, which holds still behind it: a swipe past a card's end, or on its heading or the
@@ -234,7 +234,7 @@ html.red .sheetbg{background:rgba(4,0,0,.62)}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px 14px;margin-top:8px}
 .kv div>span{display:block;font:700 10.5px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
 .kv div b{font:500 15px var(--mono)}
-.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:12px}
 .chart{display:flex;flex-direction:column;gap:6px}
 .chart canvas{width:100%;aspect-ratio:1;max-width:100%;border-radius:10px;background:#04070F;display:block}
 html.red .chart canvas{background:#050000}
@@ -295,6 +295,11 @@ html.red .chart canvas{background:#050000}
   #scopeBtn{padding:0 10px}#scopeBtn .t{display:none}
   .ov-b .seg button{padding:0 8px;min-width:30px}
 }
+/* a phone zoomed to 200% or so: the brand keeps its mark and leaves its room to the place */
+@media (max-width:300px){
+  .brand .bt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .top{gap:4px}#locBtn{padding:0 9px}#locBtn svg{display:none}
+}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
 </head>
@@ -302,7 +307,7 @@ html.red .chart canvas{background:#050000}
 <noscript><p class="nojs">Starhop needs JavaScript to draw the sky.</p></noscript>
 <div class="app" id="app">
   <header class="top">
-    <h1 class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="17" r="1.6" fill="currentColor"/><circle cx="12" cy="9" r="1.2" fill="currentColor"/><circle cx="19.5" cy="5" r="2" fill="currentColor"/><path d="M6.4 15.8 10.9 10M13.3 8.3l4.4-2.4" stroke-dasharray="1.6 2.2"/></svg>Starhop</h1>
+    <h1 class="brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="17" r="1.6" fill="currentColor"/><circle cx="12" cy="9" r="1.2" fill="currentColor"/><circle cx="19.5" cy="5" r="2" fill="currentColor"/><path d="M6.4 15.8 10.9 10M13.3 8.3l4.4-2.4" stroke-dasharray="1.6 2.2"/></svg><span class="bt">Starhop</span></h1>
     <button class="chip" id="locBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.3"/></svg><span class="sr">Location: </span><span class="t" id="locName">Location</span></button>
     <span class="grow"></span>
     <button class="ibtn" id="redBtn" type="button" aria-pressed="false" aria-label="Night vision: dim red display" title="Night vision — dim red, keeps your eyes dark-adapted"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8" fill="currentColor"/></svg></button>
@@ -1357,8 +1362,8 @@ html.red .chart canvas{background:#050000}
     for (i = 0; i < sm.length - 1; i++) if (sm[i].moon > 0) { var j = i; while (j + 1 < sm.length - 1 && sm[j + 1].moon > 0) j++; var mx0 = tlX(sm[i].t, w), mx1 = tlX(sm[j + 1].t, w); tg.fillRect(mx0, top + bh + 3, mx1 - mx0, 4); i = j; }
     // hour ticks
     tg.font = '500 10.5px "DM Mono", monospace'; tg.textAlign = 'center';
-    // a long night near polar night, on a narrow screen, names every other hour so the names don't run together
-    var p0 = parts(N.start, tz()), first = N.start.getTime() + ((60 - p0.mi) % 60) * 60e3 - p0.s * 1e3, every = w / ((N.end - N.start) / 3600e3) < 22 ? 2 : 1;
+    // a long night, or a narrow screen, names every other hour when there's no room for the widest name between them
+    var p0 = parts(N.start, tz()), first = N.start.getTime() + ((60 - p0.mi) % 60) * 60e3 - p0.s * 1e3, every = w / ((N.end - N.start) / 3600e3) < tg.measureText('12a').width + 4 ? 2 : 1;
     for (var x = first; x < N.end.getTime(); x += 3600e3) {
       var tx = tlX(new Date(x), w), hr = parts(new Date(x), tz()).h, lab = (hr % 12 || 12) + (hr === 0 ? 'a' : hr === 12 ? 'p' : '');
       tg.fillStyle = col('#E9E3D1', 0.35); tg.fillRect(tx, top + bh - 5, 1, 5);

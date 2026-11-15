@@ -977,6 +977,32 @@ check('Buttons take a tap a little outside their edges, and the map still drags 
   } finally { await ctx.close(); }
 });
 
+// Page zoom at 200% leaves a 390 px phone 195 px wide: the header ran off the side, the card's charts were wider than the
+// card, and a long place name with no spaces widened the page and every sheet with it.
+check('The page fits a phone zoomed to 200%', async () => {
+  const LONG = { ...AUSTIN, name: 'Llanfairpwllgwyngyllgogerychwyrndrobwllllantysiliogogogoch' };
+  for (const [size, loc] of [[[195, 422], AUSTIN], [[280, 600], AUSTIN], [[320, 568], AUSTIN], [[195, 422], LONG], [[390, 844], LONG]]) {
+    const { ctx, page, problems } = await open({ loc, size, time: '2026-11-15T21:00:00-06:00' });
+    const where = `${size[0]} px${loc === LONG ? ' with a long place name' : ''}`;
+    const wide = () => page.evaluate(() => [document.documentElement.scrollWidth - innerWidth].concat([...document.querySelectorAll('#sheet .sheet, #sheet .bd, #sheet .hd, .top')].map(e => e.scrollWidth - e.clientWidth)).filter(d => d > 0));
+    try {
+      assert.deepEqual(await wide(), [], `${where}: the page fits`);
+      assert.ok(await page.$eval('#scopeBtn', b => b.getBoundingClientRect().right <= innerWidth), `${where}: the telescope button is on screen`);
+      assert.ok(await page.$eval('#locName', n => n.getBoundingClientRect().width >= 20), `${where}: the place shows`);
+      await page.evaluate(() => [...document.querySelectorAll('#targetSec .row')].find(r => r.dataset.id === 'M45').click());
+      await page.waitForTimeout(300);
+      assert.deepEqual(await wide(), [], `${where}: with a card open`);
+      assert.ok(await page.$$eval('#sheet .chart canvas', c => c.every(x => x.getBoundingClientRect().right <= innerWidth)), `${where}: its charts fit`);
+      await page.evaluate(() => document.querySelector('#sheet [data-close]').click());
+      await page.evaluate(() => document.getElementById('scopeBtn').click());
+      await page.waitForTimeout(200);
+      assert.deepEqual(await wide(), [], `${where}: with the telescope sheet open`);
+      assert.ok(await page.$eval('#scSave', b => b.getBoundingClientRect().right <= innerWidth), `${where}: Save is on screen`);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
 check('pointing stays on the live sky when the night rolls over', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T07:30:00-06:00', init: fakeWakeLock });
   try {
