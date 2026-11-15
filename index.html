@@ -621,7 +621,7 @@ html.red .chart canvas{background:#050000}
   var DIRS = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
   var DIRS_S = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
   function dirName(az, short) { var i = Math.round(norm360(az) / 45) % 8; return short ? DIRS_S[i] : DIRS[i]; }
-  function fists(alt) { var f = Math.round(alt / 10 * 2) / 2; return f <= 0.5 ? 'just above the horizon' : (f === 1 ? 'about one fist' : 'about ' + (f % 1 ? Math.floor(f) + '½' : f) + ' fists') + ' up'; }
+  function fists(alt) { var f = Math.round(alt / 10 * 2) / 2; return f <= 0.5 ? 'just above the horizon' : (f === 1 ? 'about one fist' : 'about ' + (f % 1 ? Math.floor(f) + '½' : f) + ' fists') + ' up at arm’s length'; }
 
   // ---------- data ----------
   var STARS = null, NAMES = {}, VARS = {}, CONS = [], DSO = [], DOUBLES = [], MW = null, SVEC = null;
