@@ -562,6 +562,68 @@ check('pointing a little below the horizon keeps the ground below and the stars 
   }
 });
 
+// Night vision lets no light but red through: a pixel counts as not red when its green or blue is more than about a
+// third of its red, allowing a little for near-black. The screenshot is read back in the page, so nothing else is needed.
+const notRed = async (page, what) => {
+  const png = (await page.screenshot()).toString('base64');
+  return page.evaluate(async ([png, what]) => {
+    const img = await createImageBitmap(await (await fetch('data:image/png;base64,' + png)).blob());
+    const c = new OffscreenCanvas(img.width, img.height), g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, img.width, img.height).data;
+    let n = 0, worst = null, at = null;
+    for (let i = 0; i < d.length; i += 4) {
+      const over = Math.max(d[i + 1], d[i + 2]) - (0.35 * d[i] + 8);
+      if (over > 0) { n++; if (!worst || over > worst.over) { worst = { over, rgb: [d[i], d[i + 1], d[i + 2]] }; at = [(i / 4) % img.width, Math.floor(i / 4 / img.width)]; } }
+    }
+    return n ? `${what}: ${n} pixels aren't red, the worst (${worst.rgb}) at ${at}` : '';
+  }, [png, what]);
+};
+
+check('night vision has no light but red', async () => {
+  let { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, red: true }), time: '2026-11-15T21:00:00-06:00' });
+  const leaks = [];
+  const look = async what => { const l = await notRed(page, what); if (l) leaks.push(l); };
+  try {
+    assert.equal(await page.$eval('meta[name=theme-color]', m => m.content), '#070000', 'the browser bar goes red too');
+    await look('the page');
+    const row = page.locator('#targetSec .row').first();
+    await row.scrollIntoViewIfNeeded();
+    await look('the list');
+    // the frame right after a tap, when Chromium flashes its tap highlight over the row and the card opening on it
+    await row.tap();
+    await look('the frame after tapping a row');
+    await page.waitForTimeout(400);
+    await look('a card');
+    await page.click('#sheet [data-close]');
+    await page.click('#scopeBtn');
+    await page.waitForTimeout(300);
+    await look('the telescope sheet');
+    await page.click('#sheet [data-close]');
+    await page.click('#locBtn');
+    await page.waitForFunction(() => /place/.test(document.getElementById('lres').textContent), null, { timeout: 10000 });
+    await look('the location sheet, with its placeholder');
+    await page.fill('#lLat', '30.27');
+    await page.fill('#lLon', '-97.74');
+    await page.click('#lUse');
+    await page.waitForTimeout(400);
+    await look('a message');
+    await page.reload();
+    await ready(page);
+    assert.equal(await page.$eval('meta[name=theme-color]', m => m.content), '#070000', 'the browser bar stays red after a reload');
+    assert.ok(await page.evaluate(() => document.documentElement.classList.contains('red')), 'night vision stays on after a reload');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // In twilight, with the banner over the map
+  ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, red: true }), time: '2026-11-15T17:45:00-06:00' }));
+  try {
+    assert.ok(await page.isVisible('#banner'), 'the twilight banner shows');
+    await look('the twilight banner');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  assert.deepEqual(leaks, []);
+});
+
 // A stand-in for the Screen Wake Lock API, which headless Chromium refuses, and for the page being hidden, when the
 // browser lets go of every lock (W3C Screen Wake Lock API, "Handling document loss of visibility").
 const fakeWakeLock = () => {

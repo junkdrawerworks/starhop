@@ -49,6 +49,12 @@ html.red{
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
+/* Chromium's own blue tap flash and the system's selection, placeholder, scrollbar and menu colours ignore the palette,
+   so night vision would show them unchanged: each comes from the palette instead. */
+html{-webkit-tap-highlight-color:transparent;scrollbar-color:var(--line2) var(--bg)}
+::placeholder{color:var(--ink3);opacity:1}
+::selection{background:var(--brass-soft);color:var(--ink)}
+option{background:var(--panel2);color:var(--ink)}
 body{font:15px/1.45 var(--body);-webkit-font-smoothing:antialiased}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -69,7 +75,7 @@ a{color:var(--brass)}
 .chip.on{background:var(--brass);border-color:var(--brass);color:var(--brass-ink)}
 .ibtn{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:var(--panel2);border:1px solid var(--line2);color:var(--ink2);padding:0;flex:none}
 .ibtn svg{width:17px;height:17px}
-.ibtn[aria-pressed="true"]{background:#5A0B07;border-color:#8A140D;color:#FF6A55}
+.ibtn[aria-pressed="true"]{background:var(--brass-soft);border-color:var(--ink3);color:var(--ink)}
 
 .main{display:flex;flex-direction:column}
 .skywrap{position:relative;display:flex;flex-direction:column;background:#04070F}
@@ -94,6 +100,7 @@ html.red .seg{background:rgba(16,1,1,.85)}
 .seg button.on{background:var(--brass);color:var(--brass-ink)}
 .zoom{display:inline-flex;gap:6px}
 .banner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(9,14,28,.9);border:1px solid var(--line2);border-radius:var(--r);padding:12px 16px;text-align:center;max-width:280px;font-size:14px;color:var(--ink2);pointer-events:none}
+html.red .banner{background:rgba(16,1,1,.9)}
 .banner b{display:block;color:var(--ink);font:italic 400 20px var(--disp);margin-bottom:2px}
 .layers{position:absolute;top:48px;right:12px;z-index:5;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);padding:8px;display:flex;flex-direction:column;gap:2px;min-width:190px;box-shadow:0 18px 40px -12px #000}
 .layers label{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;font-size:14px;color:var(--ink2);cursor:pointer}
@@ -102,6 +109,7 @@ html.red .seg{background:rgba(16,1,1,.85)}
 .layers .lydone{margin-top:4px;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;color:var(--ink);font-weight:700;font-size:13px;height:32px}
 html.pointing,html.pointing body{overflow:hidden}
 .pointing .skybox{position:fixed;inset:0;height:auto;min-height:0;z-index:40;background:#04070F}
+html.red.pointing .skybox{background:#050000}
 .pointing .ov-tl{top:calc(10px + env(safe-area-inset-top,0px))}
 .pointing .ov-tr{top:calc(10px + env(safe-area-inset-top,0px))}
 .pointing .ov-b{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
@@ -182,6 +190,7 @@ html.red .g .ds{background:radial-gradient(circle at 30% 50%,#E24A3C 0 3.5px,tra
 /* sheets */
 #sheet[hidden]{display:none}
 .sheetbg{position:fixed;inset:0;z-index:50;background:rgba(2,4,10,.62);display:flex;align-items:flex-end;justify-content:center}
+html.red .sheetbg{background:rgba(4,0,0,.62)}
 .sheet{background:var(--bg);border:1px solid var(--line2);border-bottom:0;border-radius:18px 18px 0 0;width:min(620px,100%);max-height:92%;display:flex;flex-direction:column;box-shadow:0 -20px 50px -10px #000;padding-bottom:env(safe-area-inset-bottom,0px)}
 .sheet:focus{outline:none}
 .sheet .hd{display:flex;align-items:center;gap:10px;padding:14px 16px 8px}
@@ -228,8 +237,11 @@ html.red .chart canvas{background:#050000}
 .res button:last-child{border-bottom:0}
 .res button:hover{background:var(--panel2)}
 .res small{color:var(--ink3);font-family:var(--mono);font-size:12px;white-space:nowrap}
-.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:10px;font-weight:700;font-size:13.5px;opacity:0;transition:.2s;pointer-events:none;z-index:80;max-width:90vw;text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);background:var(--raise);color:var(--ink);border:1px solid var(--line2);box-shadow:0 12px 30px -8px #000;padding:9px 14px;border-radius:10px;font-weight:700;font-size:13.5px;opacity:0;transition:.2s;pointer-events:none;z-index:80;max-width:90vw;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+/* tap feedback, from the palette so it stays red in night vision */
+.row:active,.res button:active,.opt:active,.chip:active,html .pill:active,.seg button:active,.btn.sec:active,.navb:active,.ibtn:active,.x:active,.more:active,.layers label:active{background:var(--raise)}
+.btn:not(.sec):active,.chip.on:active,.seg button.on:active{background:var(--brass);filter:brightness(.82)}
 .nojs{position:fixed;inset:0;z-index:90;margin:0;display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;background:var(--bg);color:var(--ink);font:italic 400 24px/1.3 var(--disp)}
 
 @media (min-width:1000px){
@@ -1823,7 +1835,9 @@ html.red .chart canvas{background:#050000}
   $('locBtn').addEventListener('click', locSheet);
 
   // ---------- night vision ----------
-  function setRed(on) { S.red = on; RED = on; save(); document.documentElement.classList.toggle('red', on); $('redBtn').setAttribute('aria-pressed', String(on)); SPRITE = null; redraw(); if (NIGHT) { renderTonight(); renderTargets(); } if (SHEET_OBJ) openObject(SHEET_OBJ); }
+  // The browser's own bar takes the page's colour from theme-color, so it goes red too.
+  function showRed(on) { document.documentElement.classList.toggle('red', on); $('redBtn').setAttribute('aria-pressed', String(on)); var m = document.querySelector('meta[name=theme-color]'); if (m) m.content = on ? '#070000' : '#070B16'; }
+  function setRed(on) { S.red = on; RED = on; save(); showRed(on); SPRITE = null; redraw(); if (NIGHT) { renderTonight(); renderTargets(); } if (SHEET_OBJ) openObject(SHEET_OBJ); }
   $('redBtn').addEventListener('click', function () { setRed(!S.red); toast(S.red ? 'Night vision on — dim red keeps your eyes dark-adapted' : 'Night vision off'); });
 
   // ---------- start ----------
@@ -1853,7 +1867,7 @@ html.red .chart canvas{background:#050000}
       S.loc = { name: tc[0] + (tc[2] === 'US' && tc[1] ? ', ' + tc[1] : tc[2] && tc[2] !== 'US' ? ', ' + tc[2] : ''), lat: tc[3], lon: tc[4], tz: btz, guessed: true };
     }
     setLoc(S.loc); $('locName').textContent = S.loc.name; renderScopeChip();
-    RED = !!S.red; document.documentElement.classList.toggle('red', RED); $('redBtn').setAttribute('aria-pressed', String(RED));
+    RED = !!S.red; showRed(RED);
     setNight(currentNight(new Date()), true);
     if (S.loc.guessed) setTimeout(function () { toast('Guessed ' + S.loc.name + ' from your time zone — tap it to change'); }, 900);
     syncDir();
