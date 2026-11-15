@@ -1166,7 +1166,7 @@ html.red .chart canvas{background:#050000}
   document.querySelectorAll('#dirSeg button').forEach(function (b) { b.addEventListener('click', function () { stopPoint(); look(b.dataset.d); }); });
   $('zIn').addEventListener('click', function () { V.fov = clamp(V.fov / 1.4, 2, 200); redraw(); syncDir(); });
   $('zOut').addEventListener('click', function () { V.fov = clamp(V.fov * 1.4, 2, 200); redraw(); syncDir(); });
-  $('nowBtn').addEventListener('click', function () { T.live = true; T.auto = false; T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true); else { redraw(); renderTonight(); if (SHEET_OBJ) openObject(SHEET_OBJ); } });
+  $('nowBtn').addEventListener('click', function () { T.live = true; T.auto = false; T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true); else { redraw(); renderTonight(); refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ); } });
   function center(o) {
     var sc = scene(T.t), h = objHor(o, sc); if (!h) return;
     var aa = altAz(h); V.az = aa.az; V.alt = clamp(aa.alt, 5, 90); V.fov = o.k === 'planet' || o.k === 'moon' ? 30 : o.k === 'double' ? 25 : 40; redraw(); syncDir();
@@ -1315,11 +1315,11 @@ html.red .chart canvas{background:#050000}
     function set(e) { var r = tl.getBoundingClientRect(), f = clamp((e.clientX - r.left) / r.width, 0, 1), t = NIGHT.start.getTime() + f * (NIGHT.end - NIGHT.start); t = Math.round(t / 300e3) * 300e3; T.live = T.auto = false; T.t = new Date(t); redraw(); }
     tl.addEventListener('pointerdown', function (e) { on = true; tl.setPointerCapture(e.pointerId); set(e); });
     tl.addEventListener('pointermove', function (e) { if (on) set(e); });
-    tl.addEventListener('pointerup', function () { on = false; renderTonight(); if (SHEET_OBJ) openObject(SHEET_OBJ); });
+    tl.addEventListener('pointerup', function () { on = false; renderTonight(); refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ); });
     tl.addEventListener('pointercancel', function () { on = false; });
     tl.tabIndex = 0;
     var keyT = 0; // an open card catches up once the keys stop
-    tl.addEventListener('keydown', function (e) { var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return; e.preventDefault(); T.live = T.auto = false; T.t = new Date(clamp(T.t.getTime() + d * 15 * 60e3, NIGHT.start.getTime(), NIGHT.end.getTime())); redraw(); clearTimeout(keyT); keyT = setTimeout(function () { if (SHEET_OBJ) openObject(SHEET_OBJ); }, 250); });
+    tl.addEventListener('keydown', function (e) { var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return; e.preventDefault(); T.live = T.auto = false; T.t = new Date(clamp(T.t.getTime() + d * 15 * 60e3, NIGHT.start.getTime(), NIGHT.end.getTime())); redraw(); clearTimeout(keyT); keyT = setTimeout(function () { refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ); }, 250); });
   })();
 
   // ---------- night navigation ----------
@@ -1410,7 +1410,7 @@ html.red .chart canvas{background:#050000}
     var bright = TOO_BRIGHT && TFILTER !== 'planets' ? '<p class="lede">The sky stays too bright tonight for anything but the Moon and the brightest planets.</p>' : '';
     if (!shown.length) h += bright || '<p class="lede">Nothing of that kind is well placed on this night.</p>';
     else h += '<div class="list">' + shown.map(function (t) {
-      var b = t.best, when = 'Best ' + tTime(b.t) + ' · ' + (b.alt > 78 ? 'overhead' : Math.round(b.alt) + '° up · ' + dirName(b.az, true));
+      var when = rowWhen(t);
       var id = t.k === 'dso' && t.o.id !== t.name ? '<small>' + esc(t.o.id) + '</small>' : '';
       return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen">✓ Seen ' + esc(seenText(S.seen[t.id])) + '</span>' : '') + '</span><span class="dt">' + esc(when) + '</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
@@ -1423,6 +1423,21 @@ html.red .chart canvas{background:#050000}
     if ($('moreT')) $('moreT').addEventListener('click', function () { TMORE = !TMORE; renderTargets(); });
     if ($('setScope')) $('setScope').addEventListener('click', scopeSheet);
   }
+  // A row's second line: when it's best, and tonight where it stands at the time shown, up now, rising later or set.
+  // Its rise and set times are found once a night, at the levels the card uses (see riseSet).
+  function rowWhen(t) {
+    var b = t.best, when = 'Best ' + tTime(b.t) + ' · ' + (b.alt > 78 ? 'overhead' : Math.round(b.alt) + '° up · ' + dirName(b.az, true));
+    if (!sameNight(NIGHT.n, currentNight(new Date()))) return when;
+    if (!t.cross) {
+      var o = t.o || objById(t.k, t.id), obj = o.b ? { k: 'body', b: o.b } : { v: o.v }, lvl = t.k === 'moon' ? -0.3 : t.k === 'planet' ? 0 : -0.5;
+      t.cross = { up: altOf(obj, NIGHT.start) > lvl, at: crossings(obj, NIGHT.start, NIGHT.end, 12 * 60e3, lvl) };
+    }
+    var up = t.cross.up, set = null, rise = null;
+    t.cross.at.forEach(function (c) { if (c.t <= T.t) { up = c.up; if (!c.up) set = c; } else if (c.up && !rise) rise = c; });
+    var state = up ? (T.live ? 'Up now' : '') : rise ? 'Rises ' + tTime(rise.t) : set ? 'Set ' + tTime(set.t) : '';
+    return (state ? state + ' · ' : '') + when;
+  }
+  function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) d.textContent = rowWhen(t); }); }
   function markRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { r.classList.toggle('sel', !!SEL && r.dataset.id === String(SEL.id)); }); }
   function select(o, open) { if (!o) return; SEL = o; redraw(); markRows(); if (open) openObject(o); }
 
@@ -2107,14 +2122,15 @@ html.red .chart canvas{background:#050000}
     if (T.live || T.auto) {
       var n = currentNight(now);
       if (!sameNight(n, NDATE)) { setNight(n, true, PT.on); return; }
-      if (T.auto && now >= NIGHT.start) { T.live = true; T.auto = false; T.t = now; redraw(); renderTonight(); if (SHEET_OBJ) openObject(SHEET_OBJ); return; }
+      if (T.auto && now >= NIGHT.start) { T.live = true; T.auto = false; T.t = now; redraw(); renderTonight(); refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ); return; }
       if (T.live) {
         T.t = now; redraw();
         // an open card moves on too, once a minute, keeping its place and the focus (see openObject)
         if (SHEET_OBJ && SHEET_AT !== tTime(now)) openObject(SHEET_OBJ);
+        refreshRows();
       }
     }
-    if (sameNight(NIGHT.n, currentNight(now)) !== SHOWN_TONIGHT) renderTonight();
+    if (sameNight(NIGHT.n, currentNight(now)) !== SHOWN_TONIGHT) { renderTonight(); refreshRows(); }
     drawTimeline(); // the marker for now
     laterEvents(); // a new day
   }

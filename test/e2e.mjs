@@ -360,7 +360,7 @@ check('a planet low in full darkness is low, not low in twilight', async () => {
   const { ctx, page, problems } = await open({ loc: { name: 'Hay River, CA', lat: 60.85, lon: -115.7, tz: 'America/Yellowknife' }, time: '1999-09-19T22:00:00-06:00' });
   try {
     const uranus = (await targetRows(page)).find(r => r.id === 'Uranus');
-    assert.match(uranus.when, /^Best 10:52 pm · 12° up/);
+    assert.match(uranus.when, /^Up now · Best 10:52 pm · 12° up/);
     assert.equal(uranus.rate, 'Low');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
@@ -965,6 +965,26 @@ check('An open card moves on with the clock', async () => {
       assert.ok(await page.evaluate(() => document.getElementById('sheet').contains(document.activeElement)), 'the focus stays in the card, step ' + i);
     }
     assert.notEqual(await text(page, '#sheet .big'), first, 'the height and direction move on too');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// At 1 am the list led with the Moon and Albireo, both set hours before, and only opening each card said so.
+// Austin, Nov 15 2026: the Moon sets at 10:53 pm and Jupiter rises at 12:08 am.
+check('A row says tonight whether it is up now, rises later or has set', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T22:50:00-06:00' });
+  const line = id => page.$eval(`#targetSec .row[data-id="${id}"] .dt`, d => d.textContent);
+  const order = () => page.$$eval('#targetSec .row', rs => rs.map(r => r.dataset.id).join());
+  try {
+    const before = await order();
+    assert.match(await line('Moon'), /^Up now · Best 5:54 pm/);
+    assert.match(await line('Jupiter'), /^Rises 12:08 am · Best /);
+    await page.clock.runFor('05:00');
+    await page.waitForFunction(() => /^Set/.test(document.querySelector('#targetSec .row[data-id="Moon"] .dt').textContent), null, { timeout: 5000 }).catch(() => {});
+    assert.match(await line('Moon'), /^Set 10:53 pm · Best 5:54 pm/, 'the list keeps up with the clock');
+    assert.equal(await order(), before, 'and keeps its order');
+    await page.click('#nextN');
+    assert.match(await line('Moon'), /^Best /, 'another night says nothing about now');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
