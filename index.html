@@ -1787,6 +1787,7 @@ html.red .chart canvas{background:#050000}
   function closeSheet(byBack) { // byBack is true when Back closed it and the entry is already gone (a click passes an event)
     var s = $('sheet'), from = SHEET_FROM; if (s.hidden) return;
     s.hidden = true; s.innerHTML = ''; SHEET_OBJ = null; SHEET_FROM = null; sheetModal(); if (s._onClose) s._onClose();
+    clearTimeout(CARD.t); CARD.t = 0; CARD.touch = false;
     HIST.later = HIST.later.filter(function (k) { return k !== 'sheet'; });
     if (byBack !== true) histBack(HIST.cur);
     HIST.cur = '';
@@ -1798,6 +1799,25 @@ html.red .chart canvas{background:#050000}
     }, 0);
   }
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+  // A card isn't redrawn under a finger: once a minute the clock moves an open card on, and a redraw then would stop a
+  // scroll in progress. It waits while the card is touched, and until it has been still for a moment and a tap's
+  // click has landed.
+  var CARD = { touch: false, scrolled: -1e9, t: 0 };
+  function cardCatchUp() {
+    clearTimeout(CARD.t); CARD.t = 0;
+    if (!SHEET_OBJ || !T.live || SHEET_AT === tTime(T.t) || CARD.touch) return; // a touch still down calls again as it lifts
+    var wait = CARD.scrolled + 1500 - Date.now();
+    if (wait > 0) CARD.t = setTimeout(cardCatchUp, wait + 50); else openObject(SHEET_OBJ);
+  }
+  function cardLift() { if (!CARD.touch) return; CARD.touch = false; clearTimeout(CARD.t); CARD.t = setTimeout(cardCatchUp, 350); }
+  $('sheet').addEventListener('touchstart', function () { CARD.touch = true; }, { capture: true, passive: true });
+  $('sheet').addEventListener('pointerdown', function (e) { if (e.pointerType !== 'touch') CARD.touch = true; }, true);
+  $('sheet').addEventListener('scroll', function () { CARD.scrolled = Date.now(); }, true);
+  // a touch lifts with its last finger; the browser cancels a touch's pointer as soon as it scrolls, so only a mouse or pen's counts
+  window.addEventListener('touchend', function (e) { if (!e.touches.length) cardLift(); }, true);
+  window.addEventListener('touchcancel', function (e) { if (!e.touches.length) cardLift(); }, true);
+  ['pointerup', 'pointercancel'].forEach(function (k) { window.addEventListener(k, function (e) { if (e.pointerType !== 'touch') cardLift(); }, true); });
+  window.addEventListener('blur', cardLift);
   // On a phone a sheet covers the page, so the page behind it is made inert while it is open: Tab stays in the sheet
   // and screen readers leave the rest alone. From 1000 px wide it sits beside the map, which still works, so it is a
   // side panel there, not modal. Whether it is modal follows the width while a sheet is open.
@@ -1961,7 +1981,9 @@ html.red .chart canvas{background:#050000}
       tr.addEventListener('click', pick);
       tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
     });
-    requestAnimationFrame(function () { drawFinder(o, hop, ct); drawEyepiece(o, rows, shown); if (keep && SHEET_OBJ === o) $('sheet').querySelector('.bd').scrollTop = keep; });
+    // a redraw draws its charts straight away, so they don't show blank for a frame
+    function charts() { drawFinder(o, hop, ct); drawEyepiece(o, rows, shown); if (keep && SHEET_OBJ === o) $('sheet').querySelector('.bd').scrollTop = keep; }
+    if (again) charts(); else requestAnimationFrame(charts);
   }
   // The time the finder chart shows, and where the target is then. Low now, so the chart shows it at its highest
   // instead, but not before nightfall: the card counts that height from sunset, and a naked-eye view in the sunset glow
@@ -2306,7 +2328,7 @@ html.red .chart canvas{background:#050000}
       if (T.live) {
         T.t = now; redraw();
         // an open card moves on too, once a minute, keeping its place and the focus (see openObject)
-        if (SHEET_OBJ && SHEET_AT !== tTime(now)) openObject(SHEET_OBJ);
+        cardCatchUp();
         refreshRows();
       }
     }

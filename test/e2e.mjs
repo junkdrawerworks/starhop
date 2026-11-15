@@ -1047,6 +1047,47 @@ check('An open card moves on with the clock', async () => {
   } finally { await ctx.close(); }
 });
 
+// Real touches, through Chromium's own input, so the browser scrolls (or doesn't) as a phone's would. `touch` puts a
+// finger down, moves it and lifts it; `swipe` drags it from one point to another in steps.
+const touchOf = async (ctx, page) => {
+  const cdp = await ctx.newCDPSession(page);
+  const touch = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  const swipe = async (x0, y0, x1, y1, steps = 12) => {
+    await touch('touchStart', x0, y0);
+    for (let i = 1; i <= steps; i++) { await touch('touchMove', x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps); await page.waitForTimeout(16); }
+    await touch('touchEnd');
+    await page.waitForTimeout(300);
+  };
+  return { cdp, touch, swipe };
+};
+
+// The once-a-minute redraw replaced the card under the finger, and a scroll in progress stopped dead.
+check('A card following the clock doesn’t stop a scroll in progress', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T19:30:10-06:00' });
+  try {
+    const { touch } = await touchOf(ctx, page);
+    await openCard(page, 'M45');
+    await page.waitForTimeout(300);
+    const top = () => page.$eval('#sheet .bd', b => b.scrollTop);
+    await page.$eval('#sheet .bd', b => { b.__was = true; });
+    await touch('touchStart', 195, 700);
+    for (let i = 1; i <= 6; i++) { await touch('touchMove', 195, 700 - i * 25); await page.waitForTimeout(16); }
+    const mid = await top();
+    assert.ok(mid > 50, 'the card scrolls under the finger');
+    await page.clock.runFor(61000); // the minute rolls over while the finger is down
+    assert.ok(await page.$eval('#sheet .bd', b => b.__was), 'the card isn’t redrawn under the finger');
+    for (let i = 7; i <= 14; i++) { await touch('touchMove', 195, 700 - i * 25); await page.waitForTimeout(16); }
+    assert.ok(await top() > mid + 100, `the scroll carries on (${mid} → ${await top()})`);
+    const at = await top();
+    await touch('touchEnd');
+    await page.waitForFunction(() => document.querySelector('#sheet .card h3').textContent === 'At 7:31 pm', null, { timeout: 8000 }).catch(() => {});
+    assert.equal(await page.$eval('#sheet .card h3', h => h.textContent), 'At 7:31 pm', 'it catches up once the finger lifts and the card is still');
+    assert.ok(await top() >= at, `and keeps its place (${at} → ${await top()})`);
+    assert.ok(await page.$eval('#finder', c => c.width > 0), 'with its finder chart drawn');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // At 1 am the list led with the Moon and Albireo, both set hours before, and only opening each card said so.
 // Austin, Nov 15 2026: the Moon sets at 10:53 pm and Jupiter rises at 12:08 am.
 check('A row says tonight whether it is up now, rises later or has set', async () => {
