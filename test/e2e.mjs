@@ -363,6 +363,33 @@ check('a planet low in full darkness is low, not low in twilight', async () => {
   } finally { await ctx.close(); }
 });
 
+const cardRiseSet = page => page.$eval('#sheet .card p:not(.big)', p => p.textContent);
+
+// Hay River, Sep 19 1999: Mesarthim is 0.4° below the horizon at the start of the night and never gets lower than
+// 0.5° down, the level that allows for refraction, so it never sets; at 9 pm it's 12° up.
+check('a card calls something up all night when it is', async () => {
+  const { ctx, page, problems } = await open({ loc: { name: 'Hay River, CA', lat: 60.85, lon: -115.7, tz: 'America/Yellowknife' }, time: '1999-09-19T21:00:00-06:00' });
+  try {
+    await openCard(page, 'mesarthim');
+    assert.match(await text(page, '#sheet .card .big'), /^12° up/);
+    assert.match(await cardRiseSet(page), /^Up all night · Highest/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// Austin, Nov 14 2026: Mercury sets at 4:45 pm and the Sun at 5:34 pm (Astronomy Engine), so it's gone 49 minutes
+// before sunset; it rises again at 5:31 am, before the 6:56 am sunrise.
+check('a planet that sets before sunset isn’t called up at dusk', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-14T21:00:00-06:00' });
+  try {
+    await openCard(page, 'Mercury');
+    const rs = await cardRiseSet(page);
+    assert.match(rs, /^Sets before sunset \(4:45 pm\) · Rises 5:31 am/);
+    assert.doesNotMatch(rs, /Up at dusk/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026: the Sun sets at 7:01 pm and is 6° down by 7:28.
 check('stars come out steadily through dusk', async () => {
   const dusk = Date.parse('2026-10-13T19:00:00-05:00');
@@ -1110,11 +1137,12 @@ check('a sheet takes the keyboard focus, has a name, and gives the focus back', 
 });
 
 // Austin, Oct 13 2026, by the USNO convention (PyEphem): Saturn rises 6:37 pm and sets 6:48 am, Jupiter rises 2:58 am, Mars 1:58 am.
+// Sunset is 7:01 pm and sunrise 7:32 am, and the card gives the times between them, so Saturn is up at dusk.
 check('planet rise and set times match the standard ones', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
     const times = async id => { await openCard(page, id); const t = await page.$eval('#sheet .card p:not(.big)', p => p.textContent); await page.keyboard.press('Escape'); return t; };
-    assert.match(await times('Saturn'), /Rises 6:37 pm · Sets 6:48 am/);
+    assert.match(await times('Saturn'), /^Up at dusk · Sets 6:48 am/);
     assert.match(await times('Jupiter'), /Rises 2:58 am/);
     assert.match(await times('Mars'), /Rises 1:58 am/);
   } finally { await ctx.close(); }

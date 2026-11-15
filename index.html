@@ -445,16 +445,17 @@ html.red .chart canvas{background:#050000}
     if (obj.k === 'body') { var eq = A.Equator(obj.b, t, OBS, true, true); return A.Horizon(t, OBS, eq.ra, eq.dec, 'normal').altitude; }
     return altAz(rot(A.Rotation_EQJ_HOR(t, OBS).rot, obj.v)).alt;
   }
+  // When an object crosses an altitude between two times, found a step at a time (the last step a short one, up to t1)
   function crossings(obj, t0, t1, step, lvl) {
-    var out = [], pa = altOf(obj, t0) - lvl, pt = t0.getTime();
-    for (var x = pt + step; x <= t1.getTime() + 1; x += step) {
-      var a = altOf(obj, new Date(x)) - lvl;
+    var out = [], pa = altOf(obj, t0) - lvl, px = t0.getTime(), end = t1.getTime();
+    while (px < end - 1) {
+      var x = Math.min(px + step, end), a = altOf(obj, new Date(x)) - lvl;
       if ((pa < 0) !== (a < 0)) {
-        var lo = x - step, hi = x, al = pa;
+        var lo = px, hi = x, al = pa;
         for (var i = 0; i < 14; i++) { var md = (lo + hi) / 2, am = altOf(obj, new Date(md)) - lvl; if ((al < 0) === (am < 0)) { lo = md; al = am; } else hi = md; }
         out.push({ t: new Date((lo + hi) / 2), up: a > 0 });
       }
-      pa = a;
+      px = x; pa = a;
     }
     return out;
   }
@@ -1508,14 +1509,21 @@ html.red .chart canvas{background:#050000}
   function riseSet(o) {
     var N = NIGHT, obj = o.b ? { k: 'body', b: o.b } : { v: o.v || vec(o.ra, o.dec) };
     // A planet's altitude here includes refraction, so it rises at 0°; a star's doesn't, so -0.5° allows for it.
-    var cr = crossings(obj, N.start, N.end, 12 * 60e3, o.k === 'moon' ? -0.3 : o.k === 'planet' ? 0 : -0.5), a0 = altOf(obj, N.start);
+    // Up or down is judged by that same level throughout, and from sunset to sunrise: what happens before sunset is said
+    // only of something that has set by then.
+    var lvl = o.k === 'moon' ? -0.3 : o.k === 'planet' ? 0 : -0.5, w0 = N.sunset || N.start, w1 = N.sunrise || N.end;
+    var all = crossings(obj, N.start, N.end, 12 * 60e3, lvl), a0 = altOf(obj, w0) - lvl;
+    var cr = all.filter(function (c) { return c.t > w0 && c.t < w1; }), gone = null;
+    all.forEach(function (c) { if (c.t <= w0) gone = c.up ? null : c; });
     // The highest point is looked for from sunset, so an evening planet that only sinks gets the height it has when
     // people first see it, not the lower one it has by the end of civil twilight.
     var hi = null, d0 = (N.sunset || N.start).getTime(), d1 = (N.civM || N.end).getTime();
     for (var x = d0; x <= d1; x += 10 * 60e3) { var a = altOf(obj, new Date(x)); if (!hi || a > hi.a) hi = { a: a, t: new Date(x) }; }
     var bits = [];
-    if (!cr.length) bits.push(a0 > 0 ? 'Up all night' : 'Below the horizon all night');
-    else { if (a0 > 0) bits.push('Up at dusk'); cr.forEach(function (c) { bits.push((c.up ? 'Rises ' : 'Sets ') + tTime(c.t)); }); }
+    if (a0 > 0) bits.push(cr.length ? 'Up at dusk' : 'Up all night');
+    else if (gone && N.sunset) bits.push('Sets before sunset (' + tTime(gone.t) + ')');
+    else if (!cr.length) bits.push('Below the horizon all night');
+    cr.forEach(function (c) { bits.push((c.up ? 'Rises ' : 'Sets ') + tTime(c.t)); });
     if (hi && hi.a > 0) bits.push((N.sunset && hi.t - d0 < 20 * 60e3 ? 'Highest at sunset' : d1 - hi.t < 20 * 60e3 ? 'Highest at first light' : 'Highest ' + tTime(hi.t)) + ' (' + Math.round(hi.a) + '°)');
     return { text: bits.join(' · '), hi: hi };
   }
