@@ -23,7 +23,7 @@
   - By day it shows tonight's sky once it's dark. Left open, it follows the clock from the start of the night and moves on to the next night in the morning.
 - **Tonight.** Sunset, when the sky is fully dark, sunrise, the Moon's phase and hours, and a verdict: a dark night for faint galaxies, or a moonlit one for planets, doubles and clusters.
 - **What to look at.** The Moon and planets, then the best-placed deep-sky objects and double stars, ranked for your telescope and your sky. Each shows the best time to look and where, and on tonight's list whether it's up now, rises later or has set.
-  - **Not seen yet** leaves out what you've marked as seen, and a line under the list counts what you've seen, with how many of the 110 Messier objects.
+  - **Not seen yet** leaves out what you've marked as seen, and a line under the list counts what you've seen, with how many of the 110 Messier objects, and opens your log.
   - On summer nights that never get properly dark, deep-sky objects and doubles are timed for when the Sun is at least 6° down; when it never gets that far, only the Moon and the brightest planets are listed.
 - **Object cards:**
   - **Where to look:** altitude in fists at arm's length, compass direction, and rise, set and highest times.
@@ -31,6 +31,9 @@
   - **Your telescope:** magnification and field for each eyepiece (and again with your Barlow, if you set one), which one to use, and a sketch of the eyepiece view. The sketch is turned to match the finder chart and the way your telescope shows the sky, which you set under Telescope: upside down in a reflector or Dobsonian, mirrored left to right with a star diagonal, or as the sky; N and E mark north and east. It draws the other clusters, nebulae and galaxies that share the field, labelled (M32 and M110 beside the Andromeda Galaxy), fades each as its Difficulty says, and the advice names them ("M82 shares the 25 mm field"). Tap another eyepiece to see its view.
   - **Binoculars:** choose them under Telescope (7×50, 10×50, 15×70 or your own power and field) and the card gives their one power and field instead of the eyepiece table, the sketch shows their whole field the right way round, and the finder chart's circle is their field.
   - **Planets:** Jupiter's four moons in their positions for that time, Saturn's rings at their current tilt, and the phases of Venus and Mercury.
+- **Your log.** **Mark as seen** on a card (anything but the Moon) puts it in your log, under the night you saw it (a mark at 1 am goes under the evening before; one made while looking back at an earlier night, under that night). Each entry keeps the time, where you were, your telescope or binoculars and the power the eyepiece sketch showed, and you can add a note and rate the seeing (how steady the stars are) and the transparency (how clear the air is) from 1, poor, to 5, excellent. A second tap on the button takes that night's entry out again; the card also lists the other nights you saw it.
+  - **Open your log**, under the list or on a card, lists every entry newest first, to open and edit, with **Copy as text** and **Download CSV**.
+  - The CSV has a header row and a row for each entry, with these columns: Object, Night of, Date, Time, UTC offset, Place, Latitude, Longitude, Seeing (1-5), Transparency (1-5), Instrument, Aperture (mm), Power, Eyepiece, Description. They cover what the Astronomical League's [Messier Program](https://www.astroleague.org/?p=8432) asks observers to record (its Rule 1: date and time, latitude and longitude, seeing and transparency, aperture, power and a description). The League counts only objects you find yourself, not with a phone app.
 - **Coming up.** Moon phases, meteor shower peaks, planet oppositions and elongations, the Moon passing bright planets, and eclipses, as seen from your location. Tap one to step to its night.
   - A shower is listed for the night it peaks, with the hours its radiant is up and whether the Moon is in the way then. Showers whose radiant never gets well above your horizon are left out.
   - Mercury and Venus say how high they are at dusk or dawn, a planet at opposition how high it gets, and the Moon passing a planet is given for a time you can see it, when the Sun is down and the Moon up.
@@ -40,7 +43,7 @@
   - Inside claude.ai the page can't read the phone's sensors, so pointing only works on the website.
 - **Use my location** in the location sheet, also on the website; elsewhere, search for a town or enter coordinates.
 - **Night vision.** Everything turns dim red so your eyes stay dark-adapted at the eyepiece.
-- **Remembered in the browser:** your location, telescope or binoculars (with the telescope's eyepieces, Barlow, finder and which way round it shows the sky), sky, the objects you mark as seen, night vision, what the map shows and your compass correction. Each seen mark keeps the night you saw it (a mark at 1 am goes under the evening before).
+- **Remembered in the browser:** your location, telescope or binoculars (with the telescope's eyepieces, Barlow, finder and which way round it shows the sky), sky, your log, night vision, what the map shows and your compass correction.
 
 ## How it works
 

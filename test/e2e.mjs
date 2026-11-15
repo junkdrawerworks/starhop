@@ -787,6 +787,17 @@ check('night vision has no light but red', async () => {
     await page.waitForTimeout(400);
     await look('a card');
     await page.click('#sheet [data-close]');
+    await openCard(page, 'M15');
+    await page.click('#seenB');
+    await page.fill('#sheet .lgNote', 'A long note that runs on to a second line and a third, so the box grows with it');
+    await page.click('#sheet [data-r="seeing"][data-v="3"]');
+    await page.locator('#sheet .logc').scrollIntoViewIfNeeded();
+    await look('a card’s log entry, with its note box focused');
+    await page.click('#openLog');
+    await page.click('#sheet .lge summary');
+    await page.waitForTimeout(300);
+    await look('the log');
+    await page.click('#sheet [data-close]');
     await page.click('#scopeBtn');
     await page.waitForTimeout(300);
     await look('the telescope sheet');
@@ -1316,6 +1327,28 @@ check('An open card moves on with the clock', async () => {
   } finally { await ctx.close(); }
 });
 
+// The card moves on with the clock by drawing itself again, which would take a note box out from under someone typing.
+check('An open card waits while a note is typed, and moves on after', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T19:30:00-06:00' });
+  try {
+    await openCard(page, 'M45');
+    await page.click('#seenB');
+    await page.click('#sheet .lgNote');
+    await page.keyboard.type('Blue haze');
+    await page.$eval('#sheet .lgNote', t => { window.box = t; });
+    await page.clock.runFor('03:00');
+    await page.keyboard.type(' around Merope');
+    assert.ok(await page.evaluate(() => document.activeElement === window.box && window.box.isConnected), 'the same box keeps the focus');
+    assert.equal(await page.$eval('#sheet .card h3', h => h.textContent), 'At 7:30 pm', 'the card waits');
+    await page.$eval('#sheet .lgNote', t => t.blur());
+    await page.clock.runFor('00:05');
+    await page.waitForFunction(() => document.querySelector('#sheet .card h3').textContent === 'At 7:33 pm', null, { timeout: 5000 }).catch(() => {});
+    assert.equal(await page.$eval('#sheet .card h3', h => h.textContent), 'At 7:33 pm', 'and moves on once the note is left');
+    assert.equal(await page.$eval('#sheet .lgNote', t => t.value), 'Blue haze around Merope', 'with the note kept');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Real touches, through Chromium's own input, so the browser scrolls (or doesn't) as a phone's would. `touch` puts a
 // finger down, moves it and lifts it; `swipe` drags it from one point to another in steps.
 const touchOf = async (ctx, page) => {
@@ -1687,6 +1720,7 @@ check('a damaged or partial save still opens, keeps what makes sense, and is lef
     '{"loc":{"name":"Home"}}', '{"loc":{"name":"Home","lat":30.27,"lon":-97.74,"tz":"Mars/Olympus"}}',
     '{"loc":{"name":"Home","lat":"30.27","lon":"-97.74","tz":"America/Chicago"}}',
     '{"scope":null}', '{"seen":null}', '{"layers":"all"}', '{"sky":"moon"}', '{"ptOff":"x"}', '[1,2]', 'not json',
+    '{"log":"x"}', '{"log":[null,7,{"id":{}},{"id":"M31"},{"id":"M15","night":"2026-10-12","seeing":9,"tz":"Mars/Base","t":"soon","lat":"x","note":5}]}',
   ];
   for (const save of saves) {
     const { ctx, page, problems } = await open({ save, time: '2026-10-13T21:00:00-05:00' });
@@ -1696,6 +1730,11 @@ check('a damaged or partial save still opens, keeps what makes sense, and is lef
       await page.click('#targetSec .row');
       assert.ok(await sheetOpen(page), 'a card opens with ' + save);
       await page.click('#sheet [data-close]');
+      if (await page.$('#logBtn')) {
+        await page.click('#logBtn');
+        assert.equal(await text(page, '#sheet .lge'), 'M15 Mon, Oct 12', 'the log keeps what makes sense of an entry with ' + save);
+        await page.click('#sheet [data-close]');
+      }
       await page.click('#scopeBtn');
       assert.ok(await sheetOpen(page), 'the telescope sheet opens with ' + save);
       assert.deepEqual(problems, [], save);
@@ -2699,7 +2738,7 @@ check('Not seen yet hides what you’ve marked, and a line counts what you’ve 
   ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, seen: { M31: '2026-11-14', M45: '2026-11-14', albireo: '2026-10-13' } }), time: '2026-11-15T20:30:00-06:00' }));
   try {
     const ids = () => page.$$eval('#targetSec .row', r => r.map(x => x.dataset.id));
-    assert.equal(await text(page, '#targetSec .tally'), 'You’ve marked 3 objects as seen, 2 of the 110 Messier objects.');
+    assert.equal(await text(page, '#targetSec .tally'), 'You’ve marked 3 objects as seen, 2 of the 110 Messier objects. Open your log');
     const count = () => page.$eval('#targetSec h2 small', e => e.textContent), all = parseInt(await count());
     await page.click('#targetSec [data-f="unseen"]');
     assert.equal(await page.$eval('#targetSec [data-f="unseen"]', b => b.getAttribute('aria-pressed')), 'true');
@@ -2713,7 +2752,66 @@ check('Not seen yet hides what you’ve marked, and a line counts what you’ve 
     await page.click('#seenB');
     await page.click('#sheet [data-close]');
     assert.ok(!(await ids()).includes('M15'), 'a mark takes it off');
-    assert.equal(await text(page, '#targetSec .tally'), 'You’ve marked 4 objects as seen, 3 of the 110 Messier objects.');
+    assert.equal(await text(page, '#targetSec .tally'), 'You’ve marked 4 objects as seen, 3 of the 110 Messier objects. Open your log');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// Mark as seen kept only the night. An observing log keeps what the Astronomical League's Messier Program asks for
+// (Rule 1, astroleague.org/?p=8432): date and time, latitude and longitude, seeing and transparency, aperture, power
+// and a description.
+check('Mark as seen keeps an observing log, with a note and ratings, that copies as text and downloads as CSV', async () => {
+  const init = () => { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: t => { window.copied = t; return Promise.resolve(); } } }); };
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', init });
+  try {
+    await openCard(page, 'M15');
+    assert.equal(await page.$('#sheet .logc'), null, 'nothing in the log for it yet');
+    await page.click('#seenB');
+    assert.match(await text(page, '#sheet .logc p'), /^Seen at 9:0\d pm · Austin, TX · 130 mm reflector at 65× \(10 mm\)$/, 'the card says when, where and with what');
+    await page.fill('#sheet .lgNote', 'Tight core, "grainy" edges at 26×');
+    await page.click('#sheet [data-r="seeing"][data-v="3"]');
+    await page.click('#sheet [data-r="transp"][data-v="4"]');
+    await page.click('#sheet [data-r="transp"][data-v="5"]');
+    assert.deepEqual(await page.$$eval('#sheet [data-r].on', b => b.map(x => x.dataset.r + x.dataset.v)), ['seeing3', 'transp5'], 'one rating each, the last tapped');
+    const entry = await page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).log[0]);
+    assert.match(entry.t, /^2026-11-16T03:0\d:/);
+    delete entry.t;
+    assert.deepEqual(entry, { id: 'M15', night: '2026-11-15', name: 'M15', scope: '130 mm reflector', ap: 130, place: 'Austin, TX', lat: 30.27, lon: -97.74, tz: 'America/Chicago', power: 65, ep: '10 mm', note: 'Tight core, "grainy" edges at 26×', seeing: 3, transp: 5 });
+    await page.reload(); await ready(page);
+    await openCard(page, 'M15');
+    assert.equal(await page.$eval('#sheet .lgNote', t => t.value), 'Tight core, "grainy" edges at 26×', 'the note is kept');
+    assert.deepEqual(await page.$$eval('#sheet [data-r].on', b => b.map(x => x.dataset.r + x.dataset.v)), ['seeing3', 'transp5'], 'and the ratings');
+    await page.click('#openLog');
+    assert.equal(await text(page, '#sheet .hd h2'), 'Your log 1 entry, newest first', 'the card opens the log');
+    await page.click('#sheet [data-close]');
+    // a second entry, on Albireo, and the log from the line under the list, newest first
+    await openCard(page, 'albireo');
+    await page.click('#seenB');
+    await page.click('#sheet [data-close]');
+    await page.click('#logBtn');
+    assert.equal(await text(page, '#sheet .hd h2'), 'Your log 2 entries, newest first');
+    assert.deepEqual(await page.$$eval('#sheet .lge summary b', b => b.map(x => x.textContent)), ['Albireo', 'M15']);
+    await page.click('#logCopy');
+    const txt = await page.evaluate(() => window.copied);
+    assert.match(txt, /^Starhop observing log\n\nAlbireo\nSun, Nov 15, 2026, 9:0\d pm \(UTC−6\) · Austin, TX \(30\.27° N, 97\.74° W\)\n130 mm reflector, 130 mm aperture, 26× with the 25 mm\n\nM15\n.*\n130 mm reflector, 130 mm aperture, 65× with the 10 mm\n/);
+    assert.match(txt, /\nSeeing 3 of 5 · Transparency 5 of 5\nTight core, "grainy" edges at 26×\n$/);
+    assert.equal(await text(page, '#toast'), 'Copied your log');
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#logCsv')]);
+    assert.equal(dl.suggestedFilename(), 'starhop-log-2026-11-15.csv');
+    const csv = await readFile(await dl.path(), 'utf8');
+    const lines = csv.split('\r\n');
+    assert.equal(lines[0], '\ufeffObject,Night of,Date,Time,UTC offset,Place,Latitude,Longitude,Seeing (1-5),Transparency (1-5),Instrument,Aperture (mm),Power,Eyepiece,Description');
+    assert.match(lines[2], /^M15,2026-11-15,2026-11-15,21:0\d,UTC-06:00,"Austin, TX",30\.27,-97\.74,3,5,130 mm reflector,130,65,10 mm,"Tight core, ""grainy"" edges at 26×"$/);
+    assert.equal(lines.length, 4, 'a row for each entry');
+    // an entry taken out of the log is gone from the list's count too
+    await page.click('#sheet .lge summary');
+    await page.click('#sheet [data-del]');
+    assert.equal(await text(page, '#sheet .hd h2'), 'Your log 1 entry, newest first');
+    assert.equal(await text(page, '#targetSec .tally'), 'You’ve marked 1 object as seen, 1 of the 110 Messier objects. Open your log');
+    await page.click('#sheet .lge summary');
+    await page.click('#sheet [data-del]');
+    assert.equal(await text(page, '#sheet .hd h2'), 'Your log Nothing in it yet');
+    assert.equal(await page.$('#targetSec .tally'), null);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
@@ -2735,41 +2833,47 @@ check('The Moon has no seen mark, and the planets keep theirs', async () => {
 
 // Observers date a night by its evening, but a mark at 1 am was saved as the next day's date, and without a year.
 check('A star seen at 1 am is dated by the night, with its year', async () => {
-  const seen = page => page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).seen);
+  const seen = page => page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).log.map(e => e.id + ' ' + e.night));
   const tag = (page, id) => page.$eval(`#targetSec .row[data-id="${id}"] .seen`, t => t.textContent);
   let { ctx, page, problems } = await open({ time: '2026-11-16T01:00:00-06:00' });
   try {
     await openCard(page, 'M45');
     await page.click('#seenB');
-    assert.deepEqual(await seen(page), { M45: '2026-11-15' }, 'saved under the night it began');
+    assert.deepEqual(await seen(page), ['M45 2026-11-15'], 'saved under the night it began');
     assert.equal(await text(page, '#seenB'), '✓ Seen Sun, Nov 15');
     await page.click('#sheet [data-close]');
     assert.equal(await tag(page, 'M45'), 'Seen Sun, Nov 15', 'the list says so too');
-    // a mark made while looking back at an earlier night goes under that night
+    // a mark made while looking back at an earlier night goes under that night, as a second entry
     await page.click('#prevN');
     await openCard(page, 'M45');
-    await page.click('#seenB'); // takes the mark off
+    assert.equal(await text(page, '#seenB'), 'Mark as seen again', 'seen on another night, it can be marked again');
     await page.click('#seenB');
-    assert.deepEqual(await seen(page), { M45: '2026-11-14' });
+    assert.deepEqual(await seen(page), ['M45 2026-11-15', 'M45 2026-11-14']);
+    assert.equal(await text(page, '#seenB'), '✓ Seen Sat, Nov 14');
+    assert.match(await text(page, '#sheet .logc'), /Also seen Sun, Nov 15\./, 'and the card lists the other night');
     await page.click('#sheet [data-close]');
     // and one made while planning a night still to come goes under tonight, since it can't have been seen yet
     await page.click('#nextN'); await page.click('#nextN');
     await openCard(page, 'M45');
-    await page.click('#seenB'); await page.click('#seenB');
-    assert.deepEqual(await seen(page), { M45: '2026-11-15' });
+    assert.equal(await text(page, '#seenB'), '✓ Seen Sun, Nov 15');
+    await page.click('#seenB');
+    assert.deepEqual(await seen(page), ['M45 2026-11-14'], 'a second tap takes out only that night’s entry');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
+  // marks saved before there was a log come in as entries with only their night
   ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, seen: { M31: '2026-11-15', M45: 'Aug 2', M57: 7 } }), time: '2027-11-14T20:30:00-06:00' }));
   try {
     await openCard(page, 'M31');
-    assert.equal(await text(page, '#seenB'), '✓ Seen Sun, Nov 15, 2026', 'another year’s mark gives its year');
+    assert.equal(await text(page, '#seenB'), 'Mark as seen again');
+    assert.equal(await text(page, '#sheet .logc p'), 'Seen Sun, Nov 15, 2026.', 'another year’s mark gives its year');
     await page.click('#sheet [data-close]');
     assert.equal(await tag(page, 'M31'), 'Seen Sun, Nov 15, 2026');
     await openCard(page, 'M45');
-    assert.equal(await text(page, '#seenB'), '✓ Seen Aug 2', 'a mark saved some other way shows as it is');
+    assert.equal(await text(page, '#sheet .logc p'), 'Seen Aug 2.', 'a mark saved some other way shows as it is');
     await page.click('#sheet [data-close]');
     await openCard(page, 'M57');
     assert.equal(await text(page, '#seenB'), 'Mark as seen', 'a mark that isn’t a date or text is dropped');
+    assert.equal(await page.$('#sheet .logc'), null);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });

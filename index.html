@@ -69,9 +69,9 @@ html{-webkit-tap-highlight-color:transparent;scrollbar-color:var(--line2) var(--
 ::selection{background:var(--brass-soft);color:var(--ink)}
 option{background:var(--panel2);color:var(--ink)}
 body{font:15px/1.45 var(--body);-webkit-font-smoothing:antialiased}
-button,input,select{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
-button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,canvas:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,a:focus-visible,canvas:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 /* inside the boxes that clip what lies outside them (the map's too), the ring is drawn inside, and dark on a brass fill */
 .list>button:focus-visible,.seg button:focus-visible,.res button:focus-visible,#sky:focus-visible{outline-offset:-3px}
 .seg button.on:focus-visible{outline-color:var(--brass-ink)}
@@ -171,7 +171,7 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .moonrow b{display:block}
 .moonrow span{color:var(--ink2);font-size:13.5px}
 .note{font-size:13px;color:var(--ink2);margin:8px 0 0}
-.note button{background:none;border:0;padding:0;color:var(--brass);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.note button,.lnk{background:none;border:0;padding:0;color:var(--brass);font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .filters .chip{height:30px;padding:0 11px;font-size:12.5px}
 .list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel)}
@@ -264,7 +264,28 @@ html.red .chart canvas{background:#050000}
 .epsw{overflow-x:auto}
 .fld{display:flex;flex-direction:column;gap:5px;min-width:0}
 .fld>span{font:700 10.5px var(--body);letter-spacing:.11em;text-transform:uppercase;color:var(--ink3)}
-.fld input,.fld select{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;min-width:0;width:100%;font-size:16px}
+.fld input,.fld select,.fld textarea{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;min-width:0;width:100%;font-size:16px}
+/* no resize grip, which the browser draws grey even in night vision; it grows with its text instead, where it can */
+.fld textarea{resize:none;field-sizing:content;min-height:4.6em;max-height:40vh;line-height:1.4}
+/* the observing log: a card's own entry, and the log's list of them */
+.logc{display:flex;flex-direction:column;gap:8px}
+.logc h3{margin:0}
+.logc p+p{margin-top:0}
+.rrow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rrow>span{font:700 10.5px var(--body);letter-spacing:.11em;text-transform:uppercase;color:var(--ink3)}
+.rrow .seg{background:var(--panel2)}
+.rrow .seg button{height:34px;min-width:40px;font-size:14px}
+.logl{display:flex;flex-direction:column;gap:8px}
+.lge{background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+.lge summary{list-style:none;cursor:pointer;display:flex;flex-direction:column;gap:2px;padding:10px 40px 10px 14px;position:relative;border-radius:var(--r)}
+.lge summary::-webkit-details-marker{display:none}
+.lge summary::after{content:"";position:absolute;right:16px;top:50%;width:7px;height:7px;border-right:2px solid var(--ink3);border-bottom:2px solid var(--ink3);transform:translateY(-70%) rotate(45deg)}
+.lge[open] summary::after{transform:translateY(-30%) rotate(225deg)}
+.lge summary b{color:var(--ink)}
+.lge summary span{font-size:13px;color:var(--ink2)}
+.lgb{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px}
+.lgb p{margin:0;color:var(--ink2);font-size:14px}
+.lgb .btn{align-self:flex-start}
 .hint{margin:-6px 0 0;font-size:12.5px;color:var(--ink2)}
 .fld .hint{margin:0 0 2px}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
@@ -293,7 +314,7 @@ html.red .chart canvas{background:#050000}
 .toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);background:var(--raise);color:var(--ink);border:1px solid var(--line2);box-shadow:0 12px 30px -8px #000;padding:9px 14px;border-radius:10px;font-weight:700;font-size:13.5px;opacity:0;transition:.2s;pointer-events:none;z-index:80;max-width:min(90vw,100vw - 2 * max(var(--sl),var(--sr)));text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 /* tap feedback, from the palette so it stays red in night vision */
-.row:active,.ev:active,.res button:active,.opt:active,.chip:active,html .pill:active,.seg button:active,.btn.sec:active,.navb:active,.ibtn:active,.x:active,.more:active,.layers label:active{background:var(--raise)}
+.row:active,.ev:active,.res button:active,.opt:active,.chip:active,html .pill:active,.seg button:active,.btn.sec:active,.navb:active,.ibtn:active,.x:active,.more:active,.layers label:active,.lge summary:active{background:var(--raise)}
 .btn:not(.sec):active,.chip.on:active,.seg button.on:active{background:var(--brass);filter:brightness(.82)}
 .nojs{position:fixed;inset:0;z-index:90;margin:0;display:flex;align-items:center;justify-content:center;padding:16px;text-align:center;background:var(--bg);color:var(--ink);font:italic 400 24px/1.3 var(--disp)}
 
@@ -442,8 +463,10 @@ html.red .chart canvas{background:#050000}
     if (isBino()) return { rings: [{ deg: S.scope.fov, dash: true, a: 0.6 }], cap: 'The dashed circle is your binoculars’ field (' + S.scope.fov + '°).' };
     return FINDERS.filter(function (f) { return f.id === S.scope.finder; })[0] || FINDERS[0]; }
   var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], barlow: 1, view: 'inv', finder: 'fs', set: false };
-  var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, seen: {} };
+  var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, log: [] };
+  var SEEN = {}; // the latest night each object in the log was seen, by its id
   try { var saved = JSON.parse(localStorage.getItem(LS) || 'null'); if (plain(saved)) S = checkSave(saved, S); } catch (e) { }
+  reseen();
   function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { } }
   // A save edited by hand or damaged in storage can have parts missing or the wrong shape. Keep each part that makes
   // sense and use the default for the rest; the stored copy stays as it is until something is changed.
@@ -464,9 +487,23 @@ html.red .chart canvas{background:#050000}
     if (!SKIES.some(function (k) { return k.id === sv.sky; })) out.sky = d.sky;
     out.red = sv.red === true;
     out.layers = Object.assign({}, d.layers, plain(sv.layers) ? sv.layers : {});
-    out.seen = {}; if (plain(sv.seen)) Object.keys(sv.seen).forEach(function (k) { if (typeof sv.seen[k] === 'string' && k !== 'Moon') out.seen[k] = sv.seen[k]; });
+    out.log = (Array.isArray(sv.log) ? sv.log : []).map(logEntry).filter(Boolean);
+    // marks saved before there was a log, { id: night }, come in as entries with only their night
+    if (plain(sv.seen)) Object.keys(sv.seen).forEach(function (k) { var v = sv.seen[k]; if (typeof v === 'string' && v && k !== 'Moon' && !out.log.some(function (e) { return e.id === k && e.night === v; })) out.log.push({ id: k, night: v }); });
+    delete out.seen;
     if (!(Array.isArray(sv.ptOff) && sv.ptOff.length === 2 && sv.ptOff.every(function (v) { return typeof v === 'number' && isFinite(v); }))) delete out.ptOff;
     return out;
+  }
+  // An entry in the observing log, keeping only the parts that make sense. The Moon has none (see openObject).
+  function logEntry(e) {
+    if (!plain(e) || (typeof e.id !== 'string' && typeof e.id !== 'number') || e.id === '' || e.id === 'Moon' || typeof e.night !== 'string' || !e.night) return null;
+    var o = { id: String(e.id), night: e.night };
+    if (typeof e.t === 'string' && !isNaN(Date.parse(e.t))) o.t = e.t;
+    ['name', 'place', 'scope', 'ep', 'note'].forEach(function (k) { if (typeof e[k] === 'string' && e[k]) o[k] = e[k]; });
+    if (zoneOk(e.tz)) o.tz = e.tz;
+    ['lat', 'lon', 'ap', 'power'].forEach(function (k) { if (typeof e[k] === 'number' && isFinite(e[k])) o[k] = e[k]; });
+    ['seeing', 'transp'].forEach(function (k) { if (typeof e[k] === 'number' && e[k] >= 1 && e[k] <= 5 && e[k] % 1 === 0) o[k] = e[k]; });
+    return o;
   }
   function sky() { return SKIES.filter(function (s) { return s.id === S.sky; })[0] || SKIES[1]; }
 
@@ -477,7 +514,7 @@ html.red .chart canvas{background:#050000}
   function offMin(d, tz) { var p = parts(d, tz); return Math.round((Date.UTC(p.y, p.mo, p.d, p.h, p.mi, p.s) - d.getTime()) / 60000); }
   function zoned(y, mo, d, h, mi, tz) { var g = Date.UTC(y, mo, d, h, mi), t = g - offMin(new Date(g), tz) * 60000, o2 = offMin(new Date(t), tz); return new Date(g - o2 * 60000); }
   function tz() { return S.loc ? S.loc.tz : 'UTC'; }
-  function tTime(d) { return d ? fmt(tz(), { hour: 'numeric', minute: '2-digit' }).format(d).replace(' AM', ' am').replace(' PM', ' pm') : '—'; }
+  function tTime(d, z) { return d ? fmt(z || tz(), { hour: 'numeric', minute: '2-digit' }).format(d).replace(' AM', ' am').replace(' PM', ' pm') : '—'; }
   function tDay(d) { return fmt(tz(), { weekday: 'short', month: 'short', day: 'numeric' }).format(d); }
   function tLong(d) { return fmt(tz(), { weekday: 'long', month: 'long', day: 'numeric' }).format(d); }
   function addDays(n, k) { var d = new Date(Date.UTC(n.y, n.mo, n.d + k)); return { y: d.getUTCFullYear(), mo: d.getUTCMonth(), d: d.getUTCDate() }; }
@@ -486,11 +523,15 @@ html.red .chart canvas{background:#050000}
   // A night as saved with a seen mark, 2026-11-15, and as shown, Sun, Nov 15, with the year when it isn't this one. A
   // mark saved any other way shows as it is.
   function nightKey(n) { return n.y + '-' + ('0' + (n.mo + 1)).slice(-2) + '-' + ('0' + n.d).slice(-2); }
-  function seenText(v) {
+  function seenText(v, year) {
     var m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(v); if (!m) return v;
-    var o = { weekday: 'short', month: 'short', day: 'numeric' }; if (+m[1] !== parts(new Date(), tz()).y) o.year = 'numeric';
+    var o = { weekday: 'short', month: 'short', day: 'numeric' }; if (year || +m[1] !== parts(new Date(), tz()).y) o.year = 'numeric';
     return fmt('UTC', o).format(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12)));
   }
+
+  function isNightKey(v) { return /^\d{4}-\d\d-\d\d$/.test(v); }
+  function laterNight(a, b) { return isNightKey(a) !== isNightKey(b) ? isNightKey(a) : a > b; }
+  function reseen() { SEEN = {}; S.log.forEach(function (e) { if (!SEEN[e.id] || laterNight(e.night, SEEN[e.id])) SEEN[e.id] = e.night; }); }
 
   // ---------- geometry ----------
   function vec(raDeg, decDeg) { var a = raDeg * D2R, d = decDeg * D2R, c = Math.cos(d); return [c * Math.cos(a), c * Math.sin(a), Math.sin(d)]; }
@@ -1680,7 +1721,7 @@ html.red .chart canvas{background:#050000}
     var ae = document.activeElement, sec = $('targetSec'), had = sec.contains(ae) && ae !== sec ? (ae.dataset.f ? '[data-f="' + ae.dataset.f + '"]' : ae.id ? '#' + ae.id : ae.classList.contains('row') ? '.row[data-id="' + ae.dataset.id.replace(/["\\]/g, '\\$&') + '"]' : '') : '';
     var st = scopeStats(), list = TARGETS.filter(function (t) {
       if (TFILTER === 'all') return true; if (TFILTER === 'planets') return t.k === 'planet' || t.k === 'moon'; if (TFILTER === 'double') return t.k === 'double';
-      if (TFILTER === 'unseen') return t.k !== 'moon' && !S.seen[t.id]; // the Moon can't be marked, so it never leaves
+      if (TFILTER === 'unseen') return t.k !== 'moon' && !SEEN[t.id]; // the Moon can't be marked, so it never leaves
       return t.o && t.o.kind === TFILTER && t.k === 'dso';
     });
     var shown = TMORE ? list : list.slice(0, 14);
@@ -1691,7 +1732,7 @@ html.red .chart canvas{background:#050000}
     else h += '<div class="list">' + shown.map(function (t) {
       // the catalogue number; the Double Cluster's row gives both of its numbers, as its card does
       var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.parts ? t.o.cat : t.o.id) + '</small>' : '';
-      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + (id && ' ' + id) + (S.seen[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (S.seen[t.id] ? ', seen ' + esc(seenText(S.seen[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
+      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + (id && ' ' + id) + (SEEN[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (SEEN[t.id] ? ', seen ' + esc(seenText(SEEN[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += tally();
@@ -1702,13 +1743,14 @@ html.red .chart canvas{background:#050000}
     $('targetSec').querySelectorAll('canvas[data-moon]').forEach(function (c) { moonIcon(c, NIGHT.moonIllum, NIGHT.moonPhase, 26); });
     if ($('moreT')) $('moreT').addEventListener('click', function () { TMORE = !TMORE; renderTargets(); });
     if ($('setScope')) $('setScope').addEventListener('click', scopeSheet);
+    if ($('logBtn')) $('logBtn').addEventListener('click', function () { logSheet(); });
     var back = had && sec.querySelector(had); if (back) back.focus({ preventScroll: true });
   }
   // How many objects you've marked as seen, on any night, and how many of them are Messier objects (all 110 are in
-  // Starhop, M40 among the doubles); nothing until there's one.
+  // Starhop, M40 among the doubles), with the way into your log; nothing until there's one.
   function tally() {
-    var ids = Object.keys(S.seen), m = ids.filter(function (k) { return /^M\d+$/.test(k); }).length;
-    return ids.length ? '<p class="note tally">You’ve marked ' + plural(ids.length, 'object') + ' as seen' + (m ? ', ' + m + ' of the 110 Messier objects' : '') + '.</p>' : '';
+    var ids = Object.keys(SEEN), m = ids.filter(function (k) { return /^M\d+$/.test(k); }).length;
+    return ids.length ? '<p class="note tally">You’ve marked ' + plural(ids.length, 'object') + ' as seen' + (m ? ', ' + m + ' of the 110 Messier objects' : '') + '. <button type="button" id="logBtn">Open your log</button></p>' : '';
   }
   // A row's second line: when it's best, and tonight where it stands at the time shown, up now, rising later or set.
   // Its rise and set times are found once a night, at the levels the card uses (see riseSet).
@@ -1735,7 +1777,7 @@ html.red .chart canvas{background:#050000}
     return head + '<span class="nw">' + end[0] + '<span aria-hidden="true">' + d + '</span></span>';
   }
   // and with the night it was seen, if it was, at the end; a screen reader hears that after the direction instead
-  function rowDt(t) { return whenHtml(t) + (S.seen[t.id] ? '<span aria-hidden="true"> · <span class="seen">Seen ' + esc(seenText(S.seen[t.id])) + '</span></span>' : ''); }
+  function rowDt(t) { return whenHtml(t) + (SEEN[t.id] ? '<span aria-hidden="true"> · <span class="seen">Seen ' + esc(seenText(SEEN[t.id])) + '</span></span>' : ''); }
   function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) d.innerHTML = rowDt(t); }); }
   function markRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { r.classList.toggle('sel', !!SEL && r.dataset.id === String(SEL.id)); }); }
   function select(o, open) { if (!o) return; SEL = o; redraw(); markRows(); if (open) openObject(o); }
@@ -2026,6 +2068,7 @@ html.red .chart canvas{background:#050000}
   function cardCatchUp() {
     clearTimeout(CARD.t); CARD.t = 0;
     if (!SHEET_OBJ || !T.live || SHEET_AT === tTime(T.t) || CARD.touch) return; // a touch still down calls again as it lifts
+    if (document.activeElement && document.activeElement.classList.contains('lgNote')) { CARD.t = setTimeout(cardCatchUp, 2000); return; } // nor while a note is being typed
     var wait = CARD.scrolled + 1500 - Date.now();
     if (wait > 0) CARD.t = setTimeout(cardCatchUp, wait + 50); else openObject(SHEET_OBJ);
   }
@@ -2048,6 +2091,111 @@ html.red .chart canvas{background:#050000}
     if (sh) { if (modal) sh.setAttribute('aria-modal', 'true'); else sh.removeAttribute('aria-modal'); }
   }
   if (WIDE.addEventListener) WIDE.addEventListener('change', sheetModal); else if (WIDE.addListener) WIDE.addListener(sheetModal);
+
+  // ---------- the observing log ----------
+  // Each mark as seen is an entry: the night it goes under and the time, where you were, your telescope or binoculars
+  // and the power the sketch showed, with a note and 1–5 ratings for the seeing and transparency you can add. Its
+  // columns are what the Astronomical League's Messier Program asks observers to record (its Rule 1: date and time,
+  // latitude and longitude, seeing and transparency, aperture, power and a description; astroleague.org/?p=8432).
+  var UNDONE = null; // the entry a second tap on Mark as seen took out, for a third to put back, note and all
+  // The night a mark goes under: an earlier night being looked back on, or else tonight's, which a mark at 1 am still
+  // belongs to (a night still to come can't have been seen yet).
+  function markNight() { var now = new Date(), was = nightKey(NDATE), night = nightKey(nightOf(now)); return !sameNight(NDATE, currentNight(now)) && was < night ? was : night; }
+  // at the time the map shows, unless that's still to come
+  function newEntry(o, n, name, r) {
+    var now = new Date(), t = T.t < now ? T.t : now, sc = S.scope, e = { id: String(o.id), night: n, t: t.toISOString(), name: name, scope: sc.name || sc.ap + ' mm telescope', ap: sc.ap };
+    if (S.loc) { e.place = S.loc.name; e.lat = S.loc.lat; e.lon = S.loc.lon; e.tz = S.loc.tz; }
+    if (r) { e.power = Math.round(r.M); if (!r.bino) e.ep = epName(r); }
+    return e;
+  }
+  function entryMs(e) { return e.t ? Date.parse(e.t) : isNightKey(e.night) ? Date.parse(e.night + 'T12:00:00Z') : -Infinity; }
+  // newest first, each with its place in S.log
+  function sortedLog(id) { return S.log.map(function (e, i) { return { e: e, i: i }; }).filter(function (x) { return id == null || x.e.id === String(id); }).sort(function (a, b) { return entryMs(b.e) - entryMs(a.e) || b.i - a.i; }); }
+  function logOf(id) { return sortedLog(id); }
+  // an entry saved before there was a log has only its id: its name as the card gives it
+  function entryName(e) {
+    if (e.name) return e.name;
+    if (/^\d+$/.test(e.id) && STARS && +e.id * 4 < STARS.length) return objById('star', +e.id).name;
+    if (PLANETS.some(function (p) { return p.id === e.id; })) return e.id;
+    var o = objById('dso', e.id); return o ? (o.name && o.name !== o.id ? o.name + (/^M\d/.test(o.id) ? ' · ' + o.id : '') : o.id) : e.id;
+  }
+  function entryGear(e) { return e.scope ? e.scope + (e.power ? ' at ' + e.power + '×' + (e.ep ? ' (' + e.ep + ')' : '') : '') : ''; }
+  function entryWhere(e) { return [e.place, entryGear(e)].filter(Boolean).join(' · '); }
+  function logEditor(x) {
+    var e = x.e, i = x.i;
+    function rate(k, label) {
+      return '<div class="rrow"><span>' + label + '</span><div class="seg" role="group" aria-label="' + label + ', 1 poor to 5 excellent">' + [1, 2, 3, 4, 5].map(function (v) { return '<button type="button" data-n="' + i + '" data-r="' + k + '" data-v="' + v + '" aria-pressed="' + (e[k] === v) + '"' + (e[k] === v ? ' class="on"' : '') + '>' + v + '</button>'; }).join('') + '</div></div>';
+    }
+    return '<label class="fld"><span>Note</span><textarea class="lgNote" data-n="' + i + '" rows="3" maxlength="1000" placeholder="How it looked in the eyepiece">' + esc(e.note || '') + '</textarea></label>' +
+      rate('seeing', 'Seeing') + rate('transp', 'Transparency') +
+      '<p class="hint">Seeing is how steady the stars are; transparency, how clear the air is. 1 is poor, 5 excellent.</p>';
+  }
+  // A note is kept as it's typed and a rating as it's tapped (the same number again takes it off), without redrawing.
+  function wireLog(root, removed) {
+    root.querySelectorAll('.lgNote').forEach(function (ta) { ta.addEventListener('input', function () { var e = S.log[+ta.dataset.n]; if (!e) return; if (ta.value) e.note = ta.value; else delete e.note; save(); }); });
+    root.querySelectorAll('[data-r]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var e = S.log[+b.dataset.n], k = b.dataset.r, v = +b.dataset.v; if (!e) return;
+        if (e[k] === v) delete e[k]; else e[k] = v; save();
+        b.parentNode.querySelectorAll('button').forEach(function (x) { var on = e[k] === +x.dataset.v; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+      });
+    });
+    root.querySelectorAll('[data-del]').forEach(function (b) { b.addEventListener('click', function () { S.log.splice(+b.dataset.del, 1); UNDONE = null; reseen(); save(); renderTargets(); removed(); toast('Taken out of your log'); }); });
+  }
+  function logSheet(again) {
+    var list = sortedLog();
+    var h = '<div class="hd"><h2>Your log<small>' + (list.length ? plural(list.length, 'entry', 'entries') + ', newest first' : 'Nothing in it yet') + '</small></h2><button class="btn sec sm" type="button" data-close>Done</button></div><div class="bd">';
+    if (!list.length) h += '<p class="lede">Mark what you see as seen on its card, and it’s kept here with the night and time, where you were and your telescope.</p>';
+    else h += '<div class="btnrow"><button class="btn sec" type="button" id="logCopy">Copy as text</button><button class="btn sec" type="button" id="logCsv">Download CSV</button></div>' +
+      '<p class="hint" style="margin:0">The CSV has a row for each entry, with the columns the Astronomical League’s Messier Program asks observers to keep: date and time, latitude and longitude, seeing and transparency, aperture, power and a description. The League counts only objects you find yourself, with a finder or a Telrad, not with a phone app.</p>' +
+      '<div class="logl">' + list.map(function (x) {
+        var e = x.e;
+        return '<details class="lge"><summary><b>' + esc(entryName(e)) + '</b><span>' + esc(seenText(e.night) + (e.t ? ' · ' + tTime(new Date(e.t), e.tz) : '')) + '</span></summary><div class="lgb">' + (entryWhere(e) ? '<p>' + esc(entryWhere(e)) + '</p>' : '') + logEditor(x) +
+          '<button class="btn sec sm" type="button" data-del="' + x.i + '">Take out of your log</button></div></details>';
+      }).join('') + '</div>';
+    openSheet(h + '</div>', null, again);
+    wireLog($('sheet'), function () { logSheet(true); });
+    if ($('logCopy')) $('logCopy').addEventListener('click', function () { copyText(logText()); });
+    if ($('logCsv')) $('logCsv').addEventListener('click', function () { download('starhop-log-' + nightKey(parts(new Date(), tz())) + '.csv', '﻿' + logCsv(), 'text/csv'); });
+  }
+  // The local date and time an entry was made, in its own place's zone, with that zone's offset from UT.
+  function entryClock(e) {
+    if (!e.t) return null;
+    var d = new Date(e.t), z = e.tz || 'UTC', p = parts(d, z), m = offMin(d, z), a = Math.abs(m);
+    return { d: d, z: z, date: nightKey(p), time: ('0' + p.h).slice(-2) + ':' + ('0' + p.mi).slice(-2), off: 'UTC' + (m < 0 ? '-' : '+') + ('0' + Math.floor(a / 60)).slice(-2) + ':' + ('0' + a % 60).slice(-2) };
+  }
+  function latLon(e) { return e.lat == null ? '' : Math.abs(e.lat).toFixed(2) + '° ' + (e.lat < 0 ? 'S' : 'N') + ', ' + Math.abs(e.lon).toFixed(2) + '° ' + (e.lon < 0 ? 'W' : 'E'); }
+  function logText() {
+    return 'Starhop observing log\n\n' + sortedLog().map(function (x) {
+      var e = x.e, c = entryClock(e);
+      var when = c ? fmt(c.z, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).format(c.d) + ', ' + tTime(c.d, c.z) + ' (' + c.off.replace(/([+-])0?(\d+):(\d\d)$/, function (m, sg, hh, mm) { return (sg === '-' ? '−' : '+') + hh + (mm === '00' ? '' : ':' + mm); }) + ')' : 'The night of ' + seenText(e.night, true);
+      var gear = e.scope ? e.scope + (e.ap ? ', ' + e.ap + ' mm aperture' : '') + (e.power ? ', ' + e.power + '×' + (e.ep ? ' with the ' + e.ep : '') : '') : '';
+      var rates = [e.seeing ? 'Seeing ' + e.seeing + ' of 5' : '', e.transp ? 'Transparency ' + e.transp + ' of 5' : ''].filter(Boolean).join(' · ');
+      return [entryName(e), when + (e.place ? ' · ' + e.place + ' (' + latLon(e) + ')' : ''), gear, rates, e.note].filter(Boolean).join('\n');
+    }).join('\n\n') + '\n';
+  }
+  var LOG_COLS = ['Object', 'Night of', 'Date', 'Time', 'UTC offset', 'Place', 'Latitude', 'Longitude', 'Seeing (1-5)', 'Transparency (1-5)', 'Instrument', 'Aperture (mm)', 'Power', 'Eyepiece', 'Description'];
+  function logCsv() {
+    function cell(v) { v = v == null ? '' : String(v); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+    return [LOG_COLS].concat(sortedLog().map(function (x) {
+      var e = x.e, c = entryClock(e);
+      return [entryName(e), e.night, c ? c.date : '', c ? c.time : '', c ? c.off : '', e.place, e.lat, e.lon, e.seeing, e.transp, e.scope, e.ap, e.power, e.ep, e.note];
+    })).map(function (r) { return r.map(cell).join(','); }).join('\r\n') + '\r\n';
+  }
+  function copyText(txt) {
+    function done() { toast('Copied your log'); }
+    function old() {
+      var ta = document.createElement('textarea'), ok = false; ta.value = txt; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      $('sheet').appendChild(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e) { } ta.remove();
+      toast(ok ? 'Copied your log' : 'Couldn’t copy here; Download CSV instead');
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, old); else old();
+  }
+  function download(name, body, type) {
+    var a = document.createElement('a'), url = URL.createObjectURL(new Blob([body], { type: type + ';charset=utf-8' }));
+    a.href = url; a.download = name; a.hidden = true; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
 
   // ---------- object card ----------
   var BEST_TYPE = { planet: 'Planet', moon: 'Our Moon', star: 'Star', double: 'Double star' };
@@ -2169,6 +2317,7 @@ html.red .chart canvas{background:#050000}
   var KM = new Intl.NumberFormat('en-US'); // 1,301 million km, 399,799 km, whatever the phone's language
   function openObject(o) {
     var again = !$('sheet').hidden && SHEET_OBJ === o, keep = again ? $('sheet').querySelector('.bd').scrollTop : 0; // a redraw keeps its place
+    if (!again) UNDONE = null; // a taken-out entry comes back only while its card stays open
     var sc = scene(T.t), hv = objHor(o, sc), aa = hv ? altAz(hv) : null, rs = riseSet(o);
     var name = o.name || o.id, sub = '', facts = [], about = '';
     var con = objCon(o, T.t);
@@ -2227,6 +2376,8 @@ html.red .chart canvas{background:#050000}
     var ct = chartTime(o, rs), bright = o.k === 'star' && o.mag < 1.5, hop = o.k === 'planet' || o.k === 'moon' || bright || eyeStar || !ct ? null : hopFor(o, ct.t);
     var eyeTxt = eyeStar ? ((NAMES[o.star] || [])[0] || o.name) + ' is the naked-eye star itself (mag ' + (Math.abs(own) < 0.05 ? 0 : own).toFixed(1) + '), at the centre of the chart. ' :
       eyeSees ? 'Visible without a telescope from your sky: ' + (o.type === 'Globular cluster' ? 'a fuzzy star' : o.kind === 'cluster' ? 'a misty patch or a knot of faint stars' : 'a misty patch') + ' at the centre of the chart. ' : '';
+    // what the log has for it: the entry for the night a mark would go under, and the other nights it was seen
+    var night = markNight(), mine = o.k === 'moon' ? [] : logOf(o.id), cur = mine.filter(function (x) { return x.e.night === night; })[0], others = mine.filter(function (x) { return x !== cur; });
     // IM Fell has no Greek, so a Bayer letter (ξ Sco) is set upright in the body face, as in the line under it
     var h = '<div class="hd"><h2><span>' + esc(name).replace(/^[\u0370-\u03ff]/, '<span class="gk">$&</span>') + '</span><small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
       '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + nowTxt + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span>' + val(f[1], spokenArcs(esc(f[1]))) + '</div>'; }).join('') + '</div>' : '') + '</div>' +
@@ -2237,14 +2388,26 @@ html.red .chart canvas{background:#050000}
       rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + epCell(r) + '</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>') +
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
-      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button>' + (o.k === 'moon' ? '' : '<button class="btn sec" type="button" id="seenB"' + (S.seen[o.id] ? ' aria-label="Seen ' + esc(seenText(S.seen[o.id])) + '">✓ Seen ' + esc(seenText(S.seen[o.id])) : '>Mark as seen') + '</button>') + '</div></div>';
+      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button>' + (o.k === 'moon' ? '' : '<button class="btn sec" type="button" id="seenB"' + (cur ? ' aria-label="Seen ' + esc(seenText(night)) + '">✓ Seen ' + esc(seenText(night)) : '>Mark as seen' + (mine.length ? ' again' : '')) + '</button>') + '</div>' +
+      (mine.length ? '<div class="card logc"><h3>In your log</h3>' + (cur ? '<p>Seen ' + (cur.e.t ? 'at ' + esc(tTime(new Date(cur.e.t), cur.e.tz)) + ' · ' : '') + esc(entryWhere(cur.e)) + '</p>' + logEditor(cur) : '') +
+        (others.length ? '<p>' + (cur ? 'Also seen ' : 'Seen ') + others.map(function (x) { return esc(seenText(x.e.night)); }).join('; ') + '.</p>' : '') +
+        '<p><button class="lnk" type="button" id="openLog">Open your log</button></p></div>' : '') + '</div>';
     openSheet(h, null, again).querySelector('.bd').scrollTop = keep;
     SHEET_OBJ = o; SHEET_AT = tTime(T.t);
     $('ctr').addEventListener('click', function () { closeSheet(); SEL = o; center(o); markRows(); if (window.innerWidth < 1000) window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); });
     // The Moon has no seen mark: everyone has seen it, and it would sit ticked at the top of the list for good.
-    // Dated by the night: an earlier night being looked back on, or else tonight's, which a mark at 1 am still belongs
-    // to (a night still to come can't have been seen yet)
-    if ($('seenB')) $('seenB').addEventListener('click', function () { var now = new Date(), was = nightKey(NDATE), night = nightKey(nightOf(now)); var off = !!S.seen[o.id]; if (off) delete S.seen[o.id]; else S.seen[o.id] = !sameNight(NDATE, currentNight(now)) && was < night ? was : night; save(); openObject(o); renderTargets(); if (off) toast('No longer marked as seen'); });
+    // A mark puts an entry in the log for its night (see markNight), and a second tap takes that night's entry out
+    // again; a tap straight after brings it back with its note.
+    if ($('seenB')) $('seenB').addEventListener('click', function () {
+      var n = markNight(), k = String(o.id), at = -1;
+      S.log.forEach(function (e, i) { if (e.id === k && e.night === n) at = i; });
+      if (at >= 0) UNDONE = S.log.splice(at, 1)[0];
+      else if (UNDONE && UNDONE.id === k && UNDONE.night === n) { S.log.push(UNDONE); UNDONE = null; }
+      else S.log.push(newEntry(o, n, name, EPS.o === o && EPS.i >= 0 ? rows[EPS.i] : rows[adv.pick]));
+      reseen(); save(); openObject(o); renderTargets(); if (at >= 0) toast('No longer marked as seen');
+    });
+    wireLog($('sheet'));
+    if ($('openLog')) $('openLog').addEventListener('click', function () { logSheet(); });
     // a tap or Enter on an eyepiece shows its view
     $('sheet').querySelectorAll('.eps tbody tr').forEach(function (tr) {
       function pick() {
