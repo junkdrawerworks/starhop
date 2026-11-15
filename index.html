@@ -2134,10 +2134,11 @@ html.red .chart canvas{background:#050000}
     // your sky (a magnitude brighter than the faintest you see). Something else you can see without a telescope from
     // there, by its total magnitude, says so and keeps its hop.
     var eyeLim = sky().nelm - 1, own = o.k === 'double' && o.star != null ? STARS[o.star * 4 + 2] : null, eyeStar = own != null && own < eyeLim;
-    var eyeSees = o.k === 'dso' && o.mag != null && o.mag < eyeLim;
+    // an asterism's stars are seen one by one, so their added-up brightness doesn't mean the eye sees it (Kemble's Cascade, 4.3)
+    var eyeSees = o.k === 'dso' && o.mag != null && o.mag < eyeLim && o.type !== 'Asterism';
     var ct = chartTime(o, rs), bright = o.k === 'star' && o.mag < 1.5, hop = o.k === 'planet' || o.k === 'moon' || bright || eyeStar || !ct ? null : hopFor(o, ct.t);
     var eyeTxt = eyeStar ? ((NAMES[o.star] || [])[0] || o.name) + ' is the naked-eye star itself (mag ' + (Math.abs(own) < 0.05 ? 0 : own).toFixed(1) + '), at the centre of the chart. ' :
-      eyeSees ? 'Visible without a telescope from your sky: ' + (o.type === 'Globular cluster' ? 'a fuzzy star' : o.type === 'Asterism' ? 'a line of faint stars' : o.kind === 'cluster' ? 'a misty patch or a knot of faint stars' : 'a misty patch') + ' at the centre of the chart. ' : '';
+      eyeSees ? 'Visible without a telescope from your sky: ' + (o.type === 'Globular cluster' ? 'a fuzzy star' : o.kind === 'cluster' ? 'a misty patch or a knot of faint stars' : 'a misty patch') + ' at the centre of the chart. ' : '';
     // IM Fell has no Greek, so a Bayer letter (ξ Sco) is set upright in the body face, as in the line under it
     var h = '<div class="hd"><h2><span>' + esc(name).replace(/^[\u0370-\u03ff]/, '<span class="gk">$&</span>') + '</span><small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
       '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + nowTxt + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span>' + val(f[1], spokenArcs(esc(f[1]))) + '</div>'; }).join('') + '</div>' : '') + '</div>' +
