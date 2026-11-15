@@ -2330,6 +2330,28 @@ check('The eyepiece sketch shows what shares the field, faded as hard as each on
   } finally { await ctx.close(); }
 });
 
+// A neighbour in the field was drawn as a glow or a cloud of made-up stars whatever it was, so in 10×50s Kemble's
+// Cascade, 1.4° from NGC 1502, came out as a round cluster 2.8° across, and M73, four faint stars by M72, as a cluster.
+check('Kemble’s Cascade beside NGC 1502 is drawn by its own stars, and M73’s few faint ones are left out', async () => {
+  const BINO = { kind: 'bino', name: '10×50 binoculars', ap: 50, mag: 10, fov: 6.5, set: true };
+  const nbrs = page => page.waitForFunction(() => document.getElementById('eyepiece').__nbrs).then(h => h.jsonValue());
+  let { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: BINO }), time: '2026-11-15T23:30:00-06:00' });
+  try {
+    await openCard(page, 'NGC 1502');
+    assert.match(await text(page, '#sheet'), /Kemble 1 shares your binoculars’ field\./);
+    const n = await nbrs(page);
+    assert.deepEqual(n.map(q => [q.id, q.stars]), [['Kemble 1', 9]], 'drawn as its chain of stars');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: BINO }), time: '2026-08-15T22:00:00-05:00' }));
+  try {
+    await openCard(page, 'M72');
+    assert.match(await text(page, '#sheet'), /\. NGC 7009 shares your binoculars’ field\./);
+    assert.deepEqual((await nbrs(page)).map(q => q.id), ['NGC 7009']);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Cards said "try binoculars" for big objects, but binoculars couldn't be chosen, and many beginners start with 10×50s.
 // Binoculars split a double by the same rule at their one power, about 240 ÷ the separation: Albireo (34.3″) at 7×,
 // ν Draconis (62″) easily, Mizar (14.4″, with a companion 1.7 magnitudes fainter) not at 10×.

@@ -2309,9 +2309,10 @@ html.red .chart canvas{background:#050000}
     }
     return out;
   }
-  // The clusters, nebulae and galaxies other than o whose centres are inside a field tf degrees across around it, nearest first
+  // The clusters, nebulae and galaxies other than o whose centres are inside a field tf degrees across around it, nearest
+  // first. An asterism counts only with its stars to draw (Kemble's Cascade, not M73's few faint ones).
   function sharing(o, v, tf) {
-    return DSO.filter(function (q) { return q !== o && sep(q.v, v) < tf / 2; }).sort(function (p, q) { return sep(p.v, v) - sep(q.v, v); });
+    return DSO.filter(function (q) { return q !== o && (q.type !== 'Asterism' || q.stars) && sep(q.v, v) < tf / 2; }).sort(function (p, q) { return sep(p.v, v) - sep(q.v, v); });
   }
   // The eyepiece sketch's frame around a direction on the sky: e is the vector that points to the sketch's left and n
   // the one that points up. It starts as the finder chart does at time t, with the zenith up as the naked eye sees it,
@@ -2346,6 +2347,7 @@ html.red .chart canvas{background:#050000}
     // How plain a cluster, nebula or galaxy is: faded as its Difficulty is, so a Hard one is drawn faint (M33 from a city)
     function fadeOf(q) { return q.mag == null ? 0.6 : clamp(1.15 - 0.22 * rating(q, sc.moon.alt > 0 && sc.moon.illum > 0.3, sc.sun.alt).d, 0.15, 1); }
     var tags = [], nbrs = c.__nbrs = [];
+    function chain(q) { q.stars.forEach(function (st) { var pp = sky2px(vec(st[0], st[1])); if (!pp) return; g.fillStyle = col('#E6EBFF', 1); g.beginPath(); g.arc(pp[0], pp[1], clamp(3.2 - st[2] * 0.35, 0.8, 3.5), 0, 2 * Math.PI); g.fill(); }); return { a: 1, r: 8 }; }
     var cap = Math.round(r.M) + '×' + (r.bino ? '' : ' with the ' + epName(r)) + ' · field ' + (r.tf >= 1 ? r.tf.toFixed(1) + '°' : Math.round(fovMin) + '′');
     if (o.k === 'planet') {
       var pl = sc.planets.filter(function (x) { return x.id === o.id; })[0], dpx = Math.max(2.2, pl.diam / 60 * scale);
@@ -2398,11 +2400,11 @@ html.red .chart canvas{background:#050000}
       if (gl.groups) { var halves = String(o.cat).split(' and '); if (halves.length === gl.groups.length) gl.groups.forEach(function (gq, i) { tags.push([halves[i], gq[0], gq[1], gq[2], 0.9]); }); }
       cap += ' · a sketch, not a photo — expect it fainter';
     } else if (o.stars) { // Kemble's Cascade: its stars, most fainter than the map's
-      o.stars.forEach(function (q) { var pp = sky2px(vec(q[0], q[1])); if (!pp) return; g.fillStyle = col('#E6EBFF', 1); g.beginPath(); g.arc(pp[0], pp[1], clamp(3.2 - q[2] * 0.35, 0.8, 3.5), 0, 2 * Math.PI); g.fill(); });
+      chain(o);
       c.__chain = o.stars.length; // tests read that its stars were drawn
     } else if (o.k !== 'star') cap += ' · its faint stars aren’t drawn here';
     // Other clusters, nebulae and galaxies in the field (M32 and M110 beside M31), drawn the same way over the target, with short labels
-    sharing(o, cvec, r.tf).forEach(function (q) { var p = sky2px(q.v); if (!p) return; var gq = glow(g, q, p[0], p[1], scale, fadeOf(q), sky2px); nbrs.push({ id: q.id, x: p[0], y: p[1], a: gq.a }); tags.push([q.id, p[0], p[1], gq.r, 0.75 + 0.25 * fadeOf(q)]); });
+    sharing(o, cvec, r.tf).forEach(function (q) { var p = sky2px(q.v); if (!p) return; var gq = q.stars ? chain(q) : glow(g, q, p[0], p[1], scale, fadeOf(q), sky2px); nbrs.push({ id: q.id, x: p[0], y: p[1], a: gq.a, stars: q.stars ? q.stars.length : 0 }); tags.push([q.id, p[0], p[1], gq.r, 0.75 + 0.25 * fadeOf(q)]); });
     // the labels, beside each object on the side with room inside the field
     g.font = '700 10.5px "Atkinson Hyperlegible", sans-serif'; g.textBaseline = 'middle';
     tags.forEach(function (tg) {
