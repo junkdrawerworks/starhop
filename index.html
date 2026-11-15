@@ -279,6 +279,7 @@ html.red .chart canvas{background:#050000}
 .noData .panel{max-width:62ch}
 .x{width:34px;height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);padding:0}
 .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+#bwOpts{grid-template-columns:repeat(3,1fr)}
 .opt{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;color:var(--ink)}
 .opt b{display:block;font-size:14px}
 .opt small{display:block;color:var(--ink2);font-size:12px;margin-top:2px}
@@ -421,7 +422,7 @@ html.red .chart canvas{background:#050000}
     { id: 'dot', name: 'Red dot', sub: 'No field circle', rings: [], cap: 'Your red-dot finder has no field to draw: put its dot where the target sits among these stars.' }
   ];
   function finder() { return FINDERS.filter(function (f) { return f.id === S.scope.finder; })[0] || FINDERS[0]; }
-  var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], finder: 'fs', set: false };
+  var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], barlow: 1, finder: 'fs', set: false };
   var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, seen: {} };
   try { var saved = JSON.parse(localStorage.getItem(LS) || 'null'); if (plain(saved)) S = checkSave(saved, S); } catch (e) { }
   function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { } }
@@ -437,6 +438,7 @@ html.red .chart canvas{background:#050000}
     var ap = plain(sc) ? num(sc.ap) : NaN, fl = plain(sc) ? num(sc.fl) : NaN;
     out.scope = ap > 0 && fl > 0 ? Object.assign({}, sc, { name: typeof sc.name === 'string' ? sc.name : '', ap: ap, fl: fl, set: !!sc.set,
       eps: (Array.isArray(sc.eps) ? sc.eps : []).filter(function (e) { return plain(e) && num(e.f) > 1 && num(e.a) > 10; }).map(function (e) { return { f: num(e.f), a: num(e.a) }; }),
+      barlow: num(sc.barlow) === 2 || num(sc.barlow) === 3 ? num(sc.barlow) : 1,
       finder: FINDERS.some(function (f) { return f.id === sc.finder; }) ? sc.finder : 'fs' }) : d.scope;
     if (!SKIES.some(function (k) { return k.id === sv.sky; })) out.sky = d.sky;
     out.red = sv.red === true;
@@ -793,6 +795,8 @@ html.red .chart canvas{background:#050000}
       // a companion fainter than the faintest star the telescope shows (M40's 10th-magnitude pair from a city)
       if (mags(o)[1] > st.lm - (sky().nelm - nelmAt(sunAlt))) return { r: 'hard', label: 'Too faint', d: 4.5 };
       // without eyepieces entered, the telescope's highest useful power stands in for them
+      // (a Barlow's powers past the telescope's highest useful one don't count)
+      rows = rows.filter(function (r) { return r.use; });
       var top = rows.length ? Math.max.apply(null, rows.map(function (r) { return r.M; })) : st.maxMag;
       // an easy split has room to spare: 0.6 of the highest power, and twice the telescope's resolving limit
       if (need <= top * 0.6 && o.sep >= st.dawes * 2) return { r: 'easy', label: 'Easy split', d: 0.5 };
@@ -2017,13 +2021,24 @@ html.red .chart canvas{background:#050000}
 
   // ---------- object card ----------
   var BEST_TYPE = { planet: 'Planet', moon: 'Our Moon', star: 'Star', double: 'Double star' };
-  function epRows(o, sc) {
-    var ap = S.scope.ap, fl = S.scope.fl, st = scopeStats();
-    return S.scope.eps.slice().sort(function (a, b) { return b.f - a.f; }).map(function (e) {
-      var M = fl / e.f, tf = e.a / M;
-      return { f: e.f, a: e.a, M: M, tf: tf, xp: ap / M, ok: M <= st.maxMag * 1.05 };
+  function epRows() { return epTable(S.scope.ap, S.scope.fl, S.scope.eps, S.scope.barlow); }
+  // Each eyepiece's power, true field and exit pupil, lowest power first. With a Barlow, each eyepiece comes again at
+  // the Barlow's power (its apparent field stays the same, so its true field shrinks). An eyepiece past the telescope's
+  // highest useful power is still listed; a Barlow's power past it is listed but never suggested or counted (use).
+  function epTable(ap, fl, eps, barlow) {
+    var lim = Math.round(Math.min(2 * ap, 350)), out = [];
+    eps.forEach(function (e) {
+      [1].concat(barlow > 1 ? [barlow] : []).forEach(function (b) {
+        var M = fl * b / e.f, ok = M <= lim * 1.05;
+        out.push({ f: e.f, a: e.a, b: b, M: M, tf: e.a / M, xp: ap / M, ok: ok, use: b === 1 || ok });
+      });
     });
+    return out.sort(function (x, y) { return x.M - y.M || x.b - y.b; });
   }
+  // An eyepiece as the advice names it: the 10 mm, or the 10 mm with the 2× Barlow; and as the tables list it
+  function epName(r) { return r.f + ' mm' + (r.b > 1 ? ' with the ' + r.b + '× Barlow' : ''); }
+  function epCell(r) { return r.f + ' mm' + (r.b > 1 ? ' + ' + r.b + '×' : ''); }
+  function moreHint() { return S.scope.barlow > 1 ? 'a shorter eyepiece' : 'a shorter eyepiece or a 2× Barlow'; }
   // A size in arcminutes: to a tenth under 10′, so the Ring Nebula is 1.4′ × 1′, not 1′ × 1′
   function arcmin(x) { return (x < 10 ? Math.round(x * 10) / 10 : Math.round(x)) + '′'; }
   // Screen readers say ′ and ″ as "prime" and "double prime", or skip them, so they hear arcminutes and arcseconds.
@@ -2035,38 +2050,40 @@ html.red .chart canvas{background:#050000}
     if (o.k === 'planet' || o.k === 'moon') {
       var p = o.k === 'moon' ? { diam: sc.moon.diam * 3600 } : sc.planets.filter(function (x) { return x.id === o.id; })[0];
       rows.forEach(function (r, i) { if (r.ok && r.M <= 250) pick = i; });
-      if (pick < 0) pick = rows.length - 1;
+      if (pick < 0) pick = topRow(rows);
       var r = rows[pick], ratio = p.diam * r.M / 1865;
-      if (o.k === 'moon') txt = (rows[0].tf >= sc.moon.diam ? 'The whole Moon fits in the ' + rows[0].f + ' mm eyepiece (' + field(rows[0].tf) + ' field).' : 'The Moon (' + (sc.moon.diam * 60).toFixed(1) + '′ across) is wider than your lowest-power field (' + field(rows[0].tf) + '), so even the ' + rows[0].f + ' mm shows part of it at a time.') + (sc.moon.illum > 0.95 ? ' Near full there are few shadows, so look for the dark seas and the bright rays from the crater Tycho at ' + Math.round(r.M) + '× with the ' + r.f + ' mm; a Moon filter or a higher power cuts the glare.' : ' At ' + Math.round(r.M) + '× with the ' + r.f + ' mm, sweep along the terminator — the line between light and dark — where shadows make craters stand out.');
-      else txt = 'At ' + Math.round(r.M) + '× (the ' + r.f + ' mm), ' + o.id + ' looks ' + (ratio >= 1.15 ? 'about ' + ratio.toFixed(1) + '× as wide as' : ratio >= 0.85 ? 'about as wide as' : 'about ' + (ratio < 0.25 ? (1 / ratio).toFixed(0) : (1 / ratio).toFixed(1)) + '× smaller than') + ' the full Moon does to your eye.' + (o.id === 'Uranus' || o.id === 'Neptune' ? ' At low power it looks like a star; high power shows a tiny coloured disc.' : '');
+      if (o.k === 'moon') txt = (rows[0].tf >= sc.moon.diam ? 'The whole Moon fits in the ' + rows[0].f + ' mm eyepiece (' + field(rows[0].tf) + ' field).' : 'The Moon (' + (sc.moon.diam * 60).toFixed(1) + '′ across) is wider than your lowest-power field (' + field(rows[0].tf) + '), so even the ' + epName(rows[0]) + ' shows part of it at a time.') + (sc.moon.illum > 0.95 ? ' Near full there are few shadows, so look for the dark seas and the bright rays from the crater Tycho at ' + Math.round(r.M) + '× with the ' + epName(r) + '; a Moon filter or a higher power cuts the glare.' : ' At ' + Math.round(r.M) + '× with the ' + epName(r) + ', sweep along the terminator — the line between light and dark — where shadows make craters stand out.');
+      else txt = 'At ' + Math.round(r.M) + '× (the ' + epName(r) + '), ' + o.id + ' looks ' + (ratio >= 1.15 ? 'about ' + ratio.toFixed(1) + '× as wide as' : ratio >= 0.85 ? 'about as wide as' : 'about ' + (ratio < 0.25 ? (1 / ratio).toFixed(0) : (1 / ratio).toFixed(1)) + '× smaller than') + ' the full Moon does to your eye.' + (o.id === 'Uranus' || o.id === 'Neptune' ? ' At low power it looks like a star; high power shows a tiny coloured disc.' : '');
       return { txt: txt, pick: pick };
     }
     if (o.k === 'double') {
       var need = splitPower(o);
-      rows.forEach(function (r, i) { if (pick < 0 && splits(r, o)) pick = i; });
+      rows.forEach(function (r, i) { if (pick < 0 && r.use && splits(r, o)) pick = i; });
       if (o.sep < st.dawes * 1.1) return { txt: 'At ' + o.sep + '″ these stars are closer than your telescope can split (about ' + st.dawes.toFixed(1) + '″).', pick: -1 };
-      if (pick < 0) return { txt: 'Splitting a ' + o.sep + '″ pair takes about ' + Math.round(need) + '×; your highest power is ' + Math.round(rows[rows.length - 1].M) + '×. A shorter eyepiece or a 2× Barlow will do it.' + innerPairs(o, rows, st), pick: rows.length - 1 };
-      return { txt: 'The two stars are ' + o.sep + '″ apart; about ' + Math.round(need) + '× splits them, so start with the ' + rows[pick].f + ' mm (' + Math.round(rows[pick].M) + '×).' + innerPairs(o, rows, st), pick: pick };
+      if (pick < 0) { var hi = topRow(rows); return { txt: 'Splitting a ' + o.sep + '″ pair takes about ' + Math.round(need) + '×; your highest power is ' + Math.round(rows[hi].M) + '×. ' + moreHint().replace(/^a/, 'A') + ' will do it.' + innerPairs(o, rows, st), pick: hi }; }
+      return { txt: 'The two stars are ' + o.sep + '″ apart; about ' + Math.round(need) + '× splits them, so start with the ' + epName(rows[pick]) + ' (' + Math.round(rows[pick].M) + '×).' + innerPairs(o, rows, st), pick: pick };
     }
     if (o.k === 'star') return { txt: 'A star stays a point at any power. The ' + rows[0].f + ' mm (' + field(rows[0].tf) + ' field) shows it with the stars around it.', pick: 0 };
     var sz = (o.dim && o.dim[0]) || 5, size = sz >= 60 ? (sz / 60).toFixed(1) + '°' : arcmin(sz), low = rows[0];
-    rows.forEach(function (r, i) { if (r.tf * 60 >= sz * 1.6 && r.xp >= 0.9) pick = i; });
-    if (sz > low.tf * 60) { pick = 0; txt = 'At ' + size + ' across, it’s wider than your lowest-power field (' + field(low.tf) + '). Use the ' + low.f + ' mm and pan across it, or try binoculars.'; }
-    else if (pick < 0 && sz * 1.6 > low.tf * 60) { pick = 0; txt = 'At ' + size + ' across, it fills most of your lowest-power field (' + field(low.tf) + '). Use the ' + low.f + ' mm, or try binoculars.'; }
-    else { pick = Math.max(pick, 0); txt = (o.dim && o.dim[0] ? 'It spans ' + size + '. ' : '') + 'Find it with the ' + low.f + ' mm (' + field(low.tf) + ' field)' + (pick ? ', then try the ' + rows[pick].f + ' mm (' + Math.round(rows[pick].M) + '×) for a closer look.' : '.'); }
+    rows.forEach(function (r, i) { if (r.use && r.tf * 60 >= sz * 1.6 && r.xp >= 0.9) pick = i; });
+    if (sz > low.tf * 60) { pick = 0; txt = 'At ' + size + ' across, it’s wider than your lowest-power field (' + field(low.tf) + '). Use the ' + epName(low) + ' and pan across it, or try binoculars.'; }
+    else if (pick < 0 && sz * 1.6 > low.tf * 60) { pick = 0; txt = 'At ' + size + ' across, it fills most of your lowest-power field (' + field(low.tf) + '). Use the ' + epName(low) + ', or try binoculars.'; }
+    else { pick = Math.max(pick, 0); txt = (o.dim && o.dim[0] ? 'It spans ' + size + '. ' : '') + 'Find it with the ' + epName(low) + ' (' + field(low.tf) + ' field)' + (pick ? ', then try the ' + epName(rows[pick]) + ' (' + Math.round(rows[pick].M) + '×) for a closer look.' : '.'); }
     return { txt: txt, pick: pick };
   }
   // Epsilon Lyrae's two stars are each a close pair as well: whether your eyepieces split them.
   function innerPairs(o, rows, st) {
     if (!o.inner) return '';
-    var top = rows[rows.length - 1], need = o.inner.map(function (sp) { return pairPower(sp, 0); }); // each pair is within a magnitude
+    var top = rows[topRow(rows)], need = o.inner.map(function (sp) { return pairPower(sp, 0); }); // each pair is within a magnitude
     var lead = ' Each star splits again, ' + o.inner[0] + '″ and ' + o.inner[1] + '″ apart, at about ' + Math.round(need[0]) + '× and ' + Math.round(need[1]) + '×';
     if (Math.max.apply(null, o.inner) < st.dawes * 1.1) return ' Each star is itself a close pair, ' + o.inner[0] + '″ and ' + o.inner[1] + '″ apart, closer than your telescope can split.';
-    var hi = Math.max.apply(null, need), lo = Math.min.apply(null, need), at = function (x) { return rows.filter(function (r) { return r.M >= x; })[0]; };
-    if (top.M >= hi) return lead + ': the ' + at(hi).f + ' mm (' + Math.round(at(hi).M) + '×) splits both.';
-    if (top.M >= lo) return lead + ': the ' + at(lo).f + ' mm (' + Math.round(at(lo).M) + '×) splits the ' + o.inner[need.indexOf(lo)] + '″ pair but not the ' + o.inner[need.indexOf(hi)] + '″ one.';
-    return lead + '; your highest power is ' + Math.round(top.M) + '×, so they need a shorter eyepiece or a 2× Barlow.';
+    var hi = Math.max.apply(null, need), lo = Math.min.apply(null, need), at = function (x) { return rows.filter(function (r) { return r.use && r.M >= x; })[0]; };
+    if (top.M >= hi) return lead + ': the ' + epName(at(hi)) + ' (' + Math.round(at(hi).M) + '×) splits both.';
+    if (top.M >= lo) return lead + ': the ' + epName(at(lo)) + ' (' + Math.round(at(lo).M) + '×) splits the ' + o.inner[need.indexOf(lo)] + '″ pair but not the ' + o.inner[need.indexOf(hi)] + '″ one.';
+    return lead + '; your highest power is ' + Math.round(top.M) + '×, so they need ' + moreHint() + '.';
   }
+  // the highest power that counts: the last row, or a Barlow's past the telescope's limit, the last before it
+  function topRow(rows) { for (var i = rows.length - 1; i > 0 && !rows[i].use; i--); return i; }
   function riseSet(o) {
     var N = NIGHT, obj = o.b ? { k: 'body', b: o.b } : { v: o.v || vec(o.ra, o.dec) };
     // A planet's altitude here includes refraction, so it rises at 0°; a star's doesn't, so -0.5° allows for it.
@@ -2156,7 +2173,7 @@ html.red .chart canvas{background:#050000}
       '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart" aria-describedby="finderCap"></canvas><div class="cap" id="finderCap">' + esc(eyeTxt) + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + finder().cap + (sky().nelm < 5.6 ? ' Hollow dots are stars too faint to see by eye from your sky; a finder shows them.' : '') + '</div></div>' +
       '<div class="chart"><canvas id="eyepiece" aria-label="Simulated eyepiece view" aria-describedby="epCap"></canvas><div class="cap" id="epCap"></div></div></div>' +
       '<div class="card"><h3>In your telescope</h3><p>' + esc(adv.txt) + '</p><div class="epsw"><table class="eps"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th><th></th></tr></thead><tbody>' +
-      rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + r.f + ' mm</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
+      rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + epCell(r) + '</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>' +
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
       '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB"' + (S.seen[o.id] ? ' aria-label="Seen ' + esc(seenText(S.seen[o.id])) + '">✓ Seen ' + esc(seenText(S.seen[o.id])) : '>Mark as seen') + '</button></div></div>';
@@ -2229,7 +2246,7 @@ html.red .chart canvas{background:#050000}
     // background stars from the catalog, leaving out a double's own pair, which is sketched below
     var own = o.k === 'double' ? Math.cos(Math.max(2 * o.sep / 3600, 1 / 60) * D2R) : 2;
     for (var k = 0, n = STARS.length / 4; k < n; k++) { var v = SVEC[k]; if (dot(v, cvec) < Math.cos(r.tf * D2R) || k === o.star && o.k === 'double' || dot(v, cvec) > own) continue; var p = sky2px(v); if (!p) continue; var mg = STARS[k * 4 + 2]; g.fillStyle = col(BVC[bvClass(STARS[k * 4 + 3])], 1); g.beginPath(); g.arc(p[0], p[1], clamp(3.2 - mg * 0.35, 0.8, 3.5), 0, 2 * Math.PI); g.fill(); }
-    var cap = Math.round(r.M) + '× with the ' + r.f + ' mm · field ' + (r.tf >= 1 ? r.tf.toFixed(1) + '°' : Math.round(fovMin) + '′');
+    var cap = Math.round(r.M) + '× with the ' + epName(r) + ' · field ' + (r.tf >= 1 ? r.tf.toFixed(1) + '°' : Math.round(fovMin) + '′');
     if (o.k === 'planet') {
       var pl = sc.planets.filter(function (x) { return x.id === o.id; })[0], dpx = Math.max(2.2, pl.diam / 60 * scale);
       var ring = o.id === 'Saturn' ? saturnRing(pl, e, nth) : null;
@@ -2355,13 +2372,14 @@ html.red .chart canvas{background:#050000}
       '<div class="grid2"><label class="fld"><span>Name</span><input id="scName" autocomplete="off" maxlength="40" placeholder="e.g. 70 mm refractor"></label><label class="fld"><span>Aperture (mm)</span><input id="scAp" inputmode="decimal" autocomplete="off"></label><label class="fld"><span>Focal length (mm)</span><input id="scFl" inputmode="decimal" autocomplete="off"></label></div>' +
       '<p class="hint">Printed on the tube or box: 70/700 means a 70 mm aperture and 700 mm focal length.</p>' +
       '<div class="fld"><span>Eyepieces — focal length and apparent field</span><p class="hint">The number on each eyepiece (H20mm, K25). Not sure of the field? Leave 52°.</p><div class="epl" id="epl"></div><button class="btn sec sm" type="button" id="epAdd" style="align-self:flex-start">+ Add an eyepiece</button></div>' +
+      '<div class="fld"><span>Barlow</span><p class="hint">A Barlow lens goes in front of an eyepiece and doubles or triples its power.</p><div class="opts" id="bwOpts" role="group" aria-label="Barlow"></div></div>' +
       '<div class="fld"><span>Your finder</span><div class="opts" id="fdOpts" role="group" aria-label="Your finder"></div></div>' +
       '<div class="fld"><span>Your sky</span><p class="hint">Each sky’s Bortle class goes by the faintest star you see by eye, as Bortle’s scale gives it (Sky &amp; Telescope, February 2001).</p><div class="opts" id="skyOpts"></div></div>' +
       '<div class="card" id="scStats"></div></div>');
     // Until a telescope is set, the example's name stays out of the field, so one typed in by hand isn't saved under it.
     $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = sc.fl;
     var picked = null; // the name a quick pick put in the field
-    var skyv = S.sky, fdv = finder().id;
+    var skyv = S.sky, fdv = finder().id, bwv = sc.barlow || 1;
     function drawEps() {
       // each field and Remove button says which eyepiece it belongs to, as the rows' short labels can't
       // (only the first row shows its labels; the rest have them for screen readers)
@@ -2371,13 +2389,14 @@ html.red .chart canvas{background:#050000}
     }
     function delName(i) { return epOk(eps[i], 'f') ? 'Remove the ' + eps[i].f + ' mm eyepiece' : 'Remove eyepiece ' + (i + 1); }
     function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '" aria-pressed="' + (s.id === skyv) + '"><b>' + s.name + ' <span class="bt">Bortle ' + s.bortle + '</span></b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
+    function drawBarlow() { $('bwOpts').innerHTML = [[1, 'None'], [2, '2×'], [3, '3×']].map(function (o) { return '<button class="opt' + (o[0] === bwv ? ' on' : '') + '" type="button" data-b="' + o[0] + '" aria-pressed="' + (o[0] === bwv) + '"><b>' + o[1] + '</b></button>'; }).join(''); $('bwOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { bwv = +b.dataset.b; drawBarlow(); stats(); }); }); }
     function drawFinders() { $('fdOpts').innerHTML = FINDERS.map(function (f) { return '<button class="opt' + (f.id === fdv ? ' on' : '') + '" type="button" data-f="' + f.id + '" aria-pressed="' + (f.id === fdv) + '"><b>' + f.name + '</b><small>' + f.sub + '</small></button>'; }).join(''); $('fdOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { fdv = b.dataset.f; drawFinders(); }); }); }
     function stats() {
       var ap = reading($('scAp').value, true), fl = reading($('scFl').value);
       if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES + '.' : 'Enter the aperture and focal length.') + '</p>'; return; }
       var nelm = SKIES.filter(function (s) { return s.id === skyv; })[0].nelm, good = eps.filter(function (e) { return epOk(e, 'f') && epOk(e, 'a'); });
       $('scStats').innerHTML = '<h3>What it can do</h3><div class="kv"><div><span>Focal ratio</span><b>f/' + (fl / ap).toFixed(1) + '</b></div><div><span>Faintest stars</span><b>mag ' + (nelm + 5 * Math.log10(ap / 7) - 0.6).toFixed(1) + '</b></div><div><span>Splits pairs to</span><b>' + (116 / ap).toFixed(1) + '″</b></div><div><span>Highest useful power</span><b>' + Math.round(Math.min(2 * ap, 350)) + '×</b></div></div>' +
-        (good.length ? '<div class="epsw"><table class="eps plain"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th></tr></thead><tbody>' + good.sort(function (a, b) { return b.f - a.f; }).map(function (e) { var M = fl / e.f; return '<tr><td>' + e.f + ' mm</td><td>' + Math.round(M) + '×</td><td>' + spokenArcs(field(e.a / M)) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '');
+        (good.length ? '<div class="epsw"><table class="eps plain"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th></tr></thead><tbody>' + epTable(ap, fl, good, bwv).map(function (r) { return '<tr><td>' + epCell(r) + '</td><td>' + Math.round(r.M) + '×</td><td>' + spokenArcs(field(r.tf)) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '');
     }
     $('scPre').addEventListener('change', function () { var p = PRESETS[+this.value]; if (!p) return; $('scName').value = picked = p.name; $('scAp').value = p.ap; $('scFl').value = p.fl; $('scAp').removeAttribute('aria-invalid'); $('scFl').removeAttribute('aria-invalid'); stats(); });
     // new numbers after a quick pick make it some other telescope, so the pick's name goes unless it was typed over
@@ -2406,10 +2425,10 @@ html.red .chart canvas{background:#050000}
       // A name left empty, or a quick pick's or the example's with other numbers, gives way to one from the numbers.
       var name = $('scName').value.trim();
       if (!name || PRESETS.concat(DEFAULT_SCOPE).some(function (p) { return p.name === name && (p.ap !== ap || p.fl !== fl); })) name = ap + ' mm, f/' + Math.round(fl / ap * 10) / 10;
-      S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), finder: fdv, set: true }; S.sky = skyv; save();
+      S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), barlow: bwv, finder: fdv, set: true }; S.sky = skyv; save();
       closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies'); // the chip hides its name on a phone
     });
-    drawEps(); drawFinders(); drawSky(); stats();
+    drawEps(); drawBarlow(); drawFinders(); drawSky(); stats();
   }
   function renderScopeChip() { var n = S.scope.set ? (S.scope.name || S.scope.ap + ' mm') : 'Telescope'; $('scopeName').textContent = n; $('scopeBtn').setAttribute('aria-label', S.scope.set ? 'Telescope: ' + n : 'Your telescope'); }
   $('scopeBtn').addEventListener('click', scopeSheet);

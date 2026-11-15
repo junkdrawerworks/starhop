@@ -2196,6 +2196,42 @@ check('Albireo’s eyepiece sketch shows two stars', async () => {
   } finally { await ctx.close(); }
 });
 
+// Many beginner kits come with a 2× Barlow, but the sheet had no place for it, so Izar (2.9″, needing about 108×) was
+// out of reach of a 130 mm reflector's 25 mm and 10 mm (26× and 65×), which reach 130× with it. A Barlow's power past
+// the telescope's highest useful one (twice the aperture in mm) is listed but not suggested.
+check('A Barlow in the telescope sheet adds its powers to the eyepieces', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  const table = () => page.$$eval('#sheet .eps tbody tr', t => t.map(r => r.innerText.replace(/\s+/g, ' ').trim()));
+  try {
+    await openCard(page, 'izar');
+    assert.match(await text(page, '#sheet'), /your highest power is 65×\. A shorter eyepiece or a 2× Barlow will do it\./);
+    await page.click('#sheet [data-close]');
+    await page.click('#scopeBtn');
+    assert.equal(await page.$eval('#bwOpts [aria-pressed="true"]', b => b.textContent), 'None');
+    await page.click('#bwOpts [data-b="2"]');
+    assert.deepEqual(await page.$$eval('#scStats tbody tr', t => t.map(r => [...r.cells].map(c => c.textContent.replace(/ arcminutes?/, '')).join(' '))),
+      ['25 mm 26× 2.0°', '25 mm + 2× 52× 1.0°', '10 mm 65× 48′', '10 mm + 2× 130× 24′'], 'the sheet lists each eyepiece with and without it');
+    await page.click('#scSave');
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('starhop.v1'))).scope.barlow, 2, 'it is kept');
+    await openCard(page, 'izar');
+    assert.match(await text(page, '#sheet'), /about 108× splits them, so start with the 10 mm with the 2× Barlow \(130×\)\./);
+    assert.deepEqual(await table(), ['25 mm 26× 2.0°', '25 mm + 2× 52× 1.0°', '10 mm 65× 48′', '10 mm + 2× 130× 24′ Suggested']);
+    await page.waitForFunction(() => /130× with the 10 mm with the 2× Barlow/.test(document.getElementById('epCap').textContent));
+    await page.click('#sheet [data-close]');
+    // a 70 mm refractor's highest useful power is 140×: the 10 mm with a 3× Barlow, 210×, is listed but not used
+    await page.click('#scopeBtn');
+    await page.selectOption('#scPre', { label: '70 mm refractor (70 mm, f/10.0)' });
+    await page.click('#bwOpts [data-b="3"]');
+    await page.click('#scSave');
+    await openCard(page, 'izar');
+    const rows = await table();
+    assert.equal(rows.length, 4, rows.join(' | '));
+    assert.match(rows[3], /^10 mm \+ 3× 210× \S+ Beyond 140×$/, 'the 210× row is listed, past the limit');
+    assert.match(await text(page, '#sheet'), /your highest power is 84×\. A shorter eyepiece will do it\./, 'and isn’t counted');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // The sketch drew every companion due west of its primary (position angle 270°), the same size whatever the two
 // magnitudes. The WDS's latest measures put Albireo B at 54° (northeast, so up and to the left in a north-up, east-left
 // view) and Mesarthim's matched pair (4.5 and 4.6) at 359°, due north.
