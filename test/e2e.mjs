@@ -61,8 +61,9 @@ const browser = await pw.chromium.launch();
 // Anything the page asks of another site is refused and listed in `outside`.
 // `init` runs in the page before Starhop does. `route` is [url pattern, handler] for the page's requests, and with
 // `wait` false it returns as soon as the page has loaded, without waiting for the sky to be drawn. `geo` is where the
-// device says it is, { latitude, longitude }, with leave to ask. `locale` is the browser's language.
-async function open({ loc = AUSTIN, save, time, tz, phone = true, size, sw = false, reducedMotion = 'no-preference', init, route, wait = true, geo, locale = 'en-US' } = {}) {
+// device says it is, { latitude, longitude }, with leave to ask. `locale` is the browser's language. `hash` goes on the
+// address it opens, as a shared plan's link has it.
+async function open({ loc = AUSTIN, save, time, tz, phone = true, size, sw = false, reducedMotion = 'no-preference', init, route, wait = true, geo, locale = 'en-US', hash = '' } = {}) {
   const ctx = await browser.newContext({
     viewport: size ? { width: size[0], height: size[1] } : phone ? { width: 390, height: 844 } : { width: 1280, height: 800 },
     deviceScaleFactor: phone ? 2 : 1, isMobile: phone, hasTouch: phone, locale,
@@ -82,7 +83,7 @@ async function open({ loc = AUSTIN, save, time, tz, phone = true, size, sw = fal
   // A refused request to another site shows up as a console error too; `outside` already has those.
   page.on('console', m => { if (m.type() === 'error' && (m.location().url || base).startsWith(base)) problems.push(m.text()); });
   if (time) await page.clock.install({ time: new Date(time) });
-  await page.goto(base);
+  await page.goto(base + hash);
   if (wait) await ready(page);
   return { ctx, page, problems, outside };
 }
@@ -624,6 +625,15 @@ check('A plan lists its picks by best time, marks what is badly placed, and open
     await page.goto(base + '#plan=ngc%20869,SATURN,nuOph,crux'); await ready(page);
     assert.deepEqual((await savedPlan(page)).slice(5), ['NGC 869', 'ν Oph']);
     assert.match(await text(page, '#toast'), /^Added 2 targets from a shared plan to yours$/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // someone new, whose place is guessed from the time zone, hears about the plan first and the guess after it
+  ({ ctx, page, problems } = await open({ loc: null, time: '2026-11-15T21:00:00-06:00', hash: '#plan=M31' }));
+  try {
+    assert.equal(await text(page, '#toast'), 'Opened a shared plan of 1 target');
+    await page.waitForTimeout(1500);
+    assert.equal(await text(page, '#toast'), 'Opened a shared plan of 1 target', 'not covered by the guess straight away');
+    await page.waitForFunction(() => /^Guessed /.test(document.getElementById('toast').textContent), null, { timeout: 8000 });
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
   // a damaged plan in the save opens with what makes sense in it
