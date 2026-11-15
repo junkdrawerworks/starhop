@@ -1188,6 +1188,25 @@ check('Dragging along the timeline still sets the time', async () => {
   } finally { await ctx.close(); }
 });
 
+// On a phone the whole-sky view's N fell just off the top and S under the direction buttons, so neither showed.
+check('The Up view on a phone shows N and S', async () => {
+  for (const loc of [AUSTIN, SYDNEY]) {
+    for (const phone of [true, false]) {
+      const { ctx, page, problems } = await open({ loc, phone, time: loc === AUSTIN ? '2026-11-15T21:00:00-06:00' : '2026-11-15T22:00:00+11:00' });
+      try {
+        await page.click('#dirSeg button[data-d="up"]');
+        await page.waitForTimeout(300);
+        const m = await mapLabels(page), letters = m.labels.filter(l => /^[NESW]{1,2}$/.test(l.t)).map(l => l.t);
+        const where = `${loc.name} on a ${phone ? 'phone' : 'desktop'}`;
+        for (const t of ['N', 'E', 'S', 'W']) assert.ok(letters.includes(t), `${where}: ${t} shows (${letters.join(', ')})`);
+        if (!phone) assert.equal(letters.length, 8, `${where}: all eight show`);
+        checkLabels(m.labels, m.w, m.h, m.keep, where);
+        assert.deepEqual(problems, []);
+      } finally { await ctx.close(); }
+    }
+  }
+});
+
 // At 1 am the list led with the Moon and Albireo, both set hours before, and only opening each card said so.
 // Austin, Nov 15 2026: the Moon sets at 10:53 pm and Jupiter rises at 12:08 am.
 check('A row says tonight whether it is up now, rises later or has set', async () => {
