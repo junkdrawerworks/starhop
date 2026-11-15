@@ -178,6 +178,8 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .find input{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;width:100%;min-width:0;font-size:16px}
 .find .res small.at{font:13px var(--body);color:var(--ink2);text-align:right}
 .find .res .nm small{margin-left:2px}
+.poor{color:var(--hard)}
+.planrow{margin-top:10px}
 .find .res .none{padding:10px 12px;margin:0;color:var(--ink2);font-size:13.5px}
 .filters .chip{height:30px;padding:0 11px;font-size:12.5px}
 .list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel)}
@@ -218,6 +220,7 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .g{width:26px;height:26px;display:flex;align-items:center;justify-content:center}
 .g i{display:block}
 .g .pl{width:13px;height:13px;border-radius:50%}
+.g .st{width:7px;height:7px;border-radius:50%;background:var(--ink);box-shadow:0 0 6px var(--ink3)}
 .g .cl{width:18px;height:18px;border-radius:50%;border:2px dotted var(--teal)}
 .g .gx{width:22px;height:11px;border-radius:50%;border:2px solid var(--blue);transform:rotate(-25deg)}
 .g .nb{width:17px;height:17px;border-radius:5px;border:2px solid var(--rose)}
@@ -471,7 +474,7 @@ html.red .chart canvas{background:#050000}
     if (isBino()) return { rings: [{ deg: S.scope.fov, dash: true, a: 0.6 }], cap: 'The dashed circle is your binoculars’ field (' + S.scope.fov + '°).' };
     return FINDERS.filter(function (f) { return f.id === S.scope.finder; })[0] || FINDERS[0]; }
   var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], barlow: 1, view: 'inv', finder: 'fs', set: false };
-  var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, log: [] };
+  var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, log: [], plan: [] };
   var SEEN = {}; // the latest night each object in the log was seen, by its id
   try { var saved = JSON.parse(localStorage.getItem(LS) || 'null'); if (plain(saved)) S = checkSave(saved, S); } catch (e) { }
   reseen();
@@ -499,6 +502,8 @@ html.red .chart canvas{background:#050000}
     // marks saved before there was a log, { id: night }, come in as entries with only their night
     if (plain(sv.seen)) Object.keys(sv.seen).forEach(function (k) { var v = sv.seen[k]; if (typeof v === 'string' && v && k !== 'Moon' && !out.log.some(function (e) { return e.id === k && e.night === v; })) out.log.push({ id: k, night: v }); });
     delete out.seen;
+    // the plan: what's in it, by the names its link uses (see planToken), each once
+    out.plan = (Array.isArray(sv.plan) ? sv.plan : []).filter(function (k, i, a) { return typeof k === 'string' && k.trim() && k.length <= 60 && a.indexOf(k) === i; }).slice(0, 100);
     if (!(Array.isArray(sv.ptOff) && sv.ptOff.length === 2 && sv.ptOff.every(function (v) { return typeof v === 'number' && isFinite(v); }))) delete out.ptOff;
     return out;
   }
@@ -840,7 +845,7 @@ html.red .chart canvas{background:#050000}
     alphacen: 2.5, gammavel: 1.5, acamar: 1.2, betatuc: 1, peri: 0.8,
     'NGC 4565': 1.5, 'Kemble 1': 1.2, 'Stock 2': 0.8, 'NGC 891': 1, 'NGC 7331': 0.8, 'NGC 6210': 0.8, 'NGC 7789': 1.2, 'NGC 1502': 0.6, 'NGC 4631': 0.8, 'NGC 2169': 0.6, 'NGC 2903': 0.8, 'IC 4665': 0.8,
     gammadel: 1.5, achird: 1, betamon: 1.5, deltacep: 1.2, iotacnc: 1.2, nudra: 1, rasalgethi: 1.2, porrima: 1.2, alya: 1, xiboo: 1 };
-  function dsoKindGlyph(o) { return o.k === 'double' ? 'ds' : o.type === 'Planetary nebula' ? 'pn' : o.kind === 'galaxy' ? 'gx' : o.kind === 'nebula' ? 'nb' : 'cl'; }
+  function dsoKindGlyph(o) { return o.k === 'star' ? 'st' : o.k === 'double' ? 'ds' : o.type === 'Planetary nebula' ? 'pn' : o.kind === 'galaxy' ? 'gx' : o.kind === 'nebula' ? 'nb' : 'cl'; }
 
   // Limiting magnitude and resolving power of the telescope.
   function scopeStats() {
@@ -888,7 +893,7 @@ html.red .chart canvas{background:#050000}
     return d < 1.6 ? { r: 'easy', label: 'Easy', d: d } : d < 3 ? { r: 'fair', label: 'Fair', d: d } : { r: 'hard', label: d < 4.2 ? 'Hard' : 'Very hard', d: d };
   }
 
-  var TARGETS = [], TFILTER = 'all', TMORE = false, TOO_BRIGHT = false;
+  var TARGETS = [], TFILTER = 'all', TMORE = false, TOO_BRIGHT = false, TB = null;
   function computeTargets() {
     var N = NIGHT, list = [];
     function sunAt(t) { var s = N.samples[Math.round((t - N.start) / (5 * 60e3))]; return s ? s.sun : 0; }
@@ -935,6 +940,7 @@ html.red .chart canvas{background:#050000}
     });
     list.sort(function (a, b) { return b.score - a.score; });
     TARGETS = list;
+    TB = { best: best, body: bestBody, moonUp: moonUp, dark: ts.length };
   }
 
   // ---------- sky map ----------
@@ -1718,7 +1724,7 @@ html.red .chart canvas{background:#050000}
   }
 
   // ---------- targets panel ----------
-  var FILTERS = [['all', 'All'], ['planets', 'Moon & planets'], ['cluster', 'Clusters'], ['nebula', 'Nebulae'], ['galaxy', 'Galaxies'], ['double', 'Double stars'], ['unseen', 'Not seen yet']];
+  var FILTERS = [['all', 'All'], ['planets', 'Moon & planets'], ['cluster', 'Clusters'], ['nebula', 'Nebulae'], ['galaxy', 'Galaxies'], ['double', 'Double stars'], ['unseen', 'Not seen yet'], ['plan', 'Your plan']];
   function glyph(t) {
     if (t.k === 'moon') return '<span class="g"><canvas data-moon="1"></canvas></span>';
     if (t.k === 'planet') { var p = PLANETS.filter(function (x) { return x.id === t.id; })[0]; return '<span class="g"><i class="pl" style="background:' + col(p.col) + ';box-shadow:0 0 8px ' + col(p.col, 0.55) + '"></i></span>'; }
@@ -1727,32 +1733,37 @@ html.red .chart canvas{background:#050000}
   function renderTargets() {
     // what had the focus in the section, to give it back once it is redrawn: a filter chip, Show all, or a row
     var ae = document.activeElement, sec = $('targetSec'), had = sec.contains(ae) && ae !== sec ? (ae.dataset.f ? '[data-f="' + ae.dataset.f + '"]' : ae.id ? '#' + ae.id : ae.classList.contains('row') ? '.row[data-id="' + ae.dataset.id.replace(/["\\]/g, '\\$&') + '"]' : '') : '';
-    var st = scopeStats(), list = TARGETS.filter(function (t) {
+    var st = scopeStats(), plan = TFILTER === 'plan', list = plan ? planTargets() : TARGETS.filter(function (t) {
       if (TFILTER === 'all') return true; if (TFILTER === 'planets') return t.k === 'planet' || t.k === 'moon'; if (TFILTER === 'double') return t.k === 'double';
       if (TFILTER === 'unseen') return t.k !== 'moon' && !SEEN[t.id]; // the Moon can't be marked, so it never leaves
       return t.o && t.o.kind === TFILTER && t.k === 'dso';
     });
-    list = eveningOrder(list);
-    var shown = TMORE ? list : list.slice(0, 14);
+    if (!plan) list = eveningOrder(list);
+    var shown = TMORE || plan ? list : list.slice(0, 14);
     var head = '<h2>What to look at <small>' + plural(list.length, 'target') + '</small></h2>';
     var h = '<div class="filters">' + FILTERS.map(function (f) { return '<button class="chip' + (TFILTER === f[0] ? ' on' : '') + '" type="button" data-f="' + f[0] + '" aria-pressed="' + (TFILTER === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>';
-    var bright = TOO_BRIGHT && TFILTER !== 'planets' ? '<p class="lede">The sky stays too bright tonight for anything but the Moon and the brightest planets.</p>' : '';
-    if (!shown.length) h += bright || '<p class="lede">' + (TFILTER === 'unseen' && TARGETS.length ? 'You’ve marked everything well placed on this night as seen.' : 'Nothing of that kind is well placed on this night.') + '</p>';
+    var bright = TOO_BRIGHT && TFILTER !== 'planets' && !plan ? '<p class="lede">The sky stays too bright tonight for anything but the Moon and the brightest planets.</p>' : '';
+    if (plan) h += planHead();
+    if (!shown.length) h += plan ? '' : bright || '<p class="lede">' + (TFILTER === 'unseen' && TARGETS.length ? 'You’ve marked everything well placed on this night as seen.' : 'Nothing of that kind is well placed on this night.') + '</p>';
     else h += '<div class="list">' + shown.map(function (t) {
       // the catalogue number; the Double Cluster's row gives both of its numbers, as its card does
       var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.parts ? t.o.cat : t.o.id) + '</small>' : '';
-      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + (gone(t) ? ' gone' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + (id && ' ' + id) + (SEEN[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (SEEN[t.id] ? ', seen ' + esc(seenText(SEEN[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
+      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + (gone(t) ? ' gone' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + (id && ' ' + id) + (SEEN[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + (t.poor ? planDt(t) : rowDt(t)) + '</span>' + '<span class="sr">' + [t.best && t.best.alt >= 0 ? (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) : '', SEEN[t.id] ? 'seen ' + esc(seenText(SEEN[t.id])) : '', 'rated'].filter(Boolean).join(', ') + '</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
-    if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
+    if (plan) h += planFoot();
+    else if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += tally();
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
     $('tHead').innerHTML = head; $('tBody').innerHTML = h; $('findBox').hidden = false; refreshFind();
     $('targetSec').querySelectorAll('.filters button').forEach(function (b) { b.addEventListener('click', function () { TFILTER = b.dataset.f; TMORE = false; renderTargets(); say((TFILTER === 'all' ? 'All ' : b.textContent + ': ') + $('targetSec').querySelector('h2 small').textContent); }); });
-    $('targetSec').querySelectorAll('.row').forEach(function (b) { b.addEventListener('click', function () { var o = objById(b.dataset.k === 'double' ? 'dso' : b.dataset.k, b.dataset.id); select(o, true); }); });
+    $('targetSec').querySelectorAll('.row').forEach(function (b) { b.addEventListener('click', function () { var k = b.dataset.k, o = objById(k === 'double' ? 'dso' : k, k === 'star' ? +b.dataset.id : b.dataset.id); select(o, true); }); });
     $('targetSec').querySelectorAll('canvas[data-moon]').forEach(function (c) { moonIcon(c, NIGHT.moonIllum, NIGHT.moonPhase, 26); });
     if ($('moreT')) $('moreT').addEventListener('click', function () { TMORE = !TMORE; renderTargets(); });
     if ($('setScope')) $('setScope').addEventListener('click', scopeSheet);
     if ($('logBtn')) $('logBtn').addEventListener('click', function () { logSheet(); });
+    if ($('planShare')) $('planShare').addEventListener('click', sharePlan);
+    if ($('planClear')) $('planClear').addEventListener('click', function () { PLAN_UNDO = S.plan; S.plan = []; save(); renderTargets(); say('Your plan is cleared'); });
+    if ($('planBack')) $('planBack').addEventListener('click', function () { S.plan = PLAN_UNDO || []; PLAN_UNDO = null; save(); renderTargets(); say(plural(S.plan.length, 'target') + ' back in your plan'); });
     var back = had && sec.querySelector(had); if (back) back.focus({ preventScroll: true });
   }
   // How many objects you've marked as seen, on any night, and how many of them are Messier objects (all 110 are in
@@ -1772,7 +1783,7 @@ html.red .chart canvas{background:#050000}
   // Tonight, where a target stands at the time shown: up, rising later, or set for the night; null on another night.
   // Down, it rises later only if its best is still to come; past its best, it's when it set that counts.
   function standing(t) {
-    if (!sameNight(NIGHT.n, currentNight(new Date()))) return null;
+    if (!t.best || !sameNight(NIGHT.n, currentNight(new Date()))) return null;
     if (!t.cross) {
       var o = t.o || objById(t.k, t.id), obj = o.b ? { k: 'body', b: o.b } : { v: o.v }, lvl = t.k === 'moon' ? -0.3 : t.k === 'planet' ? 0 : -0.5;
       t.cross = { up: altOf(obj, NIGHT.start) > lvl, at: crossings(obj, NIGHT.start, NIGHT.end, 12 * 60e3, lvl) };
@@ -1807,7 +1818,7 @@ html.red .chart canvas{background:#050000}
   }
   // and with the night it was seen, if it was, at the end; a screen reader hears that after the direction instead
   function rowDt(t) { return whenHtml(t) + (SEEN[t.id] ? '<span aria-hidden="true"> · <span class="seen">Seen ' + esc(seenText(SEEN[t.id])) + '</span></span>' : ''); }
-  function refreshRows() { refreshFind(); document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) { d.innerHTML = rowDt(t); r.classList.toggle('gone', gone(t)); } }); }
+  function refreshRows() { refreshFind(); var src = TFILTER === 'plan' ? PLAN_ROWS : TARGETS; document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = src.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) { d.innerHTML = t.poor ? planDt(t) : rowDt(t); r.classList.toggle('gone', gone(t)); } }); }
   function markRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { r.classList.toggle('sel', !!SEL && r.dataset.id === String(SEL.id)); }); }
   function select(o, open) { if (!o) return; SEL = o; redraw(); markRows(); if (open) openObject(o); }
 
@@ -1877,6 +1888,95 @@ html.red .chart canvas{background:#050000}
     box.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { var e = FINDR[+b.dataset.fi]; if (e) select(e.o, true); }); });
     say(FINDR.length ? plural(FINDR.length, 'match', 'matches') : 'No match');
   }
+  // ---------- a plan for the night ----------
+  // What you mean to look at, listed under Your plan in order of its best time on the night shown, with anything badly
+  // placed that night marked. It's kept by the names its link uses: a deep-sky object or double star by its id (M31,
+  // NGC 869, albireo), a planet by its name, the Moon as Moon, and a star by its name or letter (Vega, ν Oph).
+  var PLAN_UNDO = null, PLAN_ROWS = [];
+  function planToken(o) {
+    if (o.k === 'moon') return 'Moon';
+    if (o.k === 'star') { var n = NAMES[o.i] || []; return n[0] || n[1] || null; }
+    return String(o.id);
+  }
+  // The object a plan's name stands for: exactly as kept, or as a link spells it (no spaces, Greek spelt out, any case:
+  // NGC869, nuOph, saturn). Deep-sky objects and doubles first, so albireo is the double and Albireo the star.
+  function planObj(tok) {
+    function c(x) { return ffold(x).replace(/ /g, ''); }
+    var dd = DSO.concat(DOUBLES), i, k = Object.keys(NAMES);
+    if (tok === 'Moon') return objById('moon');
+    for (i = 0; i < PLANETS.length; i++) if (PLANETS[i].id === tok) return objById('planet', tok);
+    for (i = 0; i < dd.length; i++) if (dd[i].id === tok) return dd[i];
+    for (i = 0; i < k.length; i++) if (NAMES[k[i]][0] === tok || NAMES[k[i]][1] === tok) return objById('star', +k[i]);
+    var q = c(tok); if (!q) return null;
+    if (q === 'moon' || q === 'themoon') return objById('moon');
+    for (i = 0; i < PLANETS.length; i++) if (c(PLANETS[i].id) === q) return objById('planet', PLANETS[i].id);
+    for (i = 0; i < dd.length; i++) if (c(dd[i].id) === q) return dd[i];
+    for (i = 0; i < k.length; i++) if ((NAMES[k[i]][0] && c(NAMES[k[i]][0]) === q) || (NAMES[k[i]][1] && c(NAMES[k[i]][1]) === q)) return objById('star', +k[i]);
+    return null;
+  }
+  // in a link: no spaces and the Greek spelt out, so it reads plainly (#plan=M31,NGC869,albireo,Saturn,nuOph)
+  function linkToken(tok) { return encodeURIComponent(String(tok).replace(/[α-ω]/g, function (ch) { return GREEK[ch] || ch; }).replace(/ /g, '')); }
+  // A plan's object as a row: the list's own row if it's there, or else placed here, marked when it's badly placed.
+  function planTargets() {
+    var seen = {};
+    PLAN_ROWS = S.plan.map(function (tok) {
+      var o = planObj(tok); if (!o) return null;
+      var id = o.k === 'star' ? o.i : o.id, key = o.k + ':' + id; if (seen[key]) return null; seen[key] = true;
+      var t = TARGETS.filter(function (x) { return x.k === o.k && String(x.id) === String(id); })[0];
+      if (t) return t;
+      t = { k: o.k, id: id, o: o.b ? undefined : o, name: o.k === 'moon' ? 'The Moon' : o.name || o.id, poor: '', rate: { r: 'hard', label: 'Not up' } };
+      if (o.b) {
+        var bb = TB.body(o.b); t.best = bb;
+        if (bb.alt < 0) t.poor = 'Not up after dark on this night';
+        else { t.poor = 'Too low on this night'; t.rate = { r: 'fair', label: 'Low' }; }
+        return t;
+      }
+      if (!TB.dark) { t.poor = 'The sky stays too bright on this night'; t.rate = { r: 'hard', label: 'Too bright' }; return t; }
+      var b = TB.best(o.v); t.best = b;
+      if (b.alt < 0) { t.poor = 'Not up after dark on this night'; return t; }
+      if (b.alt < 18) { t.poor = 'Too low on this night'; t.rate = { r: 'fair', label: 'Low' }; return t; }
+      if (o.k === 'star') { t.rate = o.mag < nelmAt(b.sun) ? { r: 'eye', label: 'Naked eye' } : { r: 'easy', label: 'Telescope' }; delete t.poor; return t; }
+      t.rate = rating(o, TB.moonUp[b.i], b.sun);
+      if (t.rate.d > 5.2) t.poor = 'Too hard to see on this night'; else delete t.poor;
+      return t;
+    }).filter(Boolean);
+    // in order of best time; what isn't up after dark, or has no dark to be seen in, goes last
+    function at(t) { return t.best && t.best.t && t.best.alt >= 0 ? t.best.t.getTime() : Infinity; }
+    return PLAN_ROWS.slice().sort(function (a, b) { return at(a) - at(b); });
+  }
+  // a badly placed row's line: when and where it's best, if it's up at all, and why it's badly placed
+  function planDt(t) { return (t.best && t.best.t && t.best.alt >= 0 ? rowDt(t) + ' · ' : '') + '<span class="poor">' + esc(t.poor) + '</span>'; }
+  function planHead() {
+    if (S.plan.length) return '';
+    return '<p class="lede">' + (PLAN_UNDO && PLAN_UNDO.length ? 'Your plan is cleared. <button class="lnk" type="button" id="planBack">Put it back</button>' : 'Nothing in your plan yet. <b>Add to plan</b> on a card puts it here, in order of its best time on the night shown.') + '</p>';
+  }
+  function planFoot() {
+    if (!S.plan.length) return '';
+    return '<div class="btnrow planrow"><button class="btn sec sm" type="button" id="planShare">Share plan</button><button class="btn sec sm" type="button" id="planClear">Clear plan</button></div>' +
+      '<p class="note">In order of best time on this night. Its link opens the same plan on another phone, for that phone’s own place and night.</p>';
+  }
+  function planLink() { return location.href.split('#')[0] + '#plan=' + S.plan.map(linkToken).join(','); }
+  // the phone's own share sheet where there is one, or else the link is copied
+  function sharePlan() {
+    var url = planLink(), names = planTargets().map(function (t) { return t.name; }).join(', ');
+    function copy() { copyText(url, 'Copied a link to your plan', 'Couldn’t copy the link here'); }
+    if (navigator.share) navigator.share({ title: 'Starhop plan', text: 'My plan for the night: ' + names, url: url }).catch(function (e) { if (!e || e.name !== 'AbortError') copy(); });
+    else copy();
+  }
+  // A plan's link adds what's in it to your plan (what you had stays), opens Your plan, and leaves the address plain.
+  function openPlanLink() {
+    var m = /^#plan=(.*)$/.exec(location.hash); if (!m || !NIGHT) return;
+    var toks = m[1].split(',').map(function (x) { try { return decodeURIComponent(x).trim(); } catch (e) { return ''; } }).filter(Boolean).slice(0, 100);
+    var got = 0, added = 0, before = S.plan.length;
+    toks.forEach(function (x) { var o = planObj(x), k = o && planToken(o); if (!k) return; got++; if (S.plan.indexOf(k) < 0) { S.plan.push(k); added++; } });
+    try { history.replaceState(history.state, '', location.href.split('#')[0]); } catch (e) { }
+    if (added) { save(); PLAN_UNDO = null; }
+    TFILTER = 'plan'; TMORE = false; renderTargets();
+    toast(!toks.length ? 'That link has no plan in it' : !got ? 'Starhop doesn’t know what’s in that plan' : !added ? 'That plan is in yours already' : before ? 'Added ' + plural(added, 'target') + ' from a shared plan to yours' : 'Opened a shared plan of ' + plural(added, 'target'));
+    if (window.innerWidth < 1000) setTimeout(function () { var r = $('targetSec').getBoundingClientRect(); window.scrollTo(0, Math.max(0, r.top + window.scrollY - 64)); }, 0);
+  }
+  window.addEventListener('hashchange', openPlanLink);
+
   // the matches keep up with the time shown, without being redrawn under a finger
   function refreshFind() { if (!NIGHT) return; $('findRes').querySelectorAll('button').forEach(function (b) { var e = FINDR[+b.dataset.fi]; if (e) b.querySelector('.at').textContent = whereNow(e.o); }); }
   $('findQ').addEventListener('input', function () { if (LOADED) findRun(); });
@@ -2292,12 +2392,12 @@ html.red .chart canvas{background:#050000}
       return [entryName(e), e.night, c ? c.date : '', c ? c.time : '', c ? c.off : '', e.place, e.lat, e.lon, e.seeing, e.transp, e.scope, e.ap, e.power, e.ep, e.note];
     })).map(function (r) { return r.map(cell).join(','); }).join('\r\n') + '\r\n';
   }
-  function copyText(txt) {
-    function done() { toast('Copied your log'); }
+  function copyText(txt, said, fail) {
+    function done() { toast(said || 'Copied your log'); }
     function old() {
       var ta = document.createElement('textarea'), ok = false; ta.value = txt; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
-      $('sheet').appendChild(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e) { } ta.remove();
-      toast(ok ? 'Copied your log' : 'Couldn’t copy here; Download CSV instead');
+      ($('sheet').hidden ? document.body : $('sheet')).appendChild(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e) { } ta.remove();
+      toast(ok ? said || 'Copied your log' : fail || 'Couldn’t copy here; Download CSV instead');
     }
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, old); else old();
   }
@@ -2487,6 +2587,7 @@ html.red .chart canvas{background:#050000}
     var eyeTxt = eyeStar ? ((NAMES[o.star] || [])[0] || o.name) + ' is the naked-eye star itself (mag ' + (Math.abs(own) < 0.05 ? 0 : own).toFixed(1) + '), at the centre of the chart. ' :
       eyeSees ? 'Visible without a telescope from your sky: ' + (o.type === 'Globular cluster' ? 'a fuzzy star' : o.kind === 'cluster' ? 'a misty patch or a knot of faint stars' : 'a misty patch') + ' at the centre of the chart. ' : '';
     // what the log has for it: the entry for the night a mark would go under, and the other nights it was seen
+    var ptok = planToken(o), inPlan = !!ptok && S.plan.indexOf(ptok) >= 0;
     var night = markNight(), mine = o.k === 'moon' ? [] : logOf(o.id), cur = mine.filter(function (x) { return x.e.night === night; })[0], others = mine.filter(function (x) { return x !== cur; });
     // IM Fell has no Greek, so a Bayer letter (ξ Sco) is set upright in the body face, as in the line under it
     var h = '<div class="hd"><h2><span>' + esc(name).replace(/^[\u0370-\u03ff]/, '<span class="gk">$&</span>') + '</span><small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
@@ -2498,7 +2599,8 @@ html.red .chart canvas{background:#050000}
       rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + epCell(r) + '</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>') +
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
-      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button>' + (o.k === 'moon' ? '' : '<button class="btn sec" type="button" id="seenB"' + (cur ? ' aria-label="Seen ' + esc(seenText(night)) + '">✓ Seen ' + esc(seenText(night)) : '>Mark as seen' + (mine.length ? ' again' : '')) + '</button>') + '</div>' +
+      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button>' + (o.k === 'moon' ? '' : '<button class="btn sec" type="button" id="seenB"' + (cur ? ' aria-label="Seen ' + esc(seenText(night)) + '">✓ Seen ' + esc(seenText(night)) : '>Mark as seen' + (mine.length ? ' again' : '')) + '</button>') +
+      (ptok ? '<button class="btn sec" type="button" id="planB">' + (inPlan ? '✓ In your plan' : 'Add to plan') + '</button>' : '') + '</div>' +
       (mine.length ? '<div class="card logc"><h3>In your log</h3>' + (cur ? '<p>Seen ' + (cur.e.t ? 'at ' + esc(tTime(new Date(cur.e.t), cur.e.tz)) + ' · ' : '') + esc(entryWhere(cur.e)) + '</p>' + logEditor(cur) : '') +
         (others.length ? '<p>' + (cur ? 'Also seen ' : 'Seen ') + others.map(function (x) { return esc(seenText(x.e.night)); }).join('; ') + '.</p>' : '') +
         '<p><button class="lnk" type="button" id="openLog">Open your log</button></p></div>' : '') + '</div>';
@@ -2515,6 +2617,12 @@ html.red .chart canvas{background:#050000}
       else if (UNDONE && UNDONE.id === k && UNDONE.night === n) { S.log.push(UNDONE); UNDONE = null; }
       else S.log.push(newEntry(o, n, name, EPS.o === o && EPS.i >= 0 ? rows[EPS.i] : rows[adv.pick]));
       reseen(); save(); openObject(o); renderTargets(); if (at >= 0) toast('No longer marked as seen');
+    });
+    // Add to plan puts it in your plan, and a second tap takes it out
+    if ($('planB')) $('planB').addEventListener('click', function () {
+      var i = S.plan.indexOf(ptok);
+      if (i >= 0) S.plan.splice(i, 1); else S.plan.push(ptok);
+      PLAN_UNDO = null; save(); openObject(o); renderTargets(); toast(i >= 0 ? 'Taken out of your plan' : 'Added to your plan');
     });
     wireLog($('sheet'));
     if ($('openLog')) $('openLog').addEventListener('click', function () { logSheet(); });
@@ -2992,6 +3100,7 @@ html.red .chart canvas{background:#050000}
     setLoc(S.loc); $('locName').textContent = S.loc.name; renderScopeChip();
     RED = !!S.red; showRed(RED);
     setNight(currentNight(new Date()), true);
+    openPlanLink(); // a shared plan's link
     if (S.loc.guessed) setTimeout(function () { toast('Guessed ' + S.loc.name + ' from your time zone — tap it to change'); }, 900);
     syncDir();
   }).catch(function (e) {

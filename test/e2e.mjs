@@ -565,6 +565,85 @@ check('Find takes a name, a catalogue number or a Greek letter, says where it is
   } finally { await ctx.close(); }
 });
 
+// A plan for the night: Add to plan on a card, Your plan lists the picks by their best time on the night shown and
+// marks what's badly placed, and Share plan makes a link that opens the same plan for another place. Austin, Nov 15
+// 2026: Vega is highest as the sky darkens (6:29 pm, 12° twilight), Saturn at 9:24 pm, M31 at 9:29 pm, and the Jewel
+// Box, at −60°, never rises there.
+const planRows = page => page.$$eval('#targetSec .row', r => r.map(x => [x.dataset.id, x.querySelector('.dt').textContent, x.querySelector('.rate').textContent]));
+const savedPlan = page => page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).plan);
+check('A plan lists its picks by best time, marks what is badly placed, and opens from its link elsewhere', async () => {
+  const init = () => { Object.defineProperty(navigator, 'share', { configurable: true, value: undefined }); Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: t => { window.copied = t; return Promise.resolve(); } } }); };
+  let { ctx, page, problems, outside } = await open({ time: '2026-11-15T21:00:00-06:00', init });
+  let link;
+  try {
+    await page.click('#targetSec .chip[data-f="plan"]');
+    assert.match(await text(page, '#tBody .lede'), /^Nothing in your plan yet\. Add to plan on a card puts it here/);
+    const add = async () => { await page.click('#planB'); assert.equal(await text(page, '#planB'), '✓ In your plan'); await page.click('#sheet [data-close]'); };
+    for (const q of ['andromeda', 'jewel box', 'vega', 'saturn']) { await page.fill('#findQ', q); await page.click('#findRes button'); await add(); }
+    assert.deepEqual(await savedPlan(page), ['M31', 'NGC 4755', 'Vega', 'Saturn']);
+    const rows = await planRows(page);
+    assert.deepEqual(rows.map(r => r[0]), ['4', 'Saturn', 'M31', 'NGC 4755'], 'in order of best time, with what isn’t up last');
+    assert.match(rows[0][1], /Best 6:29 pm/);
+    assert.match(rows[1][1], /Best 9:24 pm/);
+    assert.deepEqual(rows[3].slice(1), ['Not up after dark on this night', 'Not up']);
+    assert.equal(await page.$eval('#targetSec h2 small', s => s.textContent), '4 targets');
+    // a second tap on the card takes it out
+    await page.click('#targetSec .row[data-id="Saturn"]');
+    await page.click('#planB');
+    assert.equal(await text(page, '#planB'), 'Add to plan');
+    await page.click('#planB');
+    await page.click('#sheet [data-close]');
+    assert.deepEqual(await savedPlan(page), ['M31', 'NGC 4755', 'Vega', 'Saturn']);
+    await page.click('#planShare');
+    await page.waitForFunction(() => window.copied);
+    link = await page.evaluate(() => window.copied);
+    assert.equal(link, base + '#plan=M31,NGC4755,Vega,Saturn');
+    assert.match(await text(page, '#toast'), /^Copied a link to your plan$/);
+    // Clear plan, and Put it back
+    await page.click('#planClear');
+    assert.deepEqual(await savedPlan(page), []);
+    await page.click('#planBack');
+    assert.deepEqual(await savedPlan(page), ['M31', 'NGC 4755', 'Vega', 'Saturn']);
+    assert.deepEqual(problems, []);
+    assert.deepEqual(outside, []);
+  } finally { await ctx.close(); }
+  // The link from Sydney, where the Jewel Box is well up before dawn, by someone whose plan holds M42 already:
+  // theirs stays, the link's picks are added, and the address loses the plan so a reload doesn't add them again.
+  ({ ctx, page, problems } = await open({ loc: SYDNEY, save: JSON.stringify({ loc: SYDNEY, plan: ['M42'] }), time: '2026-11-15T22:00:00+11:00' }));
+  try {
+    await page.goto(link); await ready(page);
+    assert.match(await text(page, '#toast'), /^Added 4 targets from a shared plan to yours$/);
+    assert.deepEqual(await savedPlan(page), ['M42', 'M31', 'NGC 4755', 'Vega', 'Saturn']);
+    assert.equal(await page.evaluate(() => location.hash), '');
+    assert.equal(await page.$eval('#targetSec .chip[data-f="plan"]', c => c.getAttribute('aria-pressed')), 'true', 'Your plan is open');
+    const jewel = (await planRows(page)).find(r => r[0] === 'NGC 4755');
+    assert.doesNotMatch(jewel[1], /Not up|Too low/, 'well placed from Sydney: ' + jewel[1]);
+    await page.reload(); await ready(page);
+    assert.equal((await savedPlan(page)).length, 5);
+    // a link typed by hand, with spaces, any case and Greek spelt out, and a name Starhop doesn't know
+    await page.goto(base + '#plan=ngc%20869,SATURN,nuOph,crux'); await ready(page);
+    assert.deepEqual((await savedPlan(page)).slice(5), ['NGC 869', 'ν Oph']);
+    assert.match(await text(page, '#toast'), /^Added 2 targets from a shared plan to yours$/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // a damaged plan in the save opens with what makes sense in it
+  ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, plan: [1, 'M31', 'M31', '', null] }), time: '2026-11-15T21:00:00-06:00' }));
+  try {
+    await page.click('#targetSec .chip[data-f="plan"]');
+    assert.deepEqual((await planRows(page)).map(r => r[0]), ['M31']);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // under the midnight sun a deep-sky object has no dark to be seen in
+  ({ ctx, page, problems } = await open({ loc: TROMSO, save: JSON.stringify({ loc: TROMSO, plan: ['M31', 'Vega', 'Jupiter'] }), time: '2026-06-21T23:30:00+02:00' }));
+  try {
+    await page.click('#targetSec .chip[data-f="plan"]');
+    const rows = await planRows(page);
+    assert.deepEqual(rows.find(r => r[0] === 'M31').slice(1), ['The sky stays too bright on this night', 'Too bright']);
+    assert.ok(rows.some(r => r[0] === 'Jupiter'));
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // At 7:30 pm in New York on Nov 15 2026 the list put Venus, Jupiter and Mercury, which rise before dawn, above Saturn,
 // up now. Astronomy Engine 2.1.19 has Jupiter rising at 11:17 pm there, and Saturn setting at 1:44 am.
 const NEW_YORK = { name: 'New York, NY', lat: 40.71, lon: -74.01, tz: 'America/New_York' };
