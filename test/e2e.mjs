@@ -3844,7 +3844,8 @@ check('Each card ends with what the numbers mean, folded away until asked for', 
     }
     await openCard(page, 'M13');
     await page.click('#gloss summary');
-    const said = await text(page, '#gloss');
+    const said = await shown(page, '#gloss');
+    assert.match(await page.locator('#gloss').ariaSnapshot(), /60 arcseconds make 1 arcminute ?, and 60 arcminutes make 1°\. The full Moon is about 31 arcminutes across/, 'read aloud, the primes are words: ' + await page.locator('#gloss').ariaSnapshot());
     for (const re of [/smaller the number, the brighter\. About 6 is the faintest you see by eye/, /60″ make 1′, and 60′ make 1°\. The full Moon is about 31′ across/, /A fist held at arm’s length covers about 10°/, /δ And is Delta Andromedae, a star in Andromeda/, /Split means seeing a double star as two stars/]) assert.match(said, re);
     await page.focus('#tlc');
     for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');

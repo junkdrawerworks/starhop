@@ -2808,6 +2808,7 @@ html.red .chart canvas{background:#050000}
     '<p><b>A fist</b> held at arm’s length covers about 10° of sky.</p>' +
     '<p><b>Greek letters</b> name a constellation’s stars, roughly brightest first: δ And is Delta Andromedae, a star in Andromeda.</p>' +
     '<p><b>Split</b> means seeing a double star as two stars.</p></details>';
+  GLOSS = spokenArcs(GLOSS); // read aloud, 60 arcseconds make 1 arcminute
   // On the Moon's card, what the terminator is crossing at the time shown, north to south.
   function terminatorCard(t) {
     var s = moonSights(t);
