@@ -2103,7 +2103,7 @@ html.red .chart canvas{background:#050000}
   function markNight() { var now = new Date(), was = nightKey(NDATE), night = nightKey(nightOf(now)); return !sameNight(NDATE, currentNight(now)) && was < night ? was : night; }
   // at the time the map shows, unless that's still to come
   function newEntry(o, n, name, r) {
-    var now = new Date(), t = T.t < now ? T.t : now, sc = S.scope, e = { id: String(o.id), night: n, t: t.toISOString(), name: name, scope: sc.name || sc.ap + ' mm telescope', ap: sc.ap };
+    var now = new Date(), t = T.t < now ? T.t : now, sc = S.scope, e = { id: String(o.id), night: n, t: t.toISOString(), name: o.k === 'dso' || o.k === 'double' ? dsoName(o) : name, scope: sc.name || sc.ap + ' mm telescope', ap: sc.ap };
     if (S.loc) { e.place = S.loc.name; e.lat = S.loc.lat; e.lon = S.loc.lon; e.tz = S.loc.tz; }
     if (r) { e.power = Math.round(r.M); if (!r.bino) e.ep = epName(r); }
     return e;
@@ -2112,12 +2112,18 @@ html.red .chart canvas{background:#050000}
   // newest first, each with its place in S.log
   function sortedLog(id) { return S.log.map(function (e, i) { return { e: e, i: i }; }).filter(function (x) { return id == null || x.e.id === String(id); }).sort(function (a, b) { return entryMs(b.e) - entryMs(a.e) || b.i - a.i; }); }
   function logOf(id) { return sortedLog(id); }
-  // an entry saved before there was a log has only its id: its name as the card gives it
+  // A deep-sky object by its name and catalogue number, as its card's title and subtitle give them (Rosette Cluster ·
+  // NGC 2244), so the log and its CSV name it without the card; a double star by its name, and M40 with its number.
+  function dsoName(o) {
+    if (o.k === 'double') return (o.name || o.id) + (/^M\d+$/.test(o.id) && o.name ? ' · ' + o.id : '');
+    return o.name && o.name !== o.id ? o.name + ' · ' + (o.parts ? o.cat : o.id) : o.id;
+  }
+  // an entry saved before there was a log has only its id: its name as a new entry would have it
   function entryName(e) {
     if (e.name) return e.name;
     if (/^\d+$/.test(e.id) && STARS && +e.id * 4 < STARS.length) return objById('star', +e.id).name;
     if (PLANETS.some(function (p) { return p.id === e.id; })) return e.id;
-    var o = objById('dso', e.id); return o ? (o.name && o.name !== o.id ? o.name + (/^M\d/.test(o.id) ? ' · ' + o.id : '') : o.id) : e.id;
+    var o = objById('dso', e.id); return o ? dsoName(o) : e.id;
   }
   function entryGear(e) { return e.scope ? e.scope + (e.power ? ' at ' + e.power + '×' + (e.ep ? ' (' + e.ep + ')' : '') : '') : ''; }
   function entryWhere(e) { return [e.place, entryGear(e)].filter(Boolean).join(' · '); }

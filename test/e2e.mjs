@@ -1327,6 +1327,20 @@ check('An open card moves on with the clock', async () => {
   } finally { await ctx.close(); }
 });
 
+// The log named a deep-sky object as the card's title does, so the Rosette Cluster went into the CSV without NGC 2244,
+// and M40, a double star, without its Messier number.
+check('The log names deep-sky objects with their catalogue numbers, and M40 with its own', async () => {
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, seen: { M40: '2026-06-20', 'NGC 2244': '2026-01-10' } }), time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await openCard(page, 'NGC 869');
+    await page.click('#seenB');
+    await page.click('#openLog');
+    assert.deepEqual(await page.$$eval('#sheet .lge summary b', b => b.map(x => x.textContent)), ['Double Cluster · NGC 869 and NGC 884', 'Winnecke 4 · M40', 'Rosette Cluster · NGC 2244']);
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).log.find(e => e.id === 'NGC 869').name), 'Double Cluster · NGC 869 and NGC 884', 'a new entry keeps the number');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // The card moves on with the clock by drawing itself again, which would take a note box out from under someone typing.
 check('An open card waits while a note is typed, and moves on after', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T19:30:00-06:00' });
