@@ -1165,7 +1165,9 @@ html.red .chart canvas{background:#050000}
     if (o.b) { var eq = A.Equator(o.b, t, OBS, false, true); return { ra: eq.ra * 15, dec: eq.dec }; }
     return { ra: o.ra, dec: o.dec };
   }
-  function objCon(o, t) { var rd = objRaDec(o, t); return A.Constellation(rd.ra / 15, rd.dec).name; }
+  // Astronomy Engine spells three constellations its own way; the card uses the IAU's spelling, as the map does
+  var CON_NAME = { Camelopardis: 'Camelopardalis', Bootes: 'Boötes', Antila: 'Antlia' };
+  function objCon(o, t) { var rd = objRaDec(o, t), n = A.Constellation(rd.ra / 15, rd.dec).name; return CON_NAME[n] || n; }
 
   // ---------- star-hopping: describe where a target sits among bright stars ----------
   // The stars to hop from are ones you can see by eye from your sky (brighter than its faintest), named or lettered, to

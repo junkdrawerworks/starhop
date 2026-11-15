@@ -3381,7 +3381,7 @@ check('A dark winter night in Austin lists the Needle Galaxy, Kemble’s Cascade
     const ids = (await targetRows(page)).map(r => r.id);
     assert.deepEqual(['NGC 4565', 'Kemble 1', 'Stock 2', 'NGC 7789', 'iotacnc', 'betamon', 'porrima', 'rasalgethi'].filter(id => !ids.includes(id)), [], 'listed');
     await openCard(page, 'Kemble 1');
-    assert.match(await text(page, '#sheet .hd h2'), /^Kemble’s Cascade Asterism in Camelopard/);
+    assert.equal(await text(page, '#sheet .hd h2'), 'Kemble’s Cascade Asterism in Camelopardalis', 'the IAU’s spelling, as the map has it, not Astronomy Engine’s Camelopardis');
     assert.match(await text(page, '#sheet'), /nearly 3° long, running down to the little cluster NGC 1502/);
     assert.match(await text(page, '#sheet'), /a line of faint stars at the centre of the chart/);
     assert.ok(await page.waitForFunction(() => document.getElementById('eyepiece').__chain).then(h => h.jsonValue()) >= 5, 'its stars are drawn in the eyepiece sketch');
