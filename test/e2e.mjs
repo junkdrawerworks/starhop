@@ -250,6 +250,7 @@ check('chart labels stay inside, keep apart, keep off the map’s buttons and th
   } finally { await ctx.close(); }
   ({ ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false }));
   try {
+    await page.waitForFunction(() => document.getElementById('sky').__labels().length > 3);
     const { labels, w, h, keep } = await mapLabels(page);
     checkLabels(labels, w, h, keep, 'desktop map');
     // Arcturus is just above the western horizon, and its label used to vanish under the ground
