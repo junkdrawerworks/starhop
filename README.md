@@ -7,7 +7,7 @@
 <p align="center">
   <img src="docs/phone-sky.png" alt="Starhop on a phone at 9:15 pm in Chicago: the whole sky as a round map with constellation lines and names, Saturn, Uranus and a crescent Moon setting in the southwest, the night's timeline from sunset to sunrise below it, and the start of tonight's summary" width="250">
   &nbsp;
-  <img src="docs/phone-tonight.png" alt="Tonight in Chicago: darkest with the Moon down from 9:49 pm to 5:32 am, the sunset, sunrise and fully dark times, a 37% lit Moon, and the start of the list of what to look at, with the Moon, Jupiter, Saturn, Mars and Uranus" width="250">
+  <img src="docs/phone-tonight.png" alt="Tonight in Chicago: darkest with the Moon down from 9:49 pm to 5:32 am, the sunset, sunrise and fully dark times, a 37% lit Moon, and the start of what to look at: the Find box, the filters with Your plan, then the Moon, Saturn and Uranus, all up now" width="250">
   &nbsp;
   <img src="docs/phone-card.png" alt="The card for M13, the Great Hercules Cluster: 29° up in the northwest, when it sets and rises, and a finder chart with a dashed star-hop line from η Her through the cluster to Tianji, both labelled, and a 5° finderscope circle around it" width="250">
 </p>
