@@ -1100,6 +1100,9 @@ check('The page fits a phone zoomed to 200%', async () => {
       assert.deepEqual(await wide(), [], `${where}: the page fits`);
       assert.ok(await page.$eval('#scopeBtn', b => b.getBoundingClientRect().right <= innerWidth), `${where}: the telescope button is on screen`);
       assert.ok(await page.$eval('#locName', n => n.getBoundingClientRect().width >= 20), `${where}: the place shows`);
+      // a row's name and lines have room to be read, not a letter at a time, and nothing is cut off
+      const rows = await page.$$eval('#targetSec .row', rs => rs.slice(0, 14).map(r => { const t = r.children[1], d = r.querySelector('.dt'); return { id: r.dataset.id, w: t.getBoundingClientRect().width, cut: d.scrollHeight > d.clientHeight + 1 || d.scrollWidth > d.clientWidth + 1 }; }));
+      assert.deepEqual(rows.filter(r => r.w < 90 || r.cut).map(r => r.id), [], `${where}: each row has room for its name and lines`);
       await page.evaluate(() => [...document.querySelectorAll('#targetSec .row')].find(r => r.dataset.id === 'M45').click());
       await page.waitForTimeout(300);
       assert.deepEqual(await wide(), [], `${where}: with a card open`);

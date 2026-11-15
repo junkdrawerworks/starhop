@@ -314,10 +314,14 @@ html.red .chart canvas{background:#050000}
   #scopeBtn{padding:0 10px}#scopeBtn .t{display:none}
   .ov-b .seg button{padding:0 8px;min-width:30px}
 }
-/* a phone zoomed to 200% or so: the brand keeps its mark and leaves its room to the place */
+/* a phone zoomed to 200% or so: the brand keeps its mark and leaves its room to the place, and a target row puts its
+   rating under its lines, which would otherwise have room for a letter at a time */
 @media (max-width:300px){
   .brand .bt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .top{gap:4px}#locBtn{padding:0 9px}#locBtn svg{display:none}
+  .row{grid-template-columns:22px minmax(0,1fr);align-items:start}
+  .row .rate{grid-column:2;justify-self:start}
+  .row .dt{display:block}
 }
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
