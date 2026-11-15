@@ -32,6 +32,9 @@
 /* A night-sky tool commits to one dark look; "night vision" swaps everything to dim red. */
 :root{
   color-scheme:dark;
+  /* the page's side margins, wider where a phone turned sideways draws under its camera housing (viewport-fit=cover) */
+  --sl:max(16px,env(safe-area-inset-left,0px));--sr:max(16px,env(safe-area-inset-right,0px));
+  --ol:calc(12px + env(safe-area-inset-left,0px));--or:calc(12px + env(safe-area-inset-right,0px));
   --bg:#070B16;--panel:#0C1326;--panel2:#111A31;--raise:#16203B;--line:#1E2946;--line2:#2B3860;
   --ink:#E9E3D1;--ink2:#A7AFC6;--ink3:#7D87A6;
   --brass:#DDB05A;--brass-ink:#1A1405;--brass-soft:#3A2F16;
@@ -70,7 +73,7 @@ a{color:var(--brass)}
 
 /* frame */
 .app{display:flex;flex-direction:column;min-height:100%}
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:8px;padding:10px 16px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) var(--sr) 10px var(--sl);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .brand{font:italic 400 26px/1 var(--disp);letter-spacing:.01em;color:var(--ink);display:flex;align-items:center;gap:8px;margin:0 4px 0 0;white-space:nowrap}
 .brand svg{width:22px;height:22px;color:var(--brass)}
 .grow{flex:1}
@@ -90,9 +93,9 @@ html.red .skywrap{background:#050000}
 #sky.drag{cursor:grabbing}
 .overlay{position:absolute;display:flex;gap:6px;align-items:center;pointer-events:none}
 .overlay>*{pointer-events:auto}
-.ov-tl{top:10px;left:12px;flex-direction:column;align-items:flex-start;gap:4px}
-.ov-tr{top:10px;right:12px}
-.ov-b{left:12px;right:12px;bottom:10px;justify-content:space-between;flex-wrap:wrap}
+.ov-tl{top:10px;left:var(--ol);flex-direction:column;align-items:flex-start;gap:4px}
+.ov-tr{top:10px;right:var(--or)}
+.ov-b{left:var(--ol);right:var(--or);bottom:10px;justify-content:space-between;flex-wrap:wrap}
 .when{font:500 15px var(--mono);color:var(--ink);text-shadow:0 1px 3px #000}
 .when small{display:block;font:400 11.5px var(--body);color:var(--ink2);letter-spacing:.02em}
 .pill{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:999px;background:rgba(9,14,28,.82);border:1px solid var(--line2);color:var(--ink2);font:700 12.5px var(--body)}
@@ -107,7 +110,7 @@ html.red .seg{background:rgba(16,1,1,.85)}
 .banner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(9,14,28,.9);border:1px solid var(--line2);border-radius:var(--r);padding:12px 16px;text-align:center;max-width:280px;font-size:14px;color:var(--ink2);pointer-events:none}
 html.red .banner{background:rgba(16,1,1,.9)}
 .banner b{display:block;color:var(--ink);font:italic 400 20px var(--disp);margin-bottom:2px}
-.layers{position:absolute;top:48px;right:12px;z-index:5;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);padding:8px;display:flex;flex-direction:column;gap:2px;min-width:190px;box-shadow:0 18px 40px -12px #000}
+.layers{position:absolute;top:48px;right:var(--or);z-index:5;background:var(--panel);border:1px solid var(--line2);border-radius:var(--r);padding:8px;display:flex;flex-direction:column;gap:2px;min-width:190px;box-shadow:0 18px 40px -12px #000}
 .layers label{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;font-size:14px;color:var(--ink2);cursor:pointer}
 .layers label:hover{background:var(--panel2)}
 .layers input{accent-color:var(--brass);width:16px;height:16px}
@@ -119,13 +122,13 @@ html.red.pointing .skybox{background:#050000}
 .pointing .ov-tr{top:calc(10px + env(safe-area-inset-top,0px))}
 .pointing .ov-b{bottom:calc(12px + env(safe-area-inset-bottom,0px))}
 .pointing #dirSeg{display:none}
-.pthint{position:absolute;left:50%;top:calc(58px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:rgba(9,14,28,.86);border:1px solid var(--line2);border-radius:10px;padding:7px 12px;font-size:13px;color:var(--ink2);text-align:center;max-width:min(320px,86vw);pointer-events:none}
+.pthint{position:absolute;left:50%;top:calc(58px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:rgba(9,14,28,.86);border:1px solid var(--line2);border-radius:10px;padding:7px 12px;font-size:13px;color:var(--ink2);text-align:center;max-width:min(320px,86vw,100vw - var(--sl) - var(--sr));pointer-events:none}
 html.red .pthint{background:rgba(16,1,1,.88)}
 .ptfix{padding-right:0}
 .ptfix button{height:28px;padding:0 11px 0 6px;background:none;border:0;color:var(--brass);font:inherit;text-decoration:underline;text-underline-offset:3px}
 
 /* timeline */
-.tl{padding:10px 16px 12px;border-top:1px solid var(--line);background:var(--panel)}
+.tl{padding:10px var(--sr) 12px var(--sl);border-top:1px solid var(--line);background:var(--panel)}
 .tlhd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .tlhd h2{margin:0;font:italic 400 19px/1.1 var(--disp);flex:1;min-width:0;text-wrap:balance}
 .navb{width:30px;height:30px;border-radius:50%;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);padding:0;display:inline-flex;align-items:center;justify-content:center}
@@ -136,7 +139,7 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .keys b{font:500 12.5px var(--mono);color:var(--ink)}
 
 /* panel */
-.panel{padding:6px 16px 28px;display:flex;flex-direction:column;gap:22px}
+.panel{padding:6px var(--sr) 28px var(--sl);display:flex;flex-direction:column;gap:22px}
 .sec h2{margin:14px 0 10px;font:italic 400 24px/1.1 var(--disp);display:flex;align-items:baseline;gap:10px;text-wrap:balance}
 .sec h2 small{font:700 11px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
 .lede{margin:0 0 12px;color:var(--ink2);max-width:62ch}
@@ -259,7 +262,7 @@ html.red .chart canvas{background:#050000}
 .res button:last-child{border-bottom:0}
 .res button:hover{background:var(--panel2)}
 .res small{color:var(--ink3);font-family:var(--mono);font-size:12px;white-space:nowrap}
-.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);background:var(--raise);color:var(--ink);border:1px solid var(--line2);box-shadow:0 12px 30px -8px #000;padding:9px 14px;border-radius:10px;font-weight:700;font-size:13.5px;opacity:0;transition:.2s;pointer-events:none;z-index:80;max-width:90vw;text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,16px);background:var(--raise);color:var(--ink);border:1px solid var(--line2);box-shadow:0 12px 30px -8px #000;padding:9px 14px;border-radius:10px;font-weight:700;font-size:13.5px;opacity:0;transition:.2s;pointer-events:none;z-index:80;max-width:min(90vw,100vw - 2 * max(var(--sl),var(--sr)));text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 /* tap feedback, from the palette so it stays red in night vision */
 .row:active,.ev:active,.res button:active,.opt:active,.chip:active,html .pill:active,.seg button:active,.btn.sec:active,.navb:active,.ibtn:active,.x:active,.more:active,.layers label:active{background:var(--raise)}
@@ -279,7 +282,7 @@ html.red .chart canvas{background:#050000}
   .sheet{border-radius:0;border:0;border-left:1px solid var(--line2);max-height:none;height:100%;width:430px}
 }
 @media (max-width:560px){
-  .top{gap:6px;padding:10px 12px}
+  .top{gap:6px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
   .brand{font-size:22px;margin-right:0}.brand svg{width:19px;height:19px}
   #locBtn .t{max-width:38vw}
   #scopeBtn{padding:0 10px}#scopeBtn .t{display:none}

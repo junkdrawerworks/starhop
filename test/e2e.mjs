@@ -896,6 +896,53 @@ check('Stop stays under the right thumb when a compass correction shows', async 
   }
 });
 
+// An iPhone on its side draws the page under the camera housing on one side and the home bar below (viewport-fit=cover),
+// and nothing kept clear of them.
+check('Nothing sits under the notch on a phone turned sideways', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', size: [844, 390], init: fakeWakeLock });
+  try {
+    await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } });
+    await page.waitForTimeout(300);
+    const outside = sels => page.evaluate(sels => sels.flatMap(sel => [...document.querySelectorAll(sel)].filter(e => e.offsetParent || getComputedStyle(e).position === 'fixed').map(e => [sel, e.getBoundingClientRect()]).filter(([, r]) => r.width && (r.left < 47 || r.right > innerWidth - 47)).map(([sel, r]) => `${sel} at ${Math.round(r.left)}–${Math.round(r.right)}`)), sels);
+    assert.deepEqual(await outside(['.brand', '#locBtn', '#scopeBtn', '#when', '#nowBtn', '#layBtn', '#dirSeg', '#zIn', '#prevN', '#nextN', '#nightTitle', '#keys span', '#tonightSec h2', '.fact', '.filters .chip', '#targetSec .row', '.more', '.ev', '.credits']), [], 'all of it keeps clear of the sides');
+    const m = await mapLabels(page);
+    checkLabels(m.labels, m.w, m.h, m.keep, 'the map with the notch');
+    await page.click('#layBtn');
+    assert.deepEqual(await outside(['#layers']), [], 'the layers menu too');
+    await page.click('#lyDone');
+    await point(page);
+    const c = await page.$eval('#sky', c => { const r = c.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    await page.mouse.move(c[0], c[1]); await page.mouse.down(); await page.mouse.move(c[0] + 80, c[1] + 20, { steps: 8 }); await page.mouse.up();
+    await page.waitForFunction(() => !document.getElementById('ptFix').hidden, null, { timeout: 5000 }).catch(() => {});
+    assert.deepEqual(await outside(['#when', '#nowBtn', '#layBtn', '#ptFix', '#ptBtn', '#zOut', '#zIn', '#ptHint']), [], 'and in Point');
+    assert.ok(await page.$eval('.ov-b', b => innerHeight - b.getBoundingClientRect().bottom >= 21), 'Point keeps above the home bar');
+    await page.click('#ptBtn');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// The header stuck below a top inset, over the map, with a strip of page showing through above it.
+check('The header keeps under the status bar and covers it', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 47, left: 0, right: 0, bottom: 34 } });
+    await page.waitForTimeout(300);
+    const top = () => page.evaluate(() => { const t = document.querySelector('.top').getBoundingClientRect(), b = document.querySelector('.brand').getBoundingClientRect(); return { top: Math.round(t.top), brand: Math.round(b.top), bottom: Math.round(t.bottom), sky: Math.round(document.getElementById('sky').getBoundingClientRect().top) }; });
+    const a = await top();
+    assert.ok(a.brand >= 47, `the header’s contents start below the status bar (${a.brand})`);
+    assert.equal(a.top, 0, 'and its background reaches the top');
+    assert.ok(a.sky >= a.bottom, 'the map starts below the header');
+    await page.evaluate(() => scrollTo(0, 600));
+    const b = await top();
+    assert.equal(b.top, 0, 'scrolled, the header still reaches the top');
+    assert.ok(b.brand >= 47, 'with its contents below the status bar');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('pointing stays on the live sky when the night rolls over', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T07:30:00-06:00', init: fakeWakeLock });
   try {
