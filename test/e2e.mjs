@@ -1726,6 +1726,40 @@ check('A focused row’s ring lies inside the list', async () => {
   } finally { await ctx.close(); }
 });
 
+// Redrawing the list used to drop the focus to the page itself, so a screen reader started again from the top.
+check('A filter chip keeps the focus after it filters the list', async () => {
+  const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  const active = () => page.evaluate(() => { const a = document.activeElement; return { tag: a.tagName, id: a.id, f: a.dataset.f || '', text: a.textContent }; });
+  try {
+    await page.locator('#targetSec [data-f="cluster"]').focus();
+    await page.keyboard.press('Enter');
+    assert.match(await page.$eval('#targetSec h2', h => h.textContent), /^What to look at \d+ targets?$/);
+    assert.equal(await page.$eval('#targetSec [data-f="cluster"]', b => b.classList.contains('on')), true, 'Clusters is chosen');
+    assert.equal((await active()).f, 'cluster', 'the focus stays on Clusters');
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Enter');
+    assert.equal((await active()).f, 'all', 'and on All');
+    await page.locator('#moreT').focus();
+    await page.keyboard.press('Enter');
+    assert.deepEqual([(await active()).id, (await active()).text], ['moreT', 'Show fewer'], 'Show all keeps the focus, and says Show fewer');
+    await page.keyboard.press('Enter');
+    assert.match((await active()).text, /^Show all \d+$/, 'and Show fewer');
+    // the Show menu hands the focus back to its button when it closes
+    await page.locator('#layBtn').focus();
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Tab');
+    assert.equal((await active()).id, 'ly_lines', 'Tab goes into the Show menu');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.$eval('#layers', l => l.hidden), true, 'Escape closes it');
+    assert.equal((await active()).id, 'layBtn', 'and the focus goes back to Show');
+    await page.keyboard.press('Enter');
+    await page.locator('#lyDone').focus();
+    await page.keyboard.press('Enter');
+    assert.equal((await active()).id, 'layBtn', 'Done hands it back too');
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026, by the USNO convention (PyEphem): Saturn rises 6:37 pm and sets 6:48 am, Jupiter rises 2:58 am, Mars 1:58 am.
 // Sunset is 7:01 pm and sunrise 7:32 am, and the card gives the times between them, so Saturn is up at dusk.
 check('planet rise and set times match the standard ones', async () => {

@@ -1193,12 +1193,17 @@ html.red .chart canvas{background:#050000}
   var LAY = [['lines', 'Constellation lines'], ['names', 'Names'], ['dso', 'Clusters, nebulae, galaxies'], ['mw', 'Milky Way'], ['grid', 'Altitude grid']];
   $('layers').innerHTML = LAY.map(function (l) { return '<label><input type="checkbox" id="ly_' + l[0] + '">' + l[1] + '</label>'; }).join('') + '<button class="lydone" type="button" id="lyDone">Done</button>';
   LAY.forEach(function (l) { var i = $('ly_' + l[0]); i.checked = !!S.layers[l[0]]; i.addEventListener('change', function () { S.layers[l[0]] = i.checked; save(); redraw(); }); });
-  function closeLayers() { var p = $('layers'); if (p.hidden) return; p.hidden = true; $('layBtn').setAttribute('aria-expanded', 'false'); }
+  // Done and Escape hand the focus back to Show when it was in the menu (or nowhere); a tap elsewhere leaves it be
+  function closeLayers(back) {
+    var p = $('layers'), ae = document.activeElement; if (p.hidden) return;
+    p.hidden = true; $('layBtn').setAttribute('aria-expanded', 'false');
+    if (back === true && (p.contains(ae) || !ae || ae === document.body)) $('layBtn').focus({ preventScroll: true });
+  }
   $('layBtn').addEventListener('click', function () { var p = $('layers'); p.hidden = !p.hidden; this.setAttribute('aria-expanded', String(!p.hidden)); });
-  $('lyDone').addEventListener('click', closeLayers);
+  $('lyDone').addEventListener('click', function () { closeLayers(true); });
   // pointerdown rather than click: iPhones don't send clicks on the map or plain text up to the document
   document.addEventListener('pointerdown', function (e) { var p = $('layers'); if (!p.hidden && !p.contains(e.target) && !$('layBtn').contains(e.target)) { closeLayers(); if (e.target === cv) EAT_TAP = true; } }, true);
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeLayers(); if ($('sheet').hidden) stopPoint(); } }); // a card over Point closes first
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeLayers(true); if ($('sheet').hidden) stopPoint(); } }); // a card over Point closes first
 
   // ---------- point the phone at the sky ----------
   // The back of the phone is the direction you look. Compasses are rough (and telescopes are metal),
@@ -1434,6 +1439,8 @@ html.red .chart canvas{background:#050000}
     return '<span class="g"><i class="' + dsoKindGlyph(t.o) + '"></i></span>';
   }
   function renderTargets() {
+    // what had the focus in the section, to give it back once it is redrawn: a filter chip, Show all, or a row
+    var ae = document.activeElement, sec = $('targetSec'), had = sec.contains(ae) && ae !== sec ? (ae.dataset.f ? '[data-f="' + ae.dataset.f + '"]' : ae.id ? '#' + ae.id : ae.classList.contains('row') ? '.row[data-id="' + ae.dataset.id.replace(/["\\]/g, '\\$&') + '"]' : '') : '';
     var st = scopeStats(), list = TARGETS.filter(function (t) {
       if (TFILTER === 'all') return true; if (TFILTER === 'planets') return t.k === 'planet' || t.k === 'moon'; if (TFILTER === 'double') return t.k === 'double';
       return t.o && t.o.kind === TFILTER && t.k === 'dso';
@@ -1456,6 +1463,7 @@ html.red .chart canvas{background:#050000}
     $('targetSec').querySelectorAll('canvas[data-moon]').forEach(function (c) { moonIcon(c, NIGHT.moonIllum, NIGHT.moonPhase, 26); });
     if ($('moreT')) $('moreT').addEventListener('click', function () { TMORE = !TMORE; renderTargets(); });
     if ($('setScope')) $('setScope').addEventListener('click', scopeSheet);
+    var back = had && sec.querySelector(had); if (back) back.focus({ preventScroll: true });
   }
   // A row's second line: when it's best, and tonight where it stands at the time shown, up now, rising later or set.
   // Its rise and set times are found once a night, at the levels the card uses (see riseSet).
