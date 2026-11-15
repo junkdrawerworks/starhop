@@ -86,7 +86,26 @@ for i, (mag, hip, ra, dec, bv) in enumerate(rows):
     lab = (bayer or flam) + (' ' + con if con else '') if (bayer or flam) else ''
     if proper or (lab and (n.get('name') or (bayer and mag <= 4.5) or (flam and mag <= 4.0))):
         labels[i] = [proper, lab, con]
-dump('stars.json', {'s': flat, 'n': labels})
+# Mira (ο Cet, HIP 10826) brightens and fades between magnitude 2.0 and 10.1 over 331.96 days (General Catalogue of
+# Variable Stars), so d3-celestial's single magnitude, 6.47, its average, leaves it out of the stars here and Cetus's
+# line bends at an empty point. It goes at the end of the list, where it moves no other star (seen marks are kept by
+# place in it), drawn at magnitude 3.5, about its usual peak. v gives its usual peak and low, about 9, and its period
+# in days, for its card; a star that is often too faint to see isn't one to hop from.
+VARIABLES = {10826: (3.5, 9, 332)}
+variable = {}
+for f in json.load(open(D / 'stars.8.json'))['features']:
+    if f['id'] in VARIABLES and str(f['id']) not in idx_of_hip:
+        hi, lo, days = VARIABLES[f['id']]
+        lon, lat = f['geometry']['coordinates']
+        i = len(flat) // 4
+        flat += [r(ra_of(lon)), r(lat), hi, r(f['properties']['bv'])]
+        idx_of_hip[str(f['id'])] = i
+        n = names[str(f['id'])]
+        labels[i] = [proper_name(str(f['id']), n), n['bayer'] + ' ' + n['c'], n['c']]
+        variable[i] = [hi, lo, days]
+if len(variable) != len(VARIABLES):
+    sys.exit('variable stars not found')
+dump('stars.json', {'s': flat, 'n': labels, 'v': variable})
 
 # ---------- famous double stars, found by designation ----------
 def find(bayer=None, flam=None, con=None, proper=None):

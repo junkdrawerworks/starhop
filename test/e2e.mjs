@@ -2226,6 +2226,28 @@ check('ξ Sco’s card names it', async () => {
   } finally { await ctx.close(); }
 });
 
+// Mira swings between magnitude 2.0 and 10.1 over 332 days (General Catalogue of Variable Stars). d3-celestial's average
+// magnitude, 6.47, left it out of the star list, so Cetus's line bent at an empty point with nothing to tap.
+check('Mira ends Cetus’s line as a star you can tap, and its card says it fades', async () => {
+  const { s, n } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')), i = await starAt(34.84, -2.98);
+  assert.deepEqual(n[i], ['Mira', 'ο Cet', 'Cet']);
+  assert.equal(s[i * 4 + 2], 3.5, 'drawn near its usual peak');
+  assert.equal(i, s.length / 4 - 1, 'at the end of the list, where it moves no other star');
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await tapMap(page, 'star', i);
+    assert.equal(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), 'Mira');
+    assert.equal(await text(page, '#sheet .hd h2 small'), 'Variable star · ο Cet · in Cetus');
+    assert.match(await text(page, '#sheet .kv'), /mag 3\.5 to 9/);
+    assert.match(await text(page, '#sheet .bd'), /fades to about magnitude 9 and back over 11 months, so on many nights it isn’t there to see/);
+    await page.click('#cardDone');
+    // a star that is often too faint to see isn't one to hop from, though M77 is only 6.5° from it
+    await openCard(page, 'M77');
+    assert.doesNotMatch(await hopCap(page), /Mira/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // The card's italic headline set '24 °' with IM Fell's degree sign well apart from its number, ξ Sco's Greek letter fell
 // out of the italic, words such as 'Easy' and 'Not tonight' were in DM Mono, Saturn was '1301 million km', and on a
 // German phone the Moon was '399.799 km'.
@@ -2869,7 +2891,8 @@ check('each star name is on one star only, the one the IAU gives it to, and the 
   const named = des => Object.values(n).find(v => v[1] === des)[0];
   for (const [des, name] of [['α Peg', 'Markab'], ['κ1 Pup', ''], ['γ Aql', 'Tarazed'], ['η Aql', 'Pagru'], ['α Gru', 'Alnair'], ['ζ Cen', 'Leepwal'], ['ζ Her', 'Tianji'], ['γ Cas', 'Tiansi'], ['ν Oph', ''], ['γ2 Vel', ''], ['ε1 Lyr', '']]) assert.equal(named(des), name, des);
   // Stars marked as seen are kept by their place in this list, so a rebuild that reorders it needs to move those marks.
-  assert.equal(createHash('sha256').update(JSON.stringify(s)).digest('hex').slice(0, 16), 'a010c8abcddc38b6', 'the star list changed order or content');
+  // Mira, added at the end, moved none of them.
+  assert.equal(createHash('sha256').update(JSON.stringify(s.slice(0, 5044 * 4))).digest('hex').slice(0, 16), 'a010c8abcddc38b6', 'the star list changed order or content');
 });
 
 // d3-celestial spells some names its own way, and gave ε1 Lyr the nickname of the whole Epsilon Lyrae system. Where the

@@ -14,7 +14,7 @@
 
 ## What it does
 
-- **Sky map.** Tonight's sky for your location and time: stars down to about magnitude 6, constellation lines and names, the Milky Way, the planets and the Moon (with its phase), plus clusters, nebulae and galaxies.
+- **Sky map.** Tonight's sky for your location and time: stars down to about magnitude 6 (and Mira, the variable star in Cetus, as it looks near its brightest), constellation lines and names, the Milky Way, the planets and the Moon (with its phase), plus clusters, nebulae and galaxies.
   - Drag to look around and pinch or scroll to zoom.
   - **Up** shows the whole dome overhead, laid out like a planisphere you hold above your head; **N / E / S / W** face a direction.
   - **Show** turns constellation lines, names, deep-sky objects, the Milky Way and an altitude grid on or off.
