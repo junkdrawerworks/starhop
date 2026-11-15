@@ -527,6 +527,44 @@ check('a planet low in full darkness is low, not low in twilight', async () => {
 
 const cardRiseSet = page => page.$eval('#sheet .card p:not(.big)', p => p.textContent);
 
+// The only ways to a card were the list and the map, and a city sky's list leaves out the Triangulum Galaxy. Austin,
+// Nov 15 2026, 9 pm (Astronomy Engine 2.1.19): Mizar rises at 12:24 am; the Jewel Box, at −60°, never rises there.
+const finds = async (page, q) => { await page.fill('#findQ', q); return page.$$eval('#findRes button, #findRes p', b => b.map(x => x.innerText.replace(/\s+/g, ' ').trim())); };
+check('Find takes a name, a catalogue number or a Greek letter, says where it is and opens its card', async () => {
+  const { ctx, page, problems, outside } = await open({ save: JSON.stringify({ loc: AUSTIN, sky: 'city' }), time: '2026-11-15T21:00:00-06:00' });
+  try {
+    assert.ok(!(await targetRows(page)).some(r => r.id === 'M33'), 'a city sky’s list leaves out M33');
+    assert.match((await finds(page, 'm 33'))[0], /^Triangulum Galaxy M33 Up \d+° (N|NE|E|SE|S|SW|W|NW)$/);
+    await page.click('#findRes button');
+    assert.ok(await sheetOpen(page), 'a match opens its card');
+    assert.equal(await page.$eval('#sheet .hd h2 > span', s => s.textContent), 'Triangulum Galaxy · M33');
+    await page.click('#sheet [data-close]');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.fi), '0', 'closing it hands the focus back to the match');
+    assert.match((await finds(page, 'alpha lyrae'))[0], /^Vega α Lyr Up/);
+    assert.match((await finds(page, 'ε Lyr'))[0], /^Epsilon Lyrae ε1 Lyr/);
+    assert.match((await finds(page, 'TRIANGULUM'))[0], /^Triangulum Galaxy/, 'whatever the case');
+    assert.match((await finds(page, 'tolim'))[0], /^Toliman/);
+    const sat = await finds(page, 'saturn');
+    assert.match(sat[0], /^Saturn Planet Up \d+° S/);
+    assert.match(sat[1], /^Saturn Nebula NGC 7009/);
+    assert.match((await finds(page, 'mizar'))[0], /^Mizar and Alcor ζ UMa Rises 12:24 am$/);
+    assert.match((await finds(page, 'jewel'))[0], /^Jewel Box NGC 4755 Not up tonight$/);
+    assert.match((await finds(page, 'M3'))[0], /^M3 NGC 5272/, 'the number itself before M30 to M39');
+    assert.match((await finds(page, 'ngc884'))[0], /^Double Cluster NGC 869 and NGC 884/);
+    assert.deepEqual(await finds(page, 'xyzzy'), ['Nothing by that name. Try a Messier number like M13, or a star like Vega.']);
+    await finds(page, 'blue snowball');
+    await page.press('#findQ', 'Enter');
+    assert.equal(await page.$eval('#sheet .hd h2 > span', s => s.textContent), 'Blue Snowball', 'Enter opens the first match');
+    await page.click('#sheet [data-close]');
+    await page.focus('#findQ');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.$eval('#findQ', i => i.value), '', 'Escape empties the box');
+    assert.equal(await page.$eval('#findRes', r => r.hidden), true, 'and puts the matches away');
+    assert.deepEqual(problems, []);
+    assert.deepEqual(outside, []);
+  } finally { await ctx.close(); }
+});
+
 // At 7:30 pm in New York on Nov 15 2026 the list put Venus, Jupiter and Mercury, which rise before dawn, above Saturn,
 // up now. Astronomy Engine 2.1.19 has Jupiter rising at 11:17 pm there, and Saturn setting at 1:44 am.
 const NEW_YORK = { name: 'New York, NY', lat: 40.71, lon: -74.01, tz: 'America/New_York' };

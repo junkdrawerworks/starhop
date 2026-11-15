@@ -173,6 +173,12 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .note{font-size:13px;color:var(--ink2);margin:8px 0 0}
 .note button,.lnk{background:none;border:0;padding:0;color:var(--brass);font-weight:700;text-decoration:underline;text-underline-offset:3px}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+/* finding anything by name, above the filters: its matches drop below it */
+.find{margin:0 0 10px;display:flex;flex-direction:column;gap:6px}
+.find input{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:9px 11px;width:100%;min-width:0;font-size:16px}
+.find .res small.at{font:13px var(--body);color:var(--ink2);text-align:right}
+.find .res .nm small{margin-left:2px}
+.find .res .none{padding:10px 12px;margin:0;color:var(--ink2);font-size:13.5px}
 .filters .chip{height:30px;padding:0 11px;font-size:12.5px}
 .list{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--panel)}
 .list+.lede{margin-top:12px}
@@ -384,7 +390,7 @@ html.red .chart canvas{background:#050000}
     </section>
     <aside class="panel" id="panel">
       <section class="sec" id="tonightSec"></section>
-      <section class="sec" id="targetSec"></section>
+      <section class="sec" id="targetSec"><div id="tHead"></div><div class="find" id="findBox" hidden><input id="findQ" placeholder="Find M33, Vega, Saturn…" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="search" enterkeyhint="search" aria-label="Find an object by name" aria-describedby="findSay"><span class="sr" id="findSay">Matches show below as you type</span><div class="res" id="findRes" hidden></div></div><div id="tBody"></div></section>
       <section class="sec" id="eventSec"></section>
       <footer class="credits">Positions of the Sun, Moon and planets are computed in your browser with <a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noopener">Astronomy Engine</a> (MIT). Stars, constellations, the Milky Way and deep-sky objects come from <a href="https://github.com/ofrohn/d3-celestial" target="_blank" rel="noopener">d3-celestial</a> (BSD), built on the Hipparcos catalog and SEDS Messier data; cities from <a href="https://github.com/kevinroberts/city-timezones" target="_blank" rel="noopener">city-timezones</a> (MIT). Difficulty ratings are a guide: steady air, dark adaptation and patience matter as much as aperture.</footer>
       <footer class="jd-foot">
@@ -1728,8 +1734,8 @@ html.red .chart canvas{background:#050000}
     });
     list = eveningOrder(list);
     var shown = TMORE ? list : list.slice(0, 14);
-    var h = '<h2>What to look at <small>' + plural(list.length, 'target') + '</small></h2>' +
-      '<div class="filters">' + FILTERS.map(function (f) { return '<button class="chip' + (TFILTER === f[0] ? ' on' : '') + '" type="button" data-f="' + f[0] + '" aria-pressed="' + (TFILTER === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>';
+    var head = '<h2>What to look at <small>' + plural(list.length, 'target') + '</small></h2>';
+    var h = '<div class="filters">' + FILTERS.map(function (f) { return '<button class="chip' + (TFILTER === f[0] ? ' on' : '') + '" type="button" data-f="' + f[0] + '" aria-pressed="' + (TFILTER === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>';
     var bright = TOO_BRIGHT && TFILTER !== 'planets' ? '<p class="lede">The sky stays too bright tonight for anything but the Moon and the brightest planets.</p>' : '';
     if (!shown.length) h += bright || '<p class="lede">' + (TFILTER === 'unseen' && TARGETS.length ? 'You’ve marked everything well placed on this night as seen.' : 'Nothing of that kind is well placed on this night.') + '</p>';
     else h += '<div class="list">' + shown.map(function (t) {
@@ -1740,7 +1746,7 @@ html.red .chart canvas{background:#050000}
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += tally();
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
-    $('targetSec').innerHTML = h;
+    $('tHead').innerHTML = head; $('tBody').innerHTML = h; $('findBox').hidden = false; refreshFind();
     $('targetSec').querySelectorAll('.filters button').forEach(function (b) { b.addEventListener('click', function () { TFILTER = b.dataset.f; TMORE = false; renderTargets(); say((TFILTER === 'all' ? 'All ' : b.textContent + ': ') + $('targetSec').querySelector('h2 small').textContent); }); });
     $('targetSec').querySelectorAll('.row').forEach(function (b) { b.addEventListener('click', function () { var o = objById(b.dataset.k === 'double' ? 'dso' : b.dataset.k, b.dataset.id); select(o, true); }); });
     $('targetSec').querySelectorAll('canvas[data-moon]').forEach(function (c) { moonIcon(c, NIGHT.moonIllum, NIGHT.moonPhase, 26); });
@@ -1801,9 +1807,84 @@ html.red .chart canvas{background:#050000}
   }
   // and with the night it was seen, if it was, at the end; a screen reader hears that after the direction instead
   function rowDt(t) { return whenHtml(t) + (SEEN[t.id] ? '<span aria-hidden="true"> · <span class="seen">Seen ' + esc(seenText(SEEN[t.id])) + '</span></span>' : ''); }
-  function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) { d.innerHTML = rowDt(t); r.classList.toggle('gone', gone(t)); } }); }
+  function refreshRows() { refreshFind(); document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) { d.innerHTML = rowDt(t); r.classList.toggle('gone', gone(t)); } }); }
   function markRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { r.classList.toggle('sel', !!SEL && r.dataset.id === String(SEL.id)); }); }
   function select(o, open) { if (!o) return; SEL = o; redraw(); markRows(); if (open) openObject(o); }
+
+  // ---------- find anything by name ----------
+  // Messier and NGC numbers ("M33", "m 33", "NGC 7662"), names (Blue Snowball, Vega, Saturn), and Greek-letter labels
+  // typed in Greek or spelt out ("ε Lyr", "epsilon lyr", "alpha cen", "alpha lyrae"), ignoring accents and case as the
+  // town search does. Each match says where it is at the time the map shows, and opens its card.
+  var GREEK = { 'α': 'alpha', 'β': 'beta', 'γ': 'gamma', 'δ': 'delta', 'ε': 'epsilon', 'ζ': 'zeta', 'η': 'eta', 'θ': 'theta', 'ι': 'iota', 'κ': 'kappa', 'λ': 'lambda', 'μ': 'mu', 'ν': 'nu', 'ξ': 'xi', 'ο': 'omicron', 'π': 'pi', 'ρ': 'rho', 'σ': 'sigma', 'ς': 'sigma', 'τ': 'tau', 'υ': 'upsilon', 'φ': 'phi', 'χ': 'chi', 'ψ': 'psi', 'ω': 'omega' };
+  function ffold(s) { return fold(String(s).toLowerCase().replace(/[α-ω]/g, function (c) { return GREEK[c] || c; })); }
+  var FIND = null, FINDR = [];
+  function findIndex() {
+    if (FIND) return FIND;
+    var out = [], byStar = {};
+    function add(o, label, cat, keys, greek) {
+      var ks = [], gk = [];
+      keys.forEach(function (k) { if (!k) return; var f = ffold(k); if (f && ks.indexOf(f) < 0) ks.push(f); });
+      // a lettered star's label, also without its superscript number (α1 Cen as alpha cen)
+      (greek || []).forEach(function (k) { var f = ffold(k), g = f.replace(/^([a-z]+)\d+ /, '$1 '); [f, g].forEach(function (x) { if (ks.indexOf(x) < 0) ks.push(x); if (gk.indexOf(x) < 0) gk.push(x); }); });
+      out.push({ o: o, label: label, cat: cat, keys: ks, greek: gk });
+    }
+    add(objById('moon'), 'The Moon', '', ['Moon', 'The Moon']);
+    PLANETS.forEach(function (p) { add(objById('planet', p.id), p.id, 'Planet', [p.id]); });
+    DSO.forEach(function (o) {
+      var named = o.name && o.name !== o.id, cats = String(o.cat || '').split(' and ');
+      add(o, named ? o.name : o.id, named ? (o.parts ? o.cat : o.id) : o.cat && o.cat !== o.id ? o.cat : '', [o.id, /^M\d+$/.test(o.id) ? 'Messier ' + o.id.slice(1) : '', o.name].concat(cats));
+    });
+    DOUBLES.forEach(function (o) {
+      var n = o.star != null ? NAMES[o.star] || [] : [];
+      if (o.star != null) byStar[o.star] = true;
+      add(o, o.name || o.id, /^M\d/.test(o.id) ? o.id : n[1] || '', [o.name, o.id, o.cat, n[0]], n[1] ? [n[1]] : []);
+    });
+    Object.keys(NAMES).forEach(function (i) {
+      var n = NAMES[i]; if (byStar[i] || !(n[0] || n[1])) return;
+      add(objById('star', +i), n[0] || n[1], n[0] ? n[1] || '' : '', [n[0]], n[1] ? [n[1]] : []);
+    });
+    return (FIND = out);
+  }
+  // How well a key matches: the whole of it, its start, a word's start, anywhere in it, or (for a letter and a
+  // constellation) the key at the start of what was typed, so "alpha lyrae" finds α Lyr.
+  function findScore(e, q, qc) {
+    var best = 9;
+    e.keys.forEach(function (k) {
+      var kc = k.replace(/ /g, ''), sc = k === q || kc === qc ? 0 : k.indexOf(q) === 0 || kc.indexOf(qc) === 0 ? 1 : k.indexOf(' ' + q) >= 0 ? 2 : q.length > 3 && k.indexOf(q) >= 0 ? 3 : e.greek.indexOf(k) >= 0 && q.indexOf(k) === 0 && /^[a-z]+$/.test(q.slice(k.length)) ? 1 : 9;
+      if (sc < best) best = sc;
+    });
+    return best;
+  }
+  // Where it is at the time shown: up (with its height and direction), when it rises later in the night, or when it set.
+  function whereNow(o) {
+    var aa = altAz(objHor(o, scene(T.t))), N = NIGHT;
+    if (aa.alt > 0) return 'Up ' + Math.round(aa.alt) + '° ' + dirName(aa.az, true);
+    var obj = o.b ? { k: 'body', b: o.b } : { v: o.v || SVEC[o.i] }, lvl = o.k === 'moon' ? -0.3 : o.k === 'planet' ? 0 : -0.5;
+    var t0 = T.t < N.end ? T.t : N.end, rise = crossings(obj, t0, N.end, 12 * 60e3, lvl).filter(function (c) { return c.up; })[0];
+    if (rise) return 'Rises ' + tTime(rise.t);
+    var set = T.t > N.start ? crossings(obj, N.start, T.t, 12 * 60e3, lvl).filter(function (c) { return !c.up; }).pop() : null;
+    return set ? 'Set ' + tTime(set.t) : 'Not up tonight';
+  }
+  function findRun() {
+    var q = ffold($('findQ').value), qc = q.replace(/ /g, ''), box = $('findRes');
+    if (qc.length < 2) { FINDR = []; box.hidden = true; box.innerHTML = ''; return; }
+    FINDR = findIndex().map(function (e, i) { return { e: e, i: i, s: findScore(e, q, qc) }; }).filter(function (x) { return x.s < 9; })
+      .sort(function (a, b) { return a.s - b.s || a.i - b.i; }).slice(0, 8).map(function (x) { return x.e; });
+    box.hidden = false;
+    box.innerHTML = FINDR.length ? FINDR.map(function (e, i) {
+      return '<button type="button" data-fi="' + i + '"><span class="nm">' + esc(e.label) + (e.cat ? ' <small>' + esc(e.cat) + '</small>' : '') + '</span><small class="at">' + esc(whereNow(e.o)) + '</small></button>';
+    }).join('') : '<p class="none">Nothing by that name. Try a Messier number like M13, or a star like Vega.</p>';
+    box.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { var e = FINDR[+b.dataset.fi]; if (e) select(e.o, true); }); });
+    say(FINDR.length ? plural(FINDR.length, 'match', 'matches') : 'No match');
+  }
+  // the matches keep up with the time shown, without being redrawn under a finger
+  function refreshFind() { if (!NIGHT) return; $('findRes').querySelectorAll('button').forEach(function (b) { var e = FINDR[+b.dataset.fi]; if (e) b.querySelector('.at').textContent = whereNow(e.o); }); }
+  $('findQ').addEventListener('input', function () { if (LOADED) findRun(); });
+  $('findQ').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && FINDR.length) { e.preventDefault(); select(FINDR[0].o, true); }
+    else if (e.key === 'Escape' && this.value) { e.stopPropagation(); this.value = ''; findRun(); }
+    else if (e.key === 'ArrowDown') { var b = $('findRes').querySelector('button'); if (b) { e.preventDefault(); b.focus(); } }
+  });
 
   // ---------- events ----------
   // The showers worth a night out, from the IMO's 2026 Meteor Shower Calendar (IMO INFO(3-25), ed. J. Rendtel), Table 5:
