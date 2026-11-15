@@ -275,6 +275,9 @@ for f in json.load(open(D / 'dsos.bright.json'))['features']:
                 'mag': r(p['mag'], 1), 'dim': dims(p.get('dim')), 'ra': r(ra_of(lon), 3), 'dec': r(lat, 3)})
     if k in SHORT:
         dso[-1]['short'] = SHORT[k]
+missing = set(EXTRA) - {d['id'] for d in dso}
+if missing:  # one asked for but not in dsos.bright.json would otherwise be left out without a word
+    sys.exit(f'bright extras not found: {sorted(missing)}')
 
 pool = json.load(open(D / 'dsos.14.json'))['features']
 
