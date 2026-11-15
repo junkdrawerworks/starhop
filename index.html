@@ -347,7 +347,7 @@ html.red .chart canvas{background:#050000}
   .skybox{flex:1;height:auto}
   .panel{position:relative;overflow:auto;border-left:1px solid var(--line)} /* its screen-reader words (.sr) stay inside it, not below the page */
   /* a sheet takes the side panel's place, below the header, so the sky's controls and the header stay in reach */
-  .sheetbg{top:55px;justify-content:flex-end;align-items:stretch;background:transparent;pointer-events:none}
+  .sheetbg,html.red .sheetbg{top:55px;justify-content:flex-end;align-items:stretch;background:transparent;pointer-events:none}
   .sheet{pointer-events:auto}
   .sheet{border-radius:0;border:0;border-left:1px solid var(--line2);max-height:none;height:100%;width:430px}
 }

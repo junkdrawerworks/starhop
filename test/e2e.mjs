@@ -1601,6 +1601,19 @@ check('on a desktop an open card covers only the side panel', async () => {
   } finally { await ctx.close(); }
 });
 
+// In night vision a card open beside the map on a desktop laid a dark veil over the map, which is meant to stay in use
+// beside it: the red look's backdrop outranked the desktop's clear one.
+check('On a desktop an open card leaves the map undimmed, in night vision too', async () => {
+  for (const red of [false, true]) {
+    const { ctx, page } = await open({ save: JSON.stringify({ loc: AUSTIN, red }), time: '2026-11-15T21:00:00-06:00', phone: false });
+    try {
+      await page.click('#targetSec .row');
+      assert.ok(await sheetOpen(page));
+      assert.equal(await page.$eval('.sheetbg', b => getComputedStyle(b).backgroundColor), 'rgba(0, 0, 0, 0)', (red ? 'night vision: ' : '') + 'nothing over the map');
+    } finally { await ctx.close(); }
+  }
+});
+
 // On Android the installed app has only Back to close a card, and Back used to leave Starhop instead.
 check('Back closes an open card or sheet, and closing one another way leaves no extra step behind', async () => {
   let { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
