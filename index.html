@@ -2081,7 +2081,7 @@ html.red .chart canvas{background:#050000}
     $('ctr').addEventListener('click', function () { closeSheet(); SEL = o; center(o); markRows(); if (window.innerWidth < 1000) window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); });
     // dated by the night: an earlier night being looked back on, or else tonight's, which a mark at 1 am still belongs
     // to (a night still to come can't have been seen yet)
-    $('seenB').addEventListener('click', function () { var now = new Date(), was = nightKey(NDATE), night = nightKey(nightOf(now)); if (S.seen[o.id]) delete S.seen[o.id]; else S.seen[o.id] = !sameNight(NDATE, currentNight(now)) && was < night ? was : night; save(); openObject(o); renderTargets(); });
+    $('seenB').addEventListener('click', function () { var now = new Date(), was = nightKey(NDATE), night = nightKey(nightOf(now)); var off = !!S.seen[o.id]; if (off) delete S.seen[o.id]; else S.seen[o.id] = !sameNight(NDATE, currentNight(now)) && was < night ? was : night; save(); openObject(o); renderTargets(); if (off) toast('No longer marked as seen'); });
     // a tap or Enter on an eyepiece shows its view
     $('sheet').querySelectorAll('.eps tbody tr').forEach(function (tr) {
       function pick() {
@@ -2295,7 +2295,7 @@ html.red .chart canvas{background:#050000}
       var name = $('scName').value.trim();
       if (!name || PRESETS.concat(DEFAULT_SCOPE).some(function (p) { return p.name === name && (p.ap !== ap || p.fl !== fl); })) name = ap + ' mm, f/' + Math.round(fl / ap * 10) / 10;
       S.scope = { name: name, ap: ap, fl: fl, eps: eps.filter(function (e) { return e.f > 1 && e.a > 10; }), set: true }; S.sky = skyv; save();
-      closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Saved');
+      closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies'); // the chip hides its name on a phone
     });
     drawEps(); drawSky(); stats();
   }

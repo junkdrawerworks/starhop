@@ -1166,6 +1166,7 @@ check('a telescope typed in by hand is called by its own size', async () => {
     await page.fill('#scFl', '700');
     await page.click('#scSave');
     assert.equal(await text(page, '#scopeName'), '70 mm, f/10');
+    assert.equal(await text(page, '#toast'), 'Ratings now for your 70 mm, f/10 under suburban skies', 'Save says what the ratings are now for');
     assert.match(await text(page, '#targetSec .note'), /^Ratings assume your 70 mm, f\/10 under suburban skies\.$/);
     // a quick pick's name goes when its numbers are changed, and a pick's name with other numbers isn't kept
     await page.click('#scopeBtn');
@@ -2163,6 +2164,7 @@ check('a star marked as seen stays marked after a reload', async () => {
     assert.equal(await text(page, '#seenB'), '✓ Seen Tue, Oct 13', 'and so does the card');
     await page.click('#seenB');
     assert.equal(await text(page, '#seenB'), 'Mark as seen', 'a second tap takes the mark off');
+    assert.equal(await text(page, '#toast'), 'No longer marked as seen', 'and says so');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
