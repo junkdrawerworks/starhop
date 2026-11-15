@@ -165,7 +165,7 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .row:hover{background:var(--panel2)}
 .row.sel{background:var(--raise)}
 .row .nm{display:block;font-weight:700;min-width:0;overflow-wrap:anywhere}
-.row .nm small{font:500 11.5px var(--mono);color:var(--ink3);margin-left:6px;white-space:nowrap}
+.row .nm small{font:500 11.5px var(--mono);color:var(--ink3);margin-left:2px;white-space:nowrap}
 .row .nm .tick{color:var(--good);font-size:12px;margin-left:6px}
 /* the second line wraps rather than lose where to look off its end, to a third for the night it was seen */
 .row .dt .nw{white-space:nowrap}
@@ -1517,7 +1517,7 @@ html.red .chart canvas{background:#050000}
     if (!shown.length) h += bright || '<p class="lede">Nothing of that kind is well placed on this night.</p>';
     else h += '<div class="list">' + shown.map(function (t) {
       var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.id) + '</small>' : '';
-      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (S.seen[t.id] ? ', seen ' + esc(seenText(S.seen[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
+      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + (id && ' ' + id) + (S.seen[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (S.seen[t.id] ? ', seen ' + esc(seenText(S.seen[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
