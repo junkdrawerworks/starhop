@@ -102,10 +102,17 @@ html.red .skywrap{background:#050000}
 html.red .pill{background:rgba(16,1,1,.85)}
 .pill.on{color:var(--brass);border-color:var(--brass)}
 .pill svg{width:14px;height:14px}
-.seg{display:inline-flex;border:1px solid var(--line2);border-radius:999px;overflow:hidden;background:rgba(9,14,28,.82)}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:999px;background:rgba(9,14,28,.82)}
 html.red .seg{background:rgba(16,1,1,.85)}
 .seg button{background:none;border:0;padding:0 10px;height:30px;font:700 12.5px var(--body);color:var(--ink2);min-width:34px}
 .seg button.on{background:var(--brass);color:var(--brass-ink)}
+.seg button:first-child{border-radius:999px 0 0 999px}.seg button:last-child{border-radius:0 999px 999px 0}
+/* Each button takes a tap a little outside its edges, toward the 44 px Apple asks for (Human Interface Guidelines,
+   Accessibility: hit targets), without looking any bigger: 7 px past the border (8 past the padding box the area is
+   measured from). The direction buttons, edge to edge, take it only above and below. */
+button.pill,.navb,.ibtn,.chip,.seg button{position:relative}
+button.pill::after,.navb::after,.ibtn::after,.chip::after,.seg button::after{content:"";position:absolute;inset:-8px}
+.seg button::after{inset:-8px 0}
 .zoom{display:inline-flex;gap:6px;margin-left:auto} /* at the right, under the thumb, whatever else shares its row */
 .banner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(9,14,28,.9);border:1px solid var(--line2);border-radius:var(--r);padding:12px 16px;text-align:center;max-width:280px;font-size:14px;color:var(--ink2);pointer-events:none}
 html.red .banner{background:rgba(16,1,1,.9)}
@@ -131,7 +138,7 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .tl{padding:10px var(--sr) 12px var(--sl);border-top:1px solid var(--line);background:var(--panel)}
 .tlhd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .tlhd h2{margin:0;font:italic 400 19px/1.1 var(--disp);flex:1;min-width:0;text-wrap:balance}
-.navb{width:30px;height:30px;border-radius:50%;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);padding:0;display:inline-flex;align-items:center;justify-content:center}
+.navb{width:36px;height:36px;border-radius:50%;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);padding:0;display:inline-flex;align-items:center;justify-content:center}
 .navb svg{width:15px;height:15px}
 #tlc{display:block;width:100%;height:58px;touch-action:pan-y;cursor:ew-resize;border-radius:8px}
 .keys{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:12.5px;color:var(--ink2)}
@@ -217,7 +224,7 @@ html.red .sheetbg{background:rgba(4,0,0,.62)}
 @media (max-width:999.98px){html.sheeted,html.sheeted body{overflow:hidden;overscroll-behavior:none}html.sheeted{scrollbar-gutter:stable}}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--brass);background:var(--brass);color:var(--brass-ink);font-weight:700;font-size:14px}
 .btn.sec{background:var(--panel2);border-color:var(--line2);color:var(--ink)}
-.btn.sm{height:32px;padding:0 11px;font-size:13px}
+.btn.sm{height:36px;padding:0 11px;font-size:13px}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
 .card h3{margin:0 0 6px;font:700 11px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}

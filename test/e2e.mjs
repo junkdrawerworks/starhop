@@ -943,6 +943,40 @@ check('The header keeps under the status bar and covers it', async () => {
   } finally { await ctx.close(); }
 });
 
+// Most buttons were 30 px or so, under the 44 px Apple asks for, and the direction buttons sit edge to edge.
+check('Buttons take a tap a little outside their edges, and the map still drags beside them', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
+  try {
+    // which button, if any, a tap at each side of each, 6 px out, lands on; and what is 12 px out
+    const reach = sels => page.evaluate(sels => sels.flatMap(sel => [...document.querySelectorAll(sel)].map(b => {
+      const r = b.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, seg = !!b.closest('.seg');
+      const at = (x, y) => { const e = document.elementFromPoint(x, y); return e && e.closest('button'); };
+      const sides = [[cx, r.top - 6], [cx, r.bottom + 6]].concat(seg ? [] : [[r.left - 6, cy], [r.right + 6, cy]]);
+      const miss = sides.filter(([x, y]) => { const o = at(x, y); return o !== b && !(o && o !== b && o.matches('button')); }).map(p => p.map(Math.round));
+      return { sel, name: b.textContent.trim() || b.getAttribute('aria-label'), h: Math.round(r.height), miss };
+    })), sels);
+    for (const b of await reach(['#nowBtn', '#layBtn', '#dirSeg button', '#zOut', '#zIn', '#ptBtn', '#prevN', '#nextN', '#locBtn', '#redBtn', '#scopeBtn']))
+      assert.deepEqual(b.miss, [], `${b.name}: a tap just outside it lands on it`);
+    const nav = await page.$eval('#prevN', b => b.getBoundingClientRect().height);
+    assert.ok(nav >= 36, `the night arrows are 36 px (${nav})`);
+    // a drag that starts on the map beside a button moves the map
+    for (const [id, side] of [['zIn', 'above'], ['nowBtn', 'right of'], ['dirSeg', 'above'], ['layBtn', 'below']]) {
+      const p = await page.$eval('#' + id, (b, side) => { const r = b.getBoundingClientRect(); return side === 'right of' ? [r.right + 12, r.top + r.height / 2] : [r.left + r.width / 2, side === 'above' ? r.top - 12 : r.bottom + 12]; }, side);
+      assert.equal(await page.evaluate(([x, y]) => document.elementFromPoint(x, y).id, p), 'sky', `12 px ${side} ${id} is the map`);
+      const before = await page.$eval('#sky', c => JSON.stringify(c.__labels().map(l => [l.t, Math.round(l.x)])));
+      await page.mouse.move(p[0], p[1]); await page.mouse.down(); await page.mouse.move(p[0] - 60, p[1] + 10, { steps: 6 }); await page.mouse.up();
+      await page.waitForTimeout(150);
+      assert.notEqual(await page.$eval('#sky', c => JSON.stringify(c.__labels().map(l => [l.t, Math.round(l.x)]))), before, `a drag beside ${id} moves the map`);
+    }
+    await page.evaluate(() => scrollTo(0, document.getElementById('targetSec').offsetTop - 60));
+    for (const b of await reach(['#targetSec .filters .chip'])) assert.deepEqual(b.miss.filter(([, y]) => y < 844 && y > 0), [], `the ${b.name} filter takes a tap just outside it`);
+    await openCard(page, 'M45');
+    const done = await page.$eval('#cardDone', b => b.getBoundingClientRect().height);
+    assert.ok(done >= 36, `a card’s Done is 36 px (${done})`);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('pointing stays on the live sky when the night rolls over', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T07:30:00-06:00', init: fakeWakeLock });
   try {
