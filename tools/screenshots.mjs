@@ -39,7 +39,8 @@ await mkdir(join(root, 'docs'), { recursive: true });
 async function open(viewport, phone) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: phone ? 2 : 1, isMobile: phone, hasTouch: phone, locale: 'en-US', timezoneId: PLACE.tz, serviceWorkers: 'block', reducedMotion: 'reduce' });
   await ctx.route(url => !url.href.startsWith(base), route => route.abort());
-  await ctx.addInitScript(save => localStorage.setItem('starhop.v1', save), JSON.stringify({ loc: PLACE }));
+  // past the first visit's line on what Starhop is for, so the pictures show the page as it is in use
+  await ctx.addInitScript(save => localStorage.setItem('starhop.v1', save), JSON.stringify({ loc: PLACE, hello: true }));
   const page = await ctx.newPage();
   // The clock stands still from the start. Left running while the page loaded, it set the once-a-minute clock going
   // a little later or sooner each run, and that moved the sky a few milliseconds' worth in the last frame.
