@@ -1652,6 +1652,39 @@ check('a sheet takes the keyboard focus, has a name, and gives the focus back', 
   } finally { await ctx.close(); }
 });
 
+// The WAI-ARIA Authoring Practices' slider pattern: Home and End go to the ends, Page Up and Page Down take bigger steps.
+check('The timeline is a slider the keyboard can move from end to end', async () => {
+  const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  const state = () => page.$eval('#tlc', c => ({ now: +c.getAttribute('aria-valuenow'), max: +c.getAttribute('aria-valuemax'), min: +c.getAttribute('aria-valuemin'), text: c.getAttribute('aria-valuetext'), when: document.getElementById('when').firstChild.textContent }));
+  const press = async k => { await page.keyboard.press(k); await page.waitForTimeout(80); return state(); };
+  try {
+    const tl = page.getByRole('slider', { name: /^The night from sunset to sunrise\. Drag, or use the arrow keys,/ });
+    assert.equal(await tl.count(), 1, 'the timeline is a named slider');
+    await tl.focus();
+    const s0 = await state();
+    assert.equal(s0.min, 0);
+    assert.ok(s0.max > 600 && s0.max < 1000, 'its range is the night in minutes: ' + s0.max);
+    assert.match(s0.text, /^9:00 pm, (fully dark|twilight), Moon (up|down)$/, 'its value is said in words: ' + s0.text);
+    const home = await press('Home');
+    assert.equal(home.now, 0, 'Home goes to the start of the night');
+    assert.match(home.text, /^\d+:\d\d pm, the Sun up, Moon (up|down)$/, 'which is before sunset: ' + home.text);
+    assert.equal(home.text.split(',')[0], home.when, 'the slider and the map show the same time');
+    const end = await press('End');
+    assert.equal(end.now, end.max, 'End goes to the end of the night');
+    assert.match(end.text, /^\d+:\d\d am, the Sun up/, 'after sunrise: ' + end.text);
+    assert.equal(end.text.split(',')[0], end.when);
+    assert.equal((await press('PageDown')).now, end.max - 60, 'Page Down goes an hour earlier');
+    assert.equal((await press('Shift+ArrowLeft')).now, end.max - 65, 'Shift and an arrow go five minutes');
+    assert.equal((await press('ArrowLeft')).now, end.max - 80, 'an arrow goes a quarter hour');
+    await press('Home');
+    const up = await press('PageUp');
+    assert.equal(up.now, 60, 'Page Up goes an hour later');
+    assert.notEqual(up.text, home.text, 'and the words change with it');
+    for (let i = 0; i < 6; i++) await press('PageUp');
+    assert.match((await state()).text, /fully dark/, 'seven hours after the start it is fully dark');
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026, by the USNO convention (PyEphem): Saturn rises 6:37 pm and sets 6:48 am, Jupiter rises 2:58 am, Mars 1:58 am.
 // Sunset is 7:01 pm and sunrise 7:32 am, and the card gives the times between them, so Saturn is up at dusk.
 check('planet rise and set times match the standard ones', async () => {

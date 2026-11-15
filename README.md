@@ -18,7 +18,7 @@
   - Drag to look around and pinch or scroll to zoom.
   - **Up** shows the whole dome overhead, laid out like a planisphere you hold above your head; **N / E / S / W** face a direction.
   - It shows only what the sky allows: twilight, the Moon and how dark your sky is all change which stars appear.
-- **Night timeline.** Sunset to sunrise, shaded through civil, nautical and astronomical twilight, with a band for when the Moon is up. Drag along it to see the sky at any hour, or step to other nights. Changing place keeps the night you're planning.
+- **Night timeline.** Sunset to sunrise, shaded through civil, nautical and astronomical twilight, with a band for when the Moon is up. Drag along it (or use the arrow keys) to see the sky at any hour, or step to other nights. Changing place keeps the night you're planning.
   - By day it shows tonight's sky once it's dark. Left open, it follows the clock from the start of the night and moves on to the next night in the morning.
 - **Tonight.** Sunset, when the sky is fully dark, sunrise, the Moon's phase and hours, and a verdict: a dark night for faint galaxies, or a moonlit one for planets, doubles and clusters.
 - **What to look at.** The Moon and planets, then the best-placed deep-sky objects and double stars, ranked for your telescope and your sky. Each shows when it's highest and where to look, and on tonight's list whether it's up now, rises later or has set.

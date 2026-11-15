@@ -307,7 +307,7 @@ html.red .chart canvas{background:#050000}
       </div>
       <div class="tl">
         <div class="tlhd"><button class="navb" id="prevN" type="button" aria-label="Previous night"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button><h2 id="nightTitle">Tonight</h2><button class="navb" id="nextN" type="button" aria-label="Next night"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 5 7 7-7 7"/></svg></button></div>
-        <canvas id="tlc" aria-label="The night from sunset to sunrise. Drag to change the time shown in the sky view."></canvas>
+        <canvas id="tlc" role="slider" aria-valuemin="0" aria-label="The night from sunset to sunrise. Drag, or use the arrow keys, to change the time shown in the sky view."></canvas>
         <div class="keys" id="keys"></div>
       </div>
     </section>
@@ -1090,6 +1090,7 @@ html.red .chart canvas{background:#050000}
     // the time, the banner and the buttons over the map, which labels keep clear of
     var live = T.live, keep = [], sc = scene(T.t), b = $('banner');
     $('when').innerHTML = esc(tTime(T.t)) + '<small>' + esc(live ? 'Now · ' : '') + esc(tDay(T.t)) + '</small>';
+    tlValue();
     $('nowBtn').classList.toggle('on', live);
     if (NIGHT.midnightSun) { b.hidden = false; b.innerHTML = '<b>The Sun doesn’t set tonight</b>'; } // no night to drag along
     else if (sc.sun.alt > -4) { b.hidden = false; b.innerHTML = '<b>' + (sc.sun.alt > 0 ? 'The Sun is up' : 'Twilight') + '</b>' + (sc.sun.alt > 0 ? 'Drag along the night below to see tonight’s sky.' : 'Only the brightest stars and planets show yet.'); } else b.hidden = true;
@@ -1323,6 +1324,16 @@ html.red .chart canvas{background:#050000}
       tg.beginPath(); tg.arc(sx, top + bh / 2, 6.5, 0, 2 * Math.PI); tg.fill(); tg.strokeStyle = col('#070B16', 1); tg.lineWidth = 2; tg.stroke();
     }
   }
+  // The timeline is a slider in minutes from the start of the night, and says the time in words: whether the Sun is up,
+  // it's twilight or fully dark, and whether the Moon is up, by the same times as the keys under it.
+  function tlValue() {
+    var N = NIGHT, t = T.t, up = N.moonUpAtStart, max = Math.round((N.end - N.start) / 60e3);
+    N.moonEv.forEach(function (e) { if (e.t <= t) up = e.up; });
+    var sky = N.midnightSun || (N.sunset && t < N.sunset) || (N.sunrise && t >= N.sunrise) ? 'the Sun up' : N.dark.some(function (s) { return t >= s.a && t <= s.b; }) ? 'fully dark' : 'twilight';
+    tl.setAttribute('aria-valuemax', max);
+    tl.setAttribute('aria-valuenow', clamp(Math.round((t - N.start) / 60e3), 0, max));
+    tl.setAttribute('aria-valuetext', tTime(t) + ', ' + sky + ', Moon ' + (up ? 'up' : 'down'));
+  }
   (function tlDrag() {
     var on = false;
     function set(e) { var r = tl.getBoundingClientRect(), f = clamp((e.clientX - r.left) / r.width, 0, 1), t = NIGHT.start.getTime() + f * (NIGHT.end - NIGHT.start); t = Math.round(t / 300e3) * 300e3; T.live = T.auto = false; T.t = new Date(t); redraw(); }
@@ -1332,7 +1343,14 @@ html.red .chart canvas{background:#050000}
     tl.addEventListener('pointercancel', function () { on = false; });
     tl.tabIndex = 0;
     var keyT = 0; // an open card catches up once the keys stop
-    tl.addEventListener('keydown', function (e) { var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return; e.preventDefault(); T.live = T.auto = false; T.t = new Date(clamp(T.t.getTime() + d * 15 * 60e3, NIGHT.start.getTime(), NIGHT.end.getTime())); redraw(); clearTimeout(keyT); keyT = setTimeout(function () { refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ); }, 250); });
+    // arrows a quarter hour (five minutes with Shift), Page Up and Page Down an hour, Home and End to the night's ends
+    tl.addEventListener('keydown', function (e) {
+      var k = e.key, a = NIGHT.start.getTime(), b = NIGHT.end.getTime(), x = T.t.getTime(), step = e.shiftKey ? 5 : 15;
+      if (k === 'ArrowRight' || k === 'ArrowUp') x += step * 60e3; else if (k === 'ArrowLeft' || k === 'ArrowDown') x -= step * 60e3;
+      else if (k === 'PageUp') x += 3600e3; else if (k === 'PageDown') x -= 3600e3; else if (k === 'Home') x = a; else if (k === 'End') x = b; else return;
+      e.preventDefault(); T.live = T.auto = false; T.t = new Date(clamp(x, a, b)); redraw();
+      clearTimeout(keyT); keyT = setTimeout(function () { refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ); }, 250);
+    });
   })();
 
   // ---------- night navigation ----------
