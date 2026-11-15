@@ -761,7 +761,7 @@ check('the telescope sheet closes with Cancel, which drops the changes', async (
     await page.getByRole('button', { name: 'Cancel' }).click();
     assert.equal(await sheetOpen(page), false, 'Cancel closes the sheet');
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).scope), undefined, 'nothing is saved');
-    assert.match(await text(page, '#targetSec .note'), /^Ratings assume an example 130 mm reflector/, 'the example telescope is still the one rated for');
+    assert.match(await text(page, '#targetSec .note'), /^Ratings assume an example 130 mm reflector under suburban skies/, 'the example telescope is still the one rated for');
     assert.equal(await text(page, '#scopeName'), 'Telescope');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
@@ -782,7 +782,7 @@ check('a telescope typed in by hand is called by its own size', async () => {
     await page.fill('#scFl', '700');
     await page.click('#scSave');
     assert.equal(await text(page, '#scopeName'), '70 mm, f/10');
-    assert.match(await text(page, '#targetSec .note'), /^Ratings assume your 70 mm, f\/10 under /);
+    assert.match(await text(page, '#targetSec .note'), /^Ratings assume your 70 mm, f\/10 under suburban skies\.$/);
     // a quick pick's name goes when its numbers are changed, and a pick's name with other numbers isn't kept
     await page.click('#scopeBtn');
     await page.selectOption('#scPre', { label: '114 mm reflector (114 mm, f/7.9)' });
@@ -834,6 +834,7 @@ check("typed coordinates take a decimal comma and a real minus sign, and refuse 
     assert.deepEqual(await saved(), [45.76, 4.84], 'decimal commas');
     await use('30.27', '−97.74');
     assert.deepEqual(await saved(), [30.27, -97.74], 'a real minus sign');
+    assert.equal(await text(page, '#toast'), 'Showing the sky near Austin', 'the message says near the town, not "over Near Austin"');
     await use('30.27', '97.74 W');
     assert.ok(await sheetOpen(page), '"97.74 W" is refused, not read as 97.74° east');
     assert.deepEqual(await saved(), [30.27, -97.74]);

@@ -332,10 +332,10 @@ html.red .chart canvas{background:#050000}
   // ---------- settings ----------
   var LS = 'starhop.v1';
   var SKIES = [
-    { id: 'city', name: 'City', sub: 'Only the brightest stars', nelm: 3.6, sb: 18.0 },
-    { id: 'suburb', name: 'Suburbs', sub: 'The Milky Way is hard to see', nelm: 5.0, sb: 19.6 },
-    { id: 'rural', name: 'Countryside', sub: 'The Milky Way is plain', nelm: 6.0, sb: 21.0 },
-    { id: 'dark', name: 'Dark site', sub: 'The Milky Way casts shadows', nelm: 6.6, sb: 21.6 }
+    { id: 'city', name: 'City', adj: 'city', sub: 'Only the brightest stars', nelm: 3.6, sb: 18.0 },
+    { id: 'suburb', name: 'Suburbs', adj: 'suburban', sub: 'The Milky Way is hard to see', nelm: 5.0, sb: 19.6 },
+    { id: 'rural', name: 'Countryside', adj: 'country', sub: 'The Milky Way is plain', nelm: 6.0, sb: 21.0 },
+    { id: 'dark', name: 'Dark site', adj: 'dark-site', sub: 'The Milky Way casts shadows', nelm: 6.6, sb: 21.6 }
   ];
   var PRESETS = [
     { name: '70 mm refractor', ap: 70, fl: 700 },
@@ -1379,7 +1379,7 @@ html.red .chart canvas{background:#050000}
       return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen">✓ seen</span>' : '') + '</span><span class="dt">' + esc(when) + '</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
-    h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().name.toLowerCase()) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
+    h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
     $('targetSec').innerHTML = h;
     $('targetSec').querySelectorAll('.filters button').forEach(function (b) { b.addEventListener('click', function () { TFILTER = b.dataset.f; TMORE = false; renderTargets(); }); });
     $('targetSec').querySelectorAll('.row').forEach(function (b) { b.addEventListener('click', function () { var o = objById(b.dataset.k === 'double' ? 'dso' : b.dataset.k, b.dataset.id); select(o, true); }); });
@@ -1978,7 +1978,7 @@ html.red .chart canvas{background:#050000}
     });
     setTimeout(function () { if (!('ontouchstart' in window) && $('lq')) $('lq').focus(); }, 50);
   }
-  function applyLoc(l) { setLoc(l); save(); $('locName').textContent = l.name; closeSheet(); SCN = {}; ANCHORS = ANCHORS; T.live = true; T.t = new Date(); setNight(currentNight(T.t), true); toast('Showing the sky over ' + l.name); }
+  function applyLoc(l) { setLoc(l); save(); $('locName').textContent = l.name; closeSheet(); SCN = {}; ANCHORS = ANCHORS; T.live = true; T.t = new Date(); setNight(currentNight(T.t), true); toast(/^Near /.test(l.name) ? 'Showing the sky near ' + l.name.slice(5) : 'Showing the sky over ' + l.name); }
   $('locBtn').addEventListener('click', locSheet);
 
   // ---------- night vision ----------
