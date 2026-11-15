@@ -2,7 +2,7 @@
 // Your place and settings live in localStorage, not here.
 // Network first, so a new version shows up as soon as you're online.
 
-const CACHE = 'starhop-v3'; // bump the number when the file list changes
+const CACHE = 'starhop-v4'; // bump the number when the file list changes
 const SHELL = [
   './', 'index.html', 'carry.js', 'js/astronomy.browser.min.js',
   'data/stars.json', 'data/constellations.json', 'data/dso.json', 'data/milkyway.json', 'data/tzcity.json', 'data/cities.json',

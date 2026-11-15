@@ -698,6 +698,9 @@ html.red .chart canvas{background:#050000}
     return { c: c, r: r, u: u, s: s, w: w, h: h, x0: w / 2, y0: h / 2, cmin: maxAng >= 175 ? -0.97 : Math.cos(maxAng * D2R) };
   }
   function proj(P, p) { var d = dot(p, P.c); if (d < P.cmin) return null; var k = 2 / (1 + d); return [P.x0 + k * dot(p, P.r) * P.s, P.y0 - k * dot(p, P.u) * P.s]; }
+  // The same projection with nothing dropped past the edge of the view, for the horizon: it's finite everywhere but
+  // the point straight behind the view's centre.
+  function projRaw(P, p) { var d = dot(p, P.c); if (d < -0.999) return null; var k = 2 / (1 + d); return [P.x0 + k * dot(p, P.r) * P.s, P.y0 - k * dot(p, P.u) * P.s]; }
   function unproj(P, x, y) { var X = (x - P.x0) / P.s, Y = (P.y0 - y) / P.s, rr = X * X + Y * Y, d = (4 - rr) / (4 + rr), k = (1 + d) / 2; return unit([P.c[0] * d + (P.r[0] * X + P.u[0] * Y) * k, P.c[1] * d + (P.r[1] * X + P.u[1] * Y) * k, P.c[2] * d + (P.r[2] * X + P.u[2] * Y) * k]); }
 
   var RED = false;
@@ -879,21 +882,21 @@ html.red .chart canvas{background:#050000}
         hits.push({ x: mp[0], y: mp[1], r: mr + 8, pr: 5, obj: { k: 'moon', id: 'Moon' } });
       }
     }
-    // the ground: the horizon is a circle in this projection
-    var hp = [proj(P, horVec(0, vw.az - 70)), proj(P, horVec(0, vw.az)), proj(P, horVec(0, vw.az + 70))];
-    if (!hp[0] || !hp[1] || !hp[2]) hp = [proj(P, horVec(0, 0)), proj(P, horVec(0, 120)), proj(P, horVec(0, 240))];
-    var circ = hp[0] && hp[1] && hp[2] ? circle3(hp[0], hp[1], hp[2]) : null;
+    // the ground: the horizon is a circle in this projection. It's drawn through three horizon points a quarter turn
+    // apart, which are never straight behind the view's centre, and projected without dropping any past the edge, since
+    // they're often far outside the view when it faces a direction or is zoomed in.
+    var circ = circle3(projRaw(P, horVec(0, vw.az - 90)), projRaw(P, horVec(0, vw.az)), projRaw(P, horVec(0, vw.az + 90)));
     g.fillStyle = RED ? col('#1A0F0B', 0.97) : 'rgba(10,15,11,0.97)';
     g.beginPath();
     if (circ) {
-      var nad = proj(P, [0, 0, -1]), inside = nad && Math.hypot(nad[0] - circ.x, nad[1] - circ.y) < circ.r;
+      var nad = projRaw(P, [0, 0, -1]), inside = nad ? Math.hypot(nad[0] - circ.x, nad[1] - circ.y) < circ.r : false;
       if (!inside) g.rect(0, 0, w, h);
       g.moveTo(circ.x + circ.r, circ.y); g.arc(circ.x, circ.y, circ.r, 0, 2 * Math.PI, !inside);
       g.fill(inside ? 'nonzero' : 'evenodd');
       g.strokeStyle = col('#DDB05A', 0.55); g.lineWidth = 1.2; g.beginPath(); g.arc(circ.x, circ.y, circ.r, 0, 2 * Math.PI); g.stroke();
     } else {
-      // nearly straight horizon
-      var a0 = proj(P, horVec(0, vw.az - 89)), a1 = proj(P, horVec(0, vw.az + 89));
+      // a horizon through the view's centre is a straight line
+      var a0 = projRaw(P, horVec(0, vw.az - 89)), a1 = projRaw(P, horVec(0, vw.az + 89));
       if (a0 && a1) { g.moveTo(a0[0], a0[1]); g.lineTo(a1[0], a1[1]); g.lineTo(w * 3, h * 3); g.lineTo(-w * 2, h * 3); g.closePath(); g.fill(); }
     }
     var compass = []; // the letters drawn, which labels keep clear of; one under the map's own buttons is left out

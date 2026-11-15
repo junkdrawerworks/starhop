@@ -283,6 +283,61 @@ check('chart labels stay inside, keep apart, keep off the map’s buttons and th
   } finally { await ctx.close(); }
 });
 
+// How much of a small patch of the map, centred at a fraction of its width and height, is the ground's colour.
+// Night vision's ground is (18, 2, 1) and its sky (11, 1, 1) to (22, 0, 0) by the Milky Way, so it's matched more closely.
+const GROUND = [10, 15, 11], GROUND_RED = [18, 2, 1];
+const groundAt = (page, fx, fy, rgb = GROUND) => page.$eval('#sky', (c, [fx, fy, rgb]) => {
+  const tol = rgb[1] < 5 ? 1 : 3;
+  const x = Math.round(c.width * fx), y = Math.round(c.height * fy), d = c.getContext('2d').getImageData(x - 4, y - 4, 9, 9).data;
+  let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - rgb[0]) <= tol && Math.abs(d[i + 1] - rgb[1]) <= tol && Math.abs(d[i + 2] - rgb[2]) <= tol) n++;
+  return n / (d.length / 4);
+}, [fx, fy, rgb]);
+
+// Facing a direction on a phone, the corner of the map is less than 73° from its centre, and the points the horizon was
+// drawn through were 73° away, so they were all dropped and neither the ground nor the horizon line was drawn.
+check('the ground shows when a phone faces south', async () => {
+  let { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await page.click('#dirSeg button[data-d="180"]');
+    await page.waitForTimeout(150);
+    assert.ok(await groundAt(page, 0.5, 0.97) > 0.8, 'the foot of the map facing south is the ground');
+    assert.ok(await groundAt(page, 0.5, 0.2) < 0.2, 'and the top of it is sky');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // Zoomed in to about 44° near the horizon on a desktop
+  ({ ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false }));
+  try {
+    await page.click('#dirSeg button[data-d="180"]');
+    for (let i = 0; i < 3; i++) await page.click('#zIn');
+    await page.focus('#sky');
+    for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(150);
+    assert.ok(await groundAt(page, 0.5, 0.97) > 0.8, 'the foot of a zoomed-in map is the ground');
+    assert.ok(await groundAt(page, 0.5, 0.2) < 0.2, 'and the top of it is sky');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// Point lets the view go 40° below the horizon. With the back of the phone 10° below it, the nadir was past the edge
+// of the view and dropped, which read as "the ground is outside the horizon" and painted the whole sky as ground.
+check('pointing a little below the horizon keeps the ground below and the stars above', async () => {
+  for (const red of [false, true]) {
+    const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, red }), time: '2026-11-15T21:00:00-06:00' });
+    try {
+      await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+      await page.click('#ptBtn');
+      await page.waitForFunction(() => document.documentElement.classList.contains('pointing'));
+      // alpha 90, beta 80: the back of the phone faces west, 10° below the horizon
+      await page.evaluate(() => window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: 90, beta: 80, gamma: 0, absolute: true })));
+      await page.waitForTimeout(150);
+      const rgb = red ? GROUND_RED : GROUND, mode = red ? ' in night vision' : '';
+      assert.ok(await groundAt(page, 0.5, 0.25, rgb) < 0.2, 'above the horizon is sky' + mode);
+      assert.ok(await groundAt(page, 0.5, 0.8, rgb) > 0.8, 'below the horizon is the ground' + mode);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
 check('on a desktop an open card covers only the side panel', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
