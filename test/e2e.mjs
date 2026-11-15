@@ -136,6 +136,19 @@ check('the installed copy opens with the server down, opens quickly on a stalled
     await page.waitForFunction(() => /Tucson/.test(document.getElementById('lres').textContent), null, { timeout: 10000 })
       .catch(() => assert.fail('a town search finds Tucson offline'));
     await page.keyboard.press('Escape');
+    // Coming up, night vision, the Moon's card and the Show menu
+    await page.$eval('#eventSec', e => e.scrollIntoView());
+    await until(page, '#eventSec', /Moon/);
+    assert.match(await text(page, '#eventSec'), /(New|Full) Moon|quarter/, 'Coming up lists the Moon’s phases offline');
+    await page.click('#redBtn');
+    assert.ok(await page.evaluate(() => document.documentElement.classList.contains('red')), 'night vision turns on offline');
+    await page.click('#redBtn');
+    await openCard(page, 'Moon');
+    assert.match(await text(page, '#sheet'), /lit/, 'the Moon’s card opens offline');
+    await page.click('#sheet [data-close]');
+    await page.click('#layBtn');
+    assert.ok(await page.isVisible('#layers'), 'the Show menu opens offline');
+    await page.click('#layBtn');
     await ctx.setOffline(false);
 
     // On a connection that's up but not answering, it opens from the copy after the worker's few seconds' wait for
@@ -189,6 +202,63 @@ check('sw.js changes whenever a file it keeps for offline does', async () => {
   const files = all.digest('hex').slice(0, 8);
   const sw = await readFile(join(root, 'sw.js'), 'utf8');
   assert.equal(sw.match(/const FILES = '([0-9a-f]*)'/)?.[1], files, `a file sw.js keeps for offline has changed: set FILES in sw.js to '${files}'`);
+});
+
+check('Chrome can install it', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', sw: true, phone: false });
+  try {
+    await page.waitForFunction(() => navigator.serviceWorker.controller, null, { timeout: 20000 });
+    const cdp = await ctx.newCDPSession(page);
+    assert.deepEqual((await cdp.send('Page.getInstallabilityErrors')).installabilityErrors, [], 'what stops Chrome installing it');
+    const m = await cdp.send('Page.getAppManifest');
+    assert.deepEqual(m.errors, [], 'what Chrome makes of the manifest');
+    assert.equal(JSON.parse(m.data).name, 'Starhop');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// The size of a PNG, from its header
+const pngSize = buf => (assert.equal(buf.toString('latin1', 1, 4), 'PNG'), [buf.readUInt32BE(16), buf.readUInt32BE(20)]);
+check('The link preview and icons are in place', async () => {
+  const html = await readFile(join(root, 'index.html'), 'utf8'), home = 'https://starhop.junkdrawer.works/';
+  assert.equal((await readFile(join(root, 'CNAME'), 'utf8')).trim() + '/', home.replace('https://', ''), 'CNAME is the address the preview gives');
+  const meta = p => (new RegExp(`<meta property="${p}" content="([^"]*)"`).exec(html) || [])[1];
+  assert.equal(meta('og:url'), home);
+  assert.equal(meta('og:image'), home + 'og.png', 'the preview image is a full address, which link previews need');
+  assert.deepEqual(pngSize(await readFile(join(root, 'og.png'))), [1200, 630], 'og.png is 1200 × 630');
+  const man = JSON.parse(await readFile(join(root, 'manifest.webmanifest'), 'utf8'));
+  for (const ic of man.icons) {
+    const buf = await readFile(join(root, ic.src)).catch(() => assert.fail(`the manifest's ${ic.src} doesn't exist`));
+    if (ic.sizes === 'any') assert.match(ic.type, /svg/, ic.src);
+    else assert.equal(pngSize(buf).join('x'), ic.sizes, `${ic.src} is ${ic.sizes}`);
+  }
+  assert.ok(man.icons.some(i => i.purpose === 'maskable'), 'a maskable icon for Android');
+  const apple = /<link rel="apple-touch-icon"[^>]*href="([^"]+)"/.exec(html);
+  assert.ok(apple, 'an icon for the iPhone home screen');
+  assert.deepEqual(pngSize(await readFile(join(root, apple[1]))), [180, 180], apple[1]);
+});
+
+// A file the page asks for that isn't in SHELL is missing offline, and nothing else would notice.
+check('Everything the page loads is kept for offline', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00', wait: false });
+  const got = new Set();
+  page.on('response', r => { const u = new URL(r.url()); if (u.origin + '/' === base && r.status() < 400) got.add(u.pathname.slice(1) || './'); });
+  try {
+    await page.reload();
+    await ready(page);
+    await openCard(page, 'M13');
+    await page.click('#sheet [data-close]');
+    await page.click('#locBtn');
+    await page.fill('#lq', 'Tucs');
+    await page.waitForFunction(() => /Tucson/.test(document.getElementById('lres').textContent), null, { timeout: 10000 });
+    await page.keyboard.press('Escape');
+    await page.click('#scopeBtn');
+    await page.keyboard.press('Escape');
+    const shell = await shellList();
+    assert.ok(got.size >= 10, 'files loaded: ' + [...got].join(' '));
+    for (const f of got) assert.ok(shell.includes(f), `the page loads ${f}, which sw.js doesn't keep for offline`);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
 });
 
 // Austin, Wednesday Oct 14 2026: sunrise is 7:32 am, so the night that is ending runs until 8:22 am.
@@ -2061,6 +2131,54 @@ check('tapping a name on the map opens that object', async () => {
     await page.mouse.click(box.x + bare.x, box.y + bare.y);
     await page.waitForFunction(() => !document.getElementById('sheet').hidden);
     assert.match(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), /^A magnitude \d\.\d star$/, 'an unnamed star’s card');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+check('Scrolling the map zooms it', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  try {
+    const box = await page.locator('#sky').boundingBox(), cx = box.width / 2, cy = box.height / 2;
+    // the two stars nearest the middle, and how far apart they're drawn
+    const stars = () => page.$eval('#sky', c => c.__hits().filter(h => h.obj.k === 'star').map(h => ({ i: h.obj.i, x: h.x, y: h.y })));
+    const before = (await stars()).sort((a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy)).slice(0, 2);
+    const apart = list => { const [a, b] = before.map(s => list.find(h => h.i === s.i)); return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : null; };
+    const d0 = apart(before);
+    await page.mouse.move(box.x + cx, box.y + cy);
+    await page.mouse.wheel(0, -400);
+    await page.waitForFunction(n => document.getElementById('sky').__hits().filter(h => h.obj.k === 'star').length !== n, (await stars()).length, { timeout: 5000 }).catch(() => {});
+    const d1 = apart(await stars());
+    assert.ok(d1 > d0 * 1.5, `scrolling up zooms in: two stars ${d0.toFixed(0)} px apart are ${d1 && d1.toFixed(0)} px apart`);
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(200);
+    assert.ok(Math.abs(apart(await stars()) - d0) < 2, 'and scrolling back down zooms out again');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+check('The Show panel turns the map’s layers off and on', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  const names = () => page.$eval('#sky', c => c.__labels().filter(l => l.obj && (l.obj.k === 'star' || l.obj.k === 'dso') || /\u200a/.test(l.t)).length);
+  const dsos = () => page.$eval('#sky', c => c.__hits().filter(h => h.obj.k === 'dso').length);
+  try {
+    assert.ok(await names() > 5 && await dsos() > 3, 'names and deep-sky objects to begin with');
+    await page.click('#layBtn');
+    await page.uncheck('#ly_names');
+    await page.waitForFunction(() => !document.getElementById('sky').__labels().some(l => l.obj && l.obj.k === 'star'));
+    assert.equal(await names(), 0, 'Names off: no star, deep-sky or constellation names');
+    await page.uncheck('#ly_dso');
+    await page.waitForFunction(() => !document.getElementById('sky').__hits().some(h => h.obj.k === 'dso'));
+    await page.check('#ly_names');
+    await page.check('#ly_dso');
+    await page.waitForFunction(() => document.getElementById('sky').__hits().some(h => h.obj.k === 'dso'));
+    assert.ok(await names() > 5, 'and back on');
+    await page.check('#ly_grid');
+    await page.uncheck('#ly_names');
+    await page.reload();
+    await ready(page);
+    await page.waitForFunction(() => document.getElementById('sky').__labels().length > 0);
+    assert.equal(await names(), 0, 'what the map shows is remembered');
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).layers), { lines: true, names: false, dso: true, mw: true, grid: true });
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
