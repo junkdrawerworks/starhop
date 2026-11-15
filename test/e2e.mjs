@@ -1817,6 +1817,8 @@ check('The direction buttons say which is chosen', async () => {
     const moon = await page.locator('#targetSec .row[data-id="Moon"]').ariaSnapshot();
     assert.match(moon, /button "The Moon\s*Up now · Best \d+:\d\d pm · \d+° up ·\s*south, rated naked eye"/i, moon);
     assert.equal(await page.$eval('#targetSec .row[data-id="Moon"] .dt', d => d.textContent.slice(-4)), 'up · S'.slice(-4), 'the row still shows the letter');
+    const high = await page.locator('#targetSec .row[data-id="M45"]').ariaSnapshot();
+    assert.match(high, /button "Pleiades M45\s*Up now · Best \d+:\d\d [ap]m · overhead, rated easy"/i, high);
     await page.click('#scopeBtn');
     assert.equal(await page.locator('#skyOpts [aria-pressed="true"]').count(), 1, 'the sky in use says so');
     await page.locator('#skyOpts button').last().click();

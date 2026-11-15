@@ -1460,7 +1460,7 @@ html.red .chart canvas{background:#050000}
     if (!shown.length) h += bright || '<p class="lede">Nothing of that kind is well placed on this night.</p>';
     else h += '<div class="list">' + shown.map(function (t) {
       var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.id) + '</small>' : '';
-      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen"><span aria-hidden="true">✓ </span>Seen ' + esc(seenText(S.seen[t.id])) + '</span>' : '') + '</span><span class="dt">' + whenHtml(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? '' : ' ' + dirName(t.best.az)) + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
+      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen"><span aria-hidden="true">✓ </span>Seen ' + esc(seenText(S.seen[t.id])) + '</span>' : '') + '</span><span class="dt">' + whenHtml(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
@@ -1486,8 +1486,10 @@ html.red .chart canvas{background:#050000}
     var state = up ? (T.live ? 'Up now' : '') : rise ? 'Rises ' + tTime(rise.t) : set ? 'Set ' + tTime(set.t) : '';
     return (state ? state + ' · ' : '') + when;
   }
-  // The same with its last part, the short direction, hidden from screen readers, which are given its full name instead.
-  function whenHtml(t) { var w = rowWhen(t), d = dirName(t.best.az, true); return t.best.alt > 78 ? esc(w) : esc(w.slice(0, -d.length)) + '<span aria-hidden="true">' + d + '</span>'; }
+  // The same with its last part, the short direction or "overhead", hidden from screen readers: the row gives them the
+  // direction's full name after it, and "rated" before the rating (the line is a block, so that text can't follow it
+  // directly).
+  function whenHtml(t) { var w = rowWhen(t), d = t.best.alt > 78 ? 'overhead' : dirName(t.best.az, true); return esc(w.slice(0, -d.length)) + '<span aria-hidden="true">' + d + '</span>'; }
   function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) d.innerHTML = whenHtml(t); }); }
   function markRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { r.classList.toggle('sel', !!SEL && r.dataset.id === String(SEL.id)); }); }
   function select(o, open) { if (!o) return; SEL = o; redraw(); markRows(); if (open) openObject(o); }
