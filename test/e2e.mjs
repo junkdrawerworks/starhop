@@ -2431,6 +2431,36 @@ check('A Coming up row opens its night', async () => {
   } finally { await ctx.close(); }
 });
 
+// Madrid's eclipse of Aug 12 2026 read "100% of the Sun is covered" under "Partial solar eclipse". Astronomy Engine
+// 2.1.19, SearchLocalSolarEclipse: Madrid (40.42, -3.70) partial, obscuration 0.99969 at 18:32:14Z (8:32 pm), the Sun
+// 7.34° up at azimuth 283° (west), and -1.61° at the partial end, 19:24Z, so it sets eclipsed. Cádiz (36.53, -6.29),
+// Aug 2 2027: total from 08:45:18Z (10:45 am) to 08:48:11Z, 173 s, the Sun 37.4° up at azimuth 95° (east).
+// SearchLunarEclipse: penumbral on Feb 20 2027 at 23:12:44Z (semi-duration 121 min; the Moon is 55° up from Madrid)
+// and Jul 18 2027 at 16:03Z (12.7 min, too slight to see).
+check('Coming up gives eclipses as seen from here', async () => {
+  const eclipse = async (loc, time, kind) => {
+    const { ctx, page, problems } = await open({ loc, time });
+    try {
+      const ev = (await events(page)).filter(e => e.title.includes(kind));
+      assert.deepEqual(problems, []);
+      return ev;
+    } finally { await ctx.close(); }
+  };
+  const MADRID = { name: 'Madrid, ES', lat: 40.42, lon: -3.70, tz: 'Europe/Madrid' };
+  let [e] = await eclipse(MADRID, '2026-08-01T22:00:00+02:00', 'solar eclipse');
+  assert.equal(e.title, 'Partial solar eclipse');
+  assert.match(e.text, /^Seen from Madrid, ES, 99\.96% of the Sun is covered at 8:32 pm, when it is 7° up in the west, and it sets before the eclipse ends\. Never look/, e.text);
+  assert.doesNotMatch(e.text, /100%/);
+  [e] = await eclipse({ name: 'Cádiz, ES', lat: 36.53, lon: -6.29, tz: 'Europe/Madrid' }, '2027-07-25T12:00:00+02:00', 'solar eclipse');
+  assert.equal(e.title, 'Total solar eclipse');
+  assert.match(e.text, /^Seen from Cádiz, ES, the eclipse is total for 2 min 53 s from 10:45 am, with the Sun 37° up in the east\. Never look/, e.text);
+  [e] = await eclipse(MADRID, '2027-02-10T21:00:00+01:00', 'lunar eclipse');
+  assert.equal(e.title, 'Penumbral lunar eclipse');
+  assert.match(e.text, /55° up .*a faint shading on one side of the Moon, easy to miss\.$/, e.text);
+  const lunar = await eclipse(AUSTIN, '2027-07-10T21:00:00-05:00', 'lunar eclipse');
+  assert.ok(!lunar.some(e => e.d === 18 && e.mon === 'Jul'), 'a penumbral eclipse too slight to see is left out');
+});
+
 // The muted labels (--ink3) are 10.5 to 12 px, so they need 4.5:1 on every surface they sit on.
 check('small muted labels have 4.5:1 contrast on the page and its panels', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00' });

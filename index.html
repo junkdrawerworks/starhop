@@ -1630,6 +1630,22 @@ html.red .chart canvas{background:#050000}
       text: look === close ? deg.replace(/^./, 'A') : 'Look ' + (parts(look.t, tz()).h >= 12 ? 'after dusk' : 'before dawn') + ' on the ' + ordinal(parts(look.t, tz()).d) + ', ' + deg };
   }
 
+  // A solar eclipse as seen from here: how much of the Sun is covered, or for how long it's total or a ring, and where
+  // the Sun is then. A partial one is never rounded up to 100%: from 99% on it's cut to two decimals, since the gap
+  // between 99.97% and totality is a short drive. If the Sun sets or rises during it, it says so.
+  function solarText(se) {
+    var pk = se.peak.time.date, eq = A.Equator(A.Body.Sun, pk, OBS, true, true), az = A.Horizon(pk, OBS, eq.ra, eq.dec, 'normal').azimuth;
+    var alt = Math.round(se.peak.altitude), where = alt + '° up in the ' + dirName(az), from = 'Seen from ' + (S.loc ? S.loc.name : 'here') + ', ';
+    if (se.peak.altitude < 0) return from + 'the Sun is below the horizon at the eclipse’s peak (' + tTime(pk) + '), and ' + (se.partial_begin.altitude > 0 ? 'sets' : 'rises') + ' eclipsed.';
+    var sets = se.partial_end.altitude < 0 ? ', and it sets before the eclipse ends' : se.partial_begin.altitude < 0 ? ', and it rises with the eclipse under way' : '';
+    if (se.kind === 'total' || se.kind === 'annular') {
+      var secs = Math.round((se.total_end.time.ut - se.total_begin.time.ut) * 86400), len = (secs >= 60 ? Math.floor(secs / 60) + ' min ' : '') + secs % 60 + ' s';
+      return from + (se.kind === 'total' ? 'the eclipse is total' : 'the Moon makes a ring of fire') + ' for ' + len + ' from ' + tTime(se.total_begin.time.date) + ', with the Sun ' + where + sets + '.';
+    }
+    var ob = se.obscuration, pct = ob < 0.99 ? Math.round(ob * 100) + '%' : (Math.floor(ob * 10000) / 100).toFixed(2) + '%';
+    return from + pct + ' of the Sun is covered at ' + tTime(pk) + ', when it is ' + where + sets + '.';
+  }
+
   // Coming up depends only on the place and today's date, and takes a moment on a slow phone, so it's worked out once
   // for each, after the sky has drawn, and kept while the night shown changes.
   var EV_KEY = '';
@@ -1683,15 +1699,18 @@ html.red .chart canvas{background:#050000}
       });
     });
     steps.push(function () {
+      // A penumbral eclipse only shades the Moon a little, and one that grazes the shadow for under an hour each side of
+      // its middle can't be seen at all, so it's left out.
       var le = A.SearchLunarEclipse(now);
-      if (le && le.peak.date - now < 2 * 365 * 86400e3) {
+      while (le.kind === 'penumbral' && le.sd_penum < 60 && le.peak.date - now < 2 * 365 * 86400e3) le = A.NextLunarEclipse(le.peak);
+      if (le.peak.date - now < 2 * 365 * 86400e3) {
         var sc = scene(le.peak.date), vis = sc.moon.alt > 0;
-        ev.push({ t: le.peak.date, at: true, title: (le.kind === 'total' ? 'Total' : le.kind === 'partial' ? 'Partial' : 'Penumbral') + ' lunar eclipse', text: vis ? 'Visible from ' + (S.loc ? S.loc.name : 'here') + ' — the Moon is ' + Math.round(sc.moon.alt) + '° up at mid-eclipse (' + tTime(le.peak.date) + ').' : 'The Moon is below your horizon at mid-eclipse, so you won’t see much of this one.', k: 'eclipse' });
+        ev.push({ t: le.peak.date, at: true, title: (le.kind === 'total' ? 'Total' : le.kind === 'partial' ? 'Partial' : 'Penumbral') + ' lunar eclipse', text: vis ? 'Visible from ' + (S.loc ? S.loc.name : 'here') + ' — the Moon is ' + Math.round(sc.moon.alt) + '° up at mid-eclipse (' + tTime(le.peak.date) + ').' + (le.kind === 'penumbral' ? ' Expect only a faint shading on one side of the Moon, easy to miss.' : '') : 'The Moon is below your horizon at mid-eclipse, so you won’t see much of this one.', k: 'eclipse' });
       }
     });
     steps.push(function () {
-      var se = A.SearchLocalSolarEclipse(now, OBS);
-      if (se && se.peak.time.date - now < 3 * 365 * 86400e3) ev.push({ t: se.peak.time.date, at: true, title: (se.kind === 'total' ? 'Total' : se.kind === 'annular' ? 'Annular' : 'Partial') + ' solar eclipse', text: 'Seen from ' + (S.loc ? S.loc.name : 'here') + ', ' + Math.round(se.obscuration * 100) + '% of the Sun is covered at ' + tTime(se.peak.time.date) + '. Never look at the Sun without certified eclipse glasses or a solar filter.', k: 'eclipse' });
+      var se = A.SearchLocalSolarEclipse(now, OBS), pk = se.peak.time.date;
+      if (pk - now < 3 * 365 * 86400e3) ev.push({ t: pk, at: true, title: (se.kind === 'total' ? 'Total' : se.kind === 'annular' ? 'Annular' : 'Partial') + ' solar eclipse', text: solarText(se) + ' Never look at the Sun without certified eclipse glasses or a solar filter.', k: 'eclipse' });
     });
     (function next() {
       if (EV_KEY !== key) return; // the place or the day changed meanwhile, and a new list is on its way
