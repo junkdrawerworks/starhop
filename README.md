@@ -17,6 +17,7 @@
 - **Sky map.** Tonight's sky for your location and time: stars down to about magnitude 6, constellation lines and names, the Milky Way, the planets and the Moon (with its phase), plus clusters, nebulae and galaxies.
   - Drag to look around and pinch or scroll to zoom.
   - **Up** shows the whole dome overhead, laid out like a planisphere you hold above your head; **N / E / S / W** face a direction.
+  - **Show** turns constellation lines, names, deep-sky objects, the Milky Way and an altitude grid on or off.
   - It shows only what the sky allows: twilight, the Moon and how dark your sky is all change which stars appear. Clusters, nebulae and galaxies follow the sky too: they fade as twilight or moonlight makes them harder in your telescope, and come out once the Sun is 6° down.
 - **Night timeline.** Sunset to sunrise, shaded through civil, nautical and astronomical twilight, with a band for when the Moon is up. Drag along it (or use the arrow keys) to see the sky at any hour, or step to other nights. Changing place keeps the night you're planning.
   - By day it shows tonight's sky once it's dark. Left open, it follows the clock from the start of the night and moves on to the next night in the morning.
@@ -37,7 +38,7 @@
   - Inside claude.ai the page can't read the phone's sensors, so pointing only works on the website.
 - **Use my location** in the location sheet, also on the website; elsewhere, search for a town or enter coordinates.
 - **Night vision.** Everything turns dim red so your eyes stay dark-adapted at the eyepiece.
-- **Remembered in the browser:** your location, telescope, eyepieces, sky and the objects you mark as seen, with the night you saw each (a mark at 1 am goes under the evening before).
+- **Remembered in the browser:** your location, telescope, eyepieces, sky, the objects you mark as seen, night vision, what the map shows and your compass correction. Each seen mark keeps the night you saw it (a mark at 1 am goes under the evening before).
 
 ## How it works
 
