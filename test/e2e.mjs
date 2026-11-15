@@ -1802,6 +1802,13 @@ check('each star name is on one star only, the one the IAU gives it to, and the 
   assert.equal(createHash('sha256').update(JSON.stringify(s)).digest('hex').slice(0, 16), 'a010c8abcddc38b6', 'the star list changed order or content');
 });
 
+// d3-celestial spells some names its own way, and gave ε1 Lyr the nickname of the whole Epsilon Lyrae system. Where the
+// IAU's Working Group on Star Names gives the same star the same name spelled differently, its spelling is used.
+check('Star names follow the IAU’s spelling, and ε1 Lyr goes by its letter', async () => {
+  const { n } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')), named = des => Object.values(n).find(v => v[1] === des)[0];
+  for (const [des, name] of [['α Cas', 'Schedar'], ['μ Cep', 'Garnet Star'], ['λ Vir', 'Khambalia'], ['σ CMa', 'Nganurganity'], ['ε1 Lyr', '']]) assert.equal(named(des), name, des);
+});
+
 check('Show in the sky view jumps straight up when motion is reduced', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', reducedMotion: 'reduce' });
   try {

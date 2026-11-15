@@ -9,7 +9,7 @@ against the IAU Working Group on Star Names' list in tools/wgsn.tsv.
     for f in *.tgz; do mkdir -p "${f%.tgz}" && tar xzf "$f" -C "${f%.tgz}"; done
     cd ../.. && python3 tools/build_data.py
 """
-import json, math, re, sys, unicodedata
+import difflib, json, math, re, sys, unicodedata
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -48,18 +48,31 @@ def name_key(s):
 # stays only on the star the WGSN gives it to; a name it hasn't stays where it is unless several stars share it.
 # A star that loses its name falls back to its Bayer or Flamsteed label.
 wgsn = defaultdict(set)  # name -> the HIP numbers the WGSN gives it to
+wgsn_of = {}  # HIP number -> the WGSN's name for its brightest component
 for line in open(HERE / 'wgsn.tsv', encoding='utf-8'):
     if line.strip() and not line.startswith('#'):
-        hip, nm = line.split('\t')[:2]
+        hip, nm, desig = line.split('\t')[:3]
         wgsn[name_key(nm)].add(hip)
+        if not re.search(r' [B-Z]$', desig):  # ε Boo B's name isn't ε Boo's
+            wgsn_of.setdefault(hip, nm)
 shared = Counter(name_key(n['name']) for n in names.values() if n.get('name'))
+NOT_NAMES = {'Double Double'}  # d3-celestial's name for ε1 Lyr is the nickname of the whole Epsilon Lyrae system
+
+
+def same_name(a, b):
+    # The same name spelled another way: Shedar and Schedar, Khambaliya and Khambalia, Unurgunite and Nganurganity,
+    # The Garnet Star and Garnet Star. Different names (Rutilicus and Tianji) score 0.4 or less.
+    a, b = (name_key(re.sub(r'^the ', '', x, flags=re.I)) for x in (a, b))
+    return difflib.SequenceMatcher(None, a, b).ratio() >= 0.6
 
 
 def proper_name(hip, n):
     nm = n.get('name') or ''
     k = name_key(nm)
-    if not nm or (k in wgsn and hip not in wgsn[k]) or (k not in wgsn and shared[k] > 1):
+    if not nm or nm in NOT_NAMES or (k in wgsn and hip not in wgsn[k]) or (k not in wgsn and shared[k] > 1):
         return ''
+    if hip in wgsn_of and wgsn_of[hip] != nm and same_name(nm, wgsn_of[hip]):
+        return wgsn_of[hip]  # the WGSN's spelling
     return nm
 
 
