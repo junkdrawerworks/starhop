@@ -270,6 +270,11 @@ html.red .chart canvas{background:#050000}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .epl{display:flex;flex-direction:column;gap:6px}
 .epr{display:grid;grid-template-columns:1fr 1fr 34px;gap:8px;align-items:end}
+.epr+.epr .fld>span{display:none} /* the first row's labels say it for all */
+.fld input[aria-invalid="true"]{border-color:var(--hard);box-shadow:0 0 0 1px var(--hard)}
+.eps.plain tbody tr{height:auto;cursor:default}
+.eps.plain tbody tr:hover{background:none}
+.eps.plain td:last-child{font-family:var(--mono);color:var(--ink)}
 .x{width:34px;height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);padding:0}
 .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
 .opt{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;color:var(--ink)}
@@ -2269,32 +2274,48 @@ html.red .chart canvas{background:#050000}
     var skyv = S.sky;
     function drawEps() {
       // each field and Remove button says which eyepiece it belongs to, as the rows' short labels can't
-      $('epl').innerHTML = eps.map(function (e, i) { var n = 'Eyepiece ' + (i + 1); return '<div class="epr"><label class="fld"><span>mm</span><input data-i="' + i + '" data-k="f" inputmode="decimal" value="' + e.f + '" aria-label="' + n + ' focal length (mm)"></label><label class="fld"><span>Apparent field °</span><input data-i="' + i + '" data-k="a" inputmode="decimal" value="' + e.a + '" aria-label="' + n + ' apparent field (°)"></label><button class="x" type="button" data-del="' + i + '" aria-label="Remove the ' + e.f + ' mm eyepiece">✕</button></div>'; }).join('');
-      $('epl').querySelectorAll('input').forEach(function (inp) { inp.addEventListener('input', function () { var v = parseFloat(inp.value), i = +inp.dataset.i; if (v > 0) { eps[i][inp.dataset.k] = v; stats(); } $('epl').querySelector('[data-del="' + i + '"]').setAttribute('aria-label', 'Remove the ' + eps[i].f + ' mm eyepiece'); }); });
+      // (only the first row shows its labels; the rest have them for screen readers)
+      $('epl').innerHTML = eps.map(function (e, i) { var n = 'Eyepiece ' + (i + 1); return '<div class="epr"><label class="fld"><span>mm</span><input data-i="' + i + '" data-k="f" inputmode="decimal" autocomplete="off" value="' + esc(e.t != null ? e.t : String(e.f)) + '" aria-label="' + n + ' focal length (mm)"></label><label class="fld"><span>Apparent field °</span><input data-i="' + i + '" data-k="a" inputmode="decimal" autocomplete="off" value="' + esc(e.u != null ? e.u : String(e.a)) + '" aria-label="' + n + ' apparent field (°)"></label><button class="x" type="button" data-del="' + i + '" aria-label="' + delName(i) + '">✕</button></div>'; }).join('');
+      $('epl').querySelectorAll('input').forEach(function (inp) { inp.addEventListener('input', function () { var i = +inp.dataset.i, k = inp.dataset.k; eps[i][k] = reading(inp.value); eps[i][k === 'f' ? 't' : 'u'] = inp.value; inp.removeAttribute('aria-invalid'); stats(); $('epl').querySelector('[data-del="' + i + '"]').setAttribute('aria-label', delName(i)); }); });
       $('epl').querySelectorAll('[data-del]').forEach(function (b) { b.addEventListener('click', function () { eps.splice(+b.dataset.del, 1); drawEps(); stats(); }); });
     }
+    function delName(i) { return epOk(eps[i], 'f') ? 'Remove the ' + eps[i].f + ' mm eyepiece' : 'Remove eyepiece ' + (i + 1); }
     function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '" aria-pressed="' + (s.id === skyv) + '"><b>' + s.name + '</b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
     function stats() {
-      var ap = parseFloat($('scAp').value), fl = parseFloat($('scFl').value);
+      var ap = reading($('scAp').value), fl = reading($('scFl').value);
       if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES + '.' : 'Enter the aperture and focal length.') + '</p>'; return; }
-      var nelm = SKIES.filter(function (s) { return s.id === skyv; })[0].nelm;
+      var nelm = SKIES.filter(function (s) { return s.id === skyv; })[0].nelm, good = eps.filter(function (e) { return epOk(e, 'f') && epOk(e, 'a'); });
       $('scStats').innerHTML = '<h3>What it can do</h3><div class="kv"><div><span>Focal ratio</span><b>f/' + (fl / ap).toFixed(1) + '</b></div><div><span>Faintest stars</span><b>mag ' + (nelm + 5 * Math.log10(ap / 7) - 0.6).toFixed(1) + '</b></div><div><span>Splits pairs to</span><b>' + (116 / ap).toFixed(1) + '″</b></div><div><span>Highest useful power</span><b>' + Math.round(Math.min(2 * ap, 350)) + '×</b></div></div>' +
-        (eps.length ? '<p style="margin-top:10px">' + eps.slice().sort(function (a, b) { return b.f - a.f; }).map(function (e) { var M = fl / e.f; return e.f + ' mm → ' + Math.round(M) + '×, ' + (e.a / M).toFixed(2) + '° field'; }).join(' · ') + '</p>' : '');
+        (good.length ? '<table class="eps plain"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th></tr></thead><tbody>' + good.sort(function (a, b) { return b.f - a.f; }).map(function (e) { var M = fl / e.f; return '<tr><td>' + e.f + ' mm</td><td>' + Math.round(M) + '×</td><td>' + spokenArcs(field(e.a / M)) + '</td></tr>'; }).join('') + '</tbody></table>' : '');
     }
     $('scPre').addEventListener('change', function () { var p = PRESETS[+this.value]; if (!p) return; $('scName').value = picked = p.name; $('scAp').value = p.ap; $('scFl').value = p.fl; $('scAp').removeAttribute('aria-invalid'); $('scFl').removeAttribute('aria-invalid'); stats(); });
     // new numbers after a quick pick make it some other telescope, so the pick's name goes unless it was typed over
     ['scAp', 'scFl'].forEach(function (id) { $(id).addEventListener('input', function () { if (picked && $('scName').value === picked) $('scName').value = ''; picked = null; this.removeAttribute('aria-invalid'); stats(); }); });
-    $('epAdd').addEventListener('click', function () { eps.push({ f: eps.length ? Math.max(4, Math.round(eps[eps.length - 1].f / 2)) : 20, a: 52 }); drawEps(); stats(); });
+    $('epAdd').addEventListener('click', function () {
+      var last = eps.filter(function (e) { return epOk(e, 'f'); }).pop();
+      eps.push({ f: last ? Math.max(4, Math.round(last.f / 2)) : 20, a: 52 }); drawEps(); stats();
+      // the new row's focal length takes the focus, in view above the keyboard
+      var inp = $('epl').querySelector('[data-i="' + (eps.length - 1) + '"][data-k="f"]'); inp.focus({ preventScroll: true }); inp.select(); inp.scrollIntoView({ block: 'center' });
+    });
     $('scSave').addEventListener('click', function () {
-      var ap = parseFloat($('scAp').value), fl = parseFloat($('scFl').value);
+      var ap = reading($('scAp').value), fl = reading($('scFl').value);
       if (!(ap > 20 && ap < 2000 && fl > 100 && fl < 20000)) { // the field to fix says so, and takes the focus
         var bad = $(ap > 20 && ap < 2000 ? 'scFl' : 'scAp'); bad.setAttribute('aria-invalid', 'true'); bad.focus();
         toast(ap >= 2 && ap <= 16 ? INCHES : 'Check the aperture and focal length'); return;
       }
+      // An eyepiece box that can't be read is marked, and the first takes the focus and is named in the message.
+      var wrong = [];
+      eps.forEach(function (e, i) { ['f', 'a'].forEach(function (k) { if (!epOk(e, k)) wrong.push([i, k]); }); });
+      if (wrong.length) {
+        wrong.forEach(function (w) { $('epl').querySelector('[data-i="' + w[0] + '"][data-k="' + w[1] + '"]').setAttribute('aria-invalid', 'true'); });
+        var first = $('epl').querySelector('[data-i="' + wrong[0][0] + '"][data-k="' + wrong[0][1] + '"]'); first.focus();
+        toast('Check the ' + (ORD[wrong[0][0]] ? ORD[wrong[0][0]] + ' eyepiece' : 'eyepiece ' + (wrong[0][0] + 1)) + ': ' + (wrong[0][1] === 'f' ? 'its focal length in mm, like 6 or 12.5' : 'its apparent field in degrees, like 52 or 68'));
+        return;
+      }
       // A name left empty, or a quick pick's or the example's with other numbers, gives way to one from the numbers.
       var name = $('scName').value.trim();
       if (!name || PRESETS.concat(DEFAULT_SCOPE).some(function (p) { return p.name === name && (p.ap !== ap || p.fl !== fl); })) name = ap + ' mm, f/' + Math.round(fl / ap * 10) / 10;
-      S.scope = { name: name, ap: ap, fl: fl, eps: eps.filter(function (e) { return e.f > 1 && e.a > 10; }), set: true }; S.sky = skyv; save();
+      S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), set: true }; S.sky = skyv; save();
       closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies'); // the chip hides its name on a phone
     });
     drawEps(); drawSky(); stats();
@@ -2318,6 +2339,12 @@ html.red .chart canvas{background:#050000}
   function unfold(f) { return f.replace(/^(st|ft|mt) /, function (m, w) { return UNABBR[w] + ' '; }); }
   // A typed coordinate. "−97.74" with a real minus sign and "45,76" with a decimal comma are read as meant; anything
   // else that isn't a plain number ("97.74 W") is refused rather than half read.
+  // A number typed in the telescope sheet, read the way it's printed: "H6mm", "K25", "SWA 32", "66°", and "12,5" or
+  // "101,6" with a decimal comma. Anything else is NaN, so it's questioned rather than half read.
+  function reading(v) { v = String(v).trim().replace(/^[a-z]{1,3}\s*(?=[\d.,])/i, '').replace(/\s*(mm|°|deg)$/i, ''); if (/^\d*,\d+$/.test(v)) v = v.replace(',', '.'); return v === '' ? NaN : Number(v); }
+  // an eyepiece's focal length (mm) or apparent field (°) that can be used
+  function epOk(e, k) { var v = e[k]; return k === 'f' ? v > 1 && v <= 100 : v > 10 && v <= 130; }
+  var ORD = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth', 'eleventh', 'twelfth'];
   function coord(v) { v = String(v).trim().replace(/\u2212/g, '-'); if (/^[-+]?\d*,\d+$/.test(v)) v = v.replace(',', '.'); return v === '' ? NaN : Number(v); }
   // The k towns nearest a spot, nearest first, each with its distance in degrees along the ground (a degree of
   // longitude shrinks toward the poles). None until the list has loaded.

@@ -2509,6 +2509,51 @@ check('The telescope sheet’s fields say which eyepiece they belong to', async 
   } finally { await ctx.close(); }
 });
 
+// The sheet read each box with parseFloat and kept the old value when that failed: "H6mm", as printed on the eyepiece,
+// saved the default 5 mm, "12,5" from a phone's decimal-comma keypad saved 12, "101,6" made a 101 mm aperture, and a
+// box left empty saved whatever was there before.
+check('an eyepiece typed as printed or with a decimal comma is saved as meant', async () => {
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: DOB8 }), time: '2026-11-15T21:00:00-06:00' });
+  const box = name => page.getByRole('textbox', { name, exact: true });
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).scope);
+  try {
+    await page.click('#scopeBtn');
+    await page.click('#epAdd');
+    assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Eyepiece 3 focal length (mm)', 'a new eyepiece’s focal length takes the focus');
+    assert.deepEqual(await page.$$eval('#epl .epr', rs => rs.map(r => [...r.querySelectorAll('.fld>span')].map(s => s.offsetParent ? s.textContent : '').join('|'))), ['mm|Apparent field °', '|', '|'], 'only the first row shows its labels');
+    await page.keyboard.type('H6mm');
+    await box('Eyepiece 3 apparent field (°)').fill('66°');
+    await box('Eyepiece 2 focal length (mm)').fill('12,5');
+    await page.fill('#scAp', '101,6');
+    assert.deepEqual(await page.$$eval('#scStats .eps tbody tr', rs => rs.map(r => [...r.cells].map(c => [...c.childNodes].filter(n => !n.classList || !n.classList.contains('sr')).map(n => n.textContent).join('')).join(' '))), ['25 mm 48× 1.1°', '12.5 mm 96× 33′', '6 mm 200× 20′'], 'what it can do, eyepiece by eyepiece, with fields as the cards give them');
+    await page.click('#scSave');
+    assert.equal(await sheetOpen(page), false, 'Save works');
+    const sc = await saved();
+    assert.equal(sc.ap, 101.6, 'the aperture');
+    assert.deepEqual(sc.eps, [{ f: 25, a: 52 }, { f: 12.5, a: 52 }, { f: 6, a: 66 }], 'the eyepieces');
+    // a box left empty, or one that can't be read, stops Save and says which
+    await page.click('#scopeBtn');
+    await box('Eyepiece 1 focal length (mm)').fill('');
+    await box('Eyepiece 3 apparent field (°)').fill('wide');
+    await page.click('#scSave');
+    assert.ok(await sheetOpen(page), 'the sheet stays open');
+    assert.equal(await text(page, '#toast'), 'Check the first eyepiece: its focal length in mm, like 6 or 12.5');
+    assert.equal(await box('Eyepiece 1 focal length (mm)').getAttribute('aria-invalid'), 'true');
+    assert.equal(await box('Eyepiece 3 apparent field (°)').getAttribute('aria-invalid'), 'true');
+    assert.equal(await page.evaluate(() => document.activeElement.getAttribute('aria-label')), 'Eyepiece 1 focal length (mm)', 'the first to fix has the focus');
+    assert.equal(await page.getByRole('button', { name: 'Remove eyepiece 1' }).count(), 1, 'Remove still says which');
+    await page.keyboard.type('K25');
+    assert.equal(await box('Eyepiece 1 focal length (mm)').getAttribute('aria-invalid'), null, 'typing clears the mark');
+    await page.click('#scSave');
+    assert.equal(await text(page, '#toast'), 'Check the third eyepiece: its apparent field in degrees, like 52 or 68');
+    await page.getByRole('button', { name: 'Remove the 6 mm eyepiece' }).click();
+    await page.click('#scSave');
+    assert.equal(await sheetOpen(page), false, 'Save works once each box can be read');
+    assert.deepEqual((await saved()).eps, [{ f: 25, a: 52 }, { f: 12.5, a: 52 }]);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // How a card and the page sound read aloud: no primes, one main heading, charts described by their captions.
 check('A card says arcminutes and arcseconds, and the page has one main heading', async () => {
   const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
