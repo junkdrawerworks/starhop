@@ -7,7 +7,7 @@
 // refreshed only when a page that loads it is visited online, and the copy could mix two releases. So FILES is a
 // fingerprint of every file in SHELL: change any of them and test/e2e.mjs fails until FILES is changed to match (it
 // says what to), which changes this file, so every copy is made whole again at once.
-const CACHE = 'starhop-v8'; // bump the number when the file list changes
+const CACHE = 'starhop-v9'; // bump the number when the file list changes
 const FILES = 'f82c0020'; // test/e2e.mjs checks this
 const SHELL = [
   './', 'index.html', 'carry.js', 'js/astronomy.browser.min.js',
