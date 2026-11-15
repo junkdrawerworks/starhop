@@ -31,7 +31,7 @@ The separations, position angles and magnitudes of the double stars in `dso.json
 
 ## IAU Working Group on Star Names
 
-`tools/wgsn.tsv` lists the star names adopted by the IAU Working Group on Star Names (WGSN), from the IAU Catalog of Star Names at https://exopla.net/star-names/modern-iau-star-names/ as of October 2026. `build_data.py` uses it to keep each traditional name in `stars.json` on the one star the WGSN gives it to, where d3-celestial gives it to several. IAU star names are free to use and in the public domain.
+`tools/wgsn.tsv` lists the star names adopted by the IAU Working Group on Star Names (WGSN), from the IAU Catalog of Star Names at https://exopla.net/star-names/modern-iau-star-names/ as of October 2026. `build_data.py` gives each star d3-celestial names the WGSN's name for it, and drops a name the WGSN never adopted for that star, which then goes by its Bayer or Flamsteed label. IAU star names are free to use and in the public domain.
 
 ## city-timezones
 

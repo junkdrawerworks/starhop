@@ -1,5 +1,5 @@
-# Star names adopted by the IAU Working Group on Star Names (WGSN). build_data.py keeps a proper name from
-# d3-celestial only on the star the WGSN gives it to.
+# Star names adopted by the IAU Working Group on Star Names (WGSN). build_data.py gives each star
+# d3-celestial names the WGSN's name for it, and drops a name the WGSN never adopted for that star.
 # From the IAU Catalog of Star Names on the WGSN's site, https://exopla.net/star-names/modern-iau-star-names/,
 # as of 2026-10-16 (its newest names were adopted on 2026-09-22). Mesarthim's HIP number, blank there, is from
 # the catalog's text edition of 2022-04-04: https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt

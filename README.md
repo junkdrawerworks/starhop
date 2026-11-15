@@ -9,7 +9,7 @@
   &nbsp;
   <img src="docs/phone-tonight.png" alt="Tonight in Chicago: darkest with the Moon down from 9:49 pm to 5:32 am, the sunset, sunrise and fully dark times, a 37% lit Moon, and the start of the list of what to look at, with the Moon, Jupiter, Saturn, Mars and Uranus" width="250">
   &nbsp;
-  <img src="docs/phone-card.png" alt="The card for M13, the Great Hercules Cluster: 29° up in the northwest, when it sets and rises, and a finder chart with a dashed star-hop line from η Her through the cluster to Rutilicus, both labelled, and a 5° finderscope circle around it" width="250">
+  <img src="docs/phone-card.png" alt="The card for M13, the Great Hercules Cluster: 29° up in the northwest, when it sets and rises, and a finder chart with a dashed star-hop line from η Her through the cluster to Tianji, both labelled, and a 5° finderscope circle around it" width="250">
 </p>
 
 ## What it does
@@ -26,7 +26,7 @@
   - On summer nights that never get properly dark, deep-sky objects and doubles are timed for when the Sun is at least 6° down; when it never gets that far, only the Moon and the brightest planets are listed.
 - **Object cards:**
   - **Where to look:** altitude in fists at arm's length, compass direction, and rise, set and highest times.
-  - **Finder chart:** a naked-eye view around the target, a 5° finderscope circle, and a star-hop, e.g. "about a third of the way from η Her to Rutilicus" for M13.
+  - **Finder chart:** a naked-eye view around the target, a 5° finderscope circle, and a star-hop, e.g. "about a third of the way from η Her to Tianji" for M13.
   - **Your telescope:** magnification and field for each eyepiece, which one to use, and a sketch of the eyepiece view. Tap another eyepiece to see its view.
   - **Planets:** Jupiter's four moons in their positions for that time, Saturn's rings at their current tilt, and the phases of Venus and Mercury.
 - **Coming up.** Moon phases, meteor shower peaks, planet oppositions and elongations, the Moon passing bright planets, and eclipses, as seen from your location. Tap one to step to its night.
@@ -92,7 +92,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - The [SEDS Messier Catalog](http://www.messier.seds.org/data.html) by Hartmut Frommert and Christine Kronberg: the visual magnitudes and sizes of the Messier objects, used with acknowledgement for non-profit, educational use.
 - The [Washington Double Star Catalog](http://www.astro.gsu.edu/wds/) (U.S. Naval Observatory): the double stars' separations, position angles and magnitudes. This research has made use of the Washington Double Star Catalog maintained at the U.S. Naval Observatory.
 - [city-timezones](https://github.com/kevinroberts/city-timezones) 1.3.4 (MIT): 7,300 cities with their time zones.
-- The [IAU Catalog of Star Names](https://exopla.net/star-names/modern-iau-star-names/) (public domain), kept in `tools/wgsn.tsv`: where d3-celestial gives one traditional name to several stars, only the star the IAU gives it to keeps it, and the others go by their Bayer or Flamsteed labels.
+- The [IAU Catalog of Star Names](https://exopla.net/star-names/modern-iau-star-names/) (public domain), kept in `tools/wgsn.tsv`: a star d3-celestial names goes by the name the IAU gives it (ζ Her is Tianji, not Rutilicus), and one whose name the IAU never adopted goes by its Bayer or Flamsteed label (ν Oph).
 
 The double-star notes and object descriptions were written for Starhop. The steps to rebuild are at the top of the build script, and [data/SOURCES.md](data/SOURCES.md) has the licenses.
 

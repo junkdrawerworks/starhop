@@ -681,8 +681,8 @@ check('chart labels stay inside, keep apart, keep off the map’s buttons and th
     await page.waitForFunction(() => document.getElementById('finder').__labels);
     const f = await finderLabels(page);
     checkLabels(f.labels, f.w, f.h, f.keep, 'M13’s finder chart');
-    const rut = f.labels.find(l => l.t === 'Rutilicus');
-    assert.ok(rut, 'Rutilicus, where the star-hop starts, keeps its label beside the target’s ring');
+    const rut = f.labels.find(l => l.t === 'Tianji');
+    assert.ok(rut, 'Tianji, where the star-hop ends, keeps its label beside the target’s ring');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
   // From Sydney, Omega Centauri's chart has Rigil Kentaurus near its right edge and two stars by the stamp.
@@ -1755,7 +1755,7 @@ check('a finder chart for something low shows it at nightfall, not in the sunset
   } finally { await ctx.close(); }
 });
 
-// The finder chart's caption, and the star names in its star-hop ("from η Her to Rutilicus", "beside Ankaa, on the way to …").
+// The finder chart's caption, and the star names in its star-hop ("from η Her to Tianji", "beside Ankaa, on the way to …").
 const hopCap = page => page.$eval('#finder', c => c.parentElement.querySelector('.cap').textContent);
 const hopStars = cap => { const m = /(?:from|beside) (.+?)(?: to |, on the way to )(.+?)(?: \(a little off the line\))?\./.exec(cap) || /° from (.+?) —/.exec(cap); return m ? m.slice(1).filter(Boolean) : []; };
 const CHICAGO = { name: 'Chicago, IL', lat: 41.85, lon: -87.65, tz: 'America/Chicago' };
@@ -1763,13 +1763,13 @@ const CHICAGO = { name: 'Chicago, IL', lat: 41.85, lon: -87.65, tz: 'America/Chi
 // Of the 411 stars a star-hop can start or end at, 148 have only a Bayer or Flamsteed label, and the chart labelled only
 // stars with a proper name, so M13's "from η Her" started at an unlabelled star.
 check('the stars a star-hop names are labelled on its chart', async () => {
-  for (const [loc, time, id, want] of [[CHICAGO, '2026-10-16T21:15:00-05:00', 'M13', ['η Her', 'Rutilicus']], [AUSTIN, '2026-10-13T21:00:00-05:00', 'M27', ['δ Sge']]]) {
+  for (const [loc, time, id, want] of [[CHICAGO, '2026-10-16T21:15:00-05:00', 'M13', ['η Her', 'Tianji']], [AUSTIN, '2026-10-13T21:00:00-05:00', 'M27', ['δ Sge']]]) {
     const { ctx, page, problems } = await open({ loc, time });
     try {
       await openCard(page, id);
       await page.waitForFunction(() => document.getElementById('finder').__labels);
       const cap = await hopCap(page), names = hopStars(cap), labels = (await finderLabels(page)).labels.map(l => l.t);
-      if (id === 'M13') assert.match(cap, /^Star-hop: About a third of the way from η Her to Rutilicus\./);
+      if (id === 'M13') assert.match(cap, /^Star-hop: About a third of the way from η Her to Tianji\./);
       for (const n of want) assert.ok(names.includes(n), `${id}'s star-hop names ${n}: ${cap}`);
       for (const n of names) assert.ok(labels.includes(n), `${id}'s chart labels ${n}, which its star-hop names (it has ${labels.join(', ')})`);
       assert.deepEqual(problems, []);
@@ -2859,13 +2859,15 @@ check('star labels in the data are all real designations, and no tappable star l
 });
 
 // d3-celestial gave some traditional names to several stars: Markab to α Peg and κ1 Pup, Tarazed to γ and η Aql,
-// Alnair to α Gru and ζ Cen, which put "Alnair" in Omega Centauri's star-hop.
+// Alnair to α Gru and ζ Cen, which put "Alnair" in Omega Centauri's star-hop. Each star d3-celestial names now goes by
+// the IAU's name for it (η Aql is Pagru, ζ Cen Leepwal, ζ Her Tianji, γ Cas Tiansi), or by its letter where the IAU
+// never adopted the name (ν Oph was "Sinistra", γ2 Vel "Regor").
 check('each star name is on one star only, the one the IAU gives it to, and the stars keep their order', async () => {
   const { s, n } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')), on = {};
   for (const [i, v] of Object.entries(n)) if (v[0]) (on[v[0]] = on[v[0]] || []).push(v[1] || '#' + i);
   assert.deepEqual(Object.entries(on).filter(([, stars]) => stars.length > 1), [], 'names on more than one star');
   const named = des => Object.values(n).find(v => v[1] === des)[0];
-  for (const [des, name] of [['α Peg', 'Markab'], ['κ1 Pup', ''], ['γ Aql', 'Tarazed'], ['η Aql', ''], ['α Gru', 'Alnair'], ['ζ Cen', ''], ['ζ Her', 'Rutilicus']]) assert.equal(named(des), name, des);
+  for (const [des, name] of [['α Peg', 'Markab'], ['κ1 Pup', ''], ['γ Aql', 'Tarazed'], ['η Aql', 'Pagru'], ['α Gru', 'Alnair'], ['ζ Cen', 'Leepwal'], ['ζ Her', 'Tianji'], ['γ Cas', 'Tiansi'], ['ν Oph', ''], ['γ2 Vel', ''], ['ε1 Lyr', '']]) assert.equal(named(des), name, des);
   // Stars marked as seen are kept by their place in this list, so a rebuild that reorders it needs to move those marks.
   assert.equal(createHash('sha256').update(JSON.stringify(s)).digest('hex').slice(0, 16), 'a010c8abcddc38b6', 'the star list changed order or content');
 });
