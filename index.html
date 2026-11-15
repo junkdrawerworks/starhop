@@ -1793,8 +1793,8 @@ html.red .chart canvas{background:#050000}
       var need = splitPower(o);
       rows.forEach(function (r, i) { if (pick < 0 && splits(r, o)) pick = i; });
       if (o.sep < st.dawes * 1.1) return { txt: 'At ' + o.sep + '″ these stars are closer than your telescope can split (about ' + st.dawes.toFixed(1) + '″).', pick: -1 };
-      if (pick < 0) return { txt: 'Splitting a ' + o.sep + '″ pair takes about ' + Math.round(need) + '×; your highest power is ' + Math.round(rows[rows.length - 1].M) + '×. A shorter eyepiece or a 2× Barlow will do it.' + again(o, rows, st), pick: rows.length - 1 };
-      return { txt: 'The two stars are ' + o.sep + '″ apart; about ' + Math.round(need) + '× splits them, so start with the ' + rows[pick].f + ' mm (' + Math.round(rows[pick].M) + '×).' + again(o, rows, st), pick: pick };
+      if (pick < 0) return { txt: 'Splitting a ' + o.sep + '″ pair takes about ' + Math.round(need) + '×; your highest power is ' + Math.round(rows[rows.length - 1].M) + '×. A shorter eyepiece or a 2× Barlow will do it.' + innerPairs(o, rows, st), pick: rows.length - 1 };
+      return { txt: 'The two stars are ' + o.sep + '″ apart; about ' + Math.round(need) + '× splits them, so start with the ' + rows[pick].f + ' mm (' + Math.round(rows[pick].M) + '×).' + innerPairs(o, rows, st), pick: pick };
     }
     if (o.k === 'star') return { txt: 'A star stays a point at any power. The ' + rows[0].f + ' mm (' + field(rows[0].tf) + ' field) shows it with the stars around it.', pick: 0 };
     var sz = (o.dim && o.dim[0]) || 5, size = sz >= 60 ? (sz / 60).toFixed(1) + '°' : arcmin(sz), low = rows[0];
@@ -1805,7 +1805,7 @@ html.red .chart canvas{background:#050000}
     return { txt: txt, pick: pick };
   }
   // Epsilon Lyrae's two stars are each a close pair as well: whether your eyepieces split them.
-  function again(o, rows, st) {
+  function innerPairs(o, rows, st) {
     if (!o.inner) return '';
     var top = rows[rows.length - 1], need = o.inner.map(function (sp) { return pairPower(sp, 0); }); // each pair is within a magnitude
     var lead = ' Each star splits again, ' + o.inner[0] + '″ and ' + o.inner[1] + '″ apart, at about ' + Math.round(need[0]) + '× and ' + Math.round(need[1]) + '×';
