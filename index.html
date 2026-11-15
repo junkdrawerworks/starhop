@@ -693,7 +693,9 @@ html.red .chart canvas{background:#050000}
     if (o.kind === 'cluster') d -= 1.2;
     if (o.kind === 'galaxy') d += 0.4;
     if (moonUp) d += o.kind === 'cluster' ? 0.4 : 1.4;
-    if (o.mag > scopeStats().lm - (sky().nelm - nelmAt(sunAlt)) - 1.5) d += 3;
+    // Within 3 magnitudes of the faintest star the telescope shows, an object gets harder by half a point per
+    // magnitude. (A jump of 3 points at 1.5 magnitudes moved M1 from Easy to Hard between countryside and suburbs.)
+    d += clamp((o.mag - (scopeStats().lm - (sky().nelm - nelmAt(sunAlt)) - 3)) * 0.5, 0, 3);
     if (o.mag < 5 && o.kind !== 'galaxy') d -= 0.7;
     return d < 1.6 ? { r: 'easy', label: 'Easy', d: d } : d < 3 ? { r: 'fair', label: 'Fair', d: d } : { r: 'hard', label: d < 4.2 ? 'Hard' : 'Very hard', d: d };
   }

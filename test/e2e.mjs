@@ -1606,6 +1606,46 @@ check('The Omega and Lagoon nebulae rate Easy in a 130 mm from the suburbs', asy
   } finally { await ctx.close(); }
 });
 
+// A rating jumped 3 points as soon as an object came within 1.5 magnitudes of the faintest star the telescope shows: M1
+// went from Hard in a 70 mm from the suburbs to Easy in a 130 mm, and from Very hard to Easy in a 130 mm between a city
+// sky and the suburbs. Each sky choice brightens the sky by more than a level's width (City to Suburbs is 1.6
+// magnitudes per square arcsecond, Suburbs to Countryside 1.4), so only the telescope's steps are held to one level.
+// Off the list counts as harder than Very hard. Austin, Nov 9 2026, a moonless night.
+check('A rating never gets easier in a brighter sky or a smaller telescope, and moves one level at most per telescope size', async () => {
+  const ids = ['M1', 'M27', 'M33', 'M57', 'M74', 'M76', 'M97'], skies = ['city', 'suburb', 'rural', 'dark'], aps = [70, 130, 254];
+  const level = { Easy: 0, Fair: 1, Hard: 2, 'Very hard': 3 }, grid = {};
+  for (const ap of aps) for (const sky of skies) {
+    const scope = { name: '', ap, fl: ap * 5, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], set: true };
+    const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, scope, sky }), time: '2026-11-09T21:00:00-06:00' });
+    try {
+      const rows = await targetRows(page);
+      for (const id of ids) { const r = rows.find(x => x.id === id); grid[`${id} ${ap} ${sky}`] = r ? level[r.rate] : 4; }
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+  const at = (id, a, s) => grid[`${id} ${aps[a]} ${skies[s]}`], name = l => ['Easy', 'Fair', 'Hard', 'Very hard', 'off the list'][l];
+  for (const id of ids) for (let a = 0; a < 3; a++) for (let s = 0; s < 4; s++) {
+    if (s < 3) assert.ok(at(id, a, s) >= at(id, a, s + 1), `${id} in a ${aps[a]} mm is ${name(at(id, a, s))} from the ${skies[s]} but ${name(at(id, a, s + 1))} from the ${skies[s + 1]}`);
+    if (a < 2) {
+      const d = at(id, a, s) - at(id, a + 1, s), where = `${id} from the ${skies[s]} is ${name(at(id, a, s))} in a ${aps[a]} mm and ${name(at(id, a + 1, s))} in a ${aps[a + 1]} mm`;
+      assert.ok(d >= 0, where);
+      if (at(id, a, s) < 4) assert.ok(d <= 1, where);
+    }
+  }
+});
+
+// The Owl's catalogue magnitude was photographic (11.2 for 9.9), and on a moonlit night the 3-point jump dropped it from
+// a 130 mm's list in the suburbs. Austin, Apr 28 2026, with a 94% Moon up.
+check('The Owl Nebula stays on a suburban 130 mm list in spring', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-04-28T22:00:00-05:00' });
+  try {
+    const owl = (await targetRows(page)).find(r => r.id === 'M97');
+    assert.ok(owl, 'the Owl Nebula is listed');
+    assert.notEqual(owl.rate, 'Easy', 'and isn’t called easy with the Moon up');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // A star brighter than 4.6 can be tapped, and its card goes by its name or label, or "A magnitude 4.5 star" with neither. The build
 // gives Bayer letters down to 4.5 and Flamsteed numbers down to 4.0, which leaves 126 tappable stars with no label (16 of
 // them have neither in d3-celestial), so one more is a star that lost its only label, as ξ Sco did with "Grafias".
