@@ -9,7 +9,7 @@
   &nbsp;
   <img src="docs/phone-tonight.png" alt="Tonight in Chicago: darkest with the Moon down from 9:49 pm to 5:32 am, the sunset, sunrise and fully dark times, a 37% lit Moon, and the start of the list of what to look at, with the Moon, Jupiter, Saturn, Mars and Uranus" width="250">
   &nbsp;
-  <img src="docs/phone-card.png" alt="The card for M13, the Great Hercules Cluster: 29° up in the northwest, when it sets and rises, and a finder chart with a dashed star-hop line from Rutilicus through the cluster and a 5° finderscope circle around it" width="250">
+  <img src="docs/phone-card.png" alt="The card for M13, the Great Hercules Cluster: 29° up in the northwest, when it sets and rises, and a finder chart with a dashed star-hop line from η Her through the cluster to Rutilicus, both labelled, and a 5° finderscope circle around it" width="250">
 </p>
 
 ## What it does
