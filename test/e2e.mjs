@@ -696,6 +696,70 @@ check('the screen stays on while pointing, after switching apps too, and lets go
   } finally { await ctx.close(); }
 });
 
+// Point fills the screen like a card, and Back is the natural way out of it, but Back left Starhop (on Android, it
+// closed the installed app).
+check('Back ends Point and stays in Starhop', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
+  const pointing = () => page.evaluate(() => document.documentElement.classList.contains('pointing'));
+  const back = async () => { await page.evaluate(() => history.back()); await page.waitForTimeout(60); };
+  const settled = () => page.waitForFunction(() => !history.state, null, { timeout: 5000 }).catch(() => {});
+  const tapSomething = async () => {
+    const at = await page.$eval('#sky', c => { const r = c.getBoundingClientRect(), h = c.__hits().find(h => h.obj.k !== 'star' && h.x > 40 && h.y > 90 && h.x < r.width - 40 && h.y < r.height - 120); return h && [r.left + h.x, r.top + h.y]; });
+    assert.ok(at, 'something to tap on the map');
+    await page.mouse.click(at[0], at[1]);
+    await page.waitForFunction(() => !document.getElementById('sheet').hidden, null, { timeout: 5000 });
+  };
+  try {
+    await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    const start = page.url(), steps = await page.evaluate(() => history.length);
+    for (let i = 1; i <= 50; i++) {
+      await point(page);
+      await back();
+      await page.waitForFunction(() => !document.documentElement.classList.contains('pointing'), null, { timeout: 5000 }).catch(() => {});
+      assert.equal(await pointing(), false, 'Back ends Point, round ' + i);
+      assert.equal(page.url(), start, 'and stays in Starhop, round ' + i);
+      assert.equal(await page.evaluate(() => history.length), steps + 1, 'history doesn’t grow, round ' + i);
+    }
+    assert.match(await text(page, '#keys'), /Sunset/);
+    assert.equal((await wake(page)).held, 0, 'nothing keeps the screen on');
+    // a card opened from the map while pointing takes one Back, and Point the next
+    for (let i = 1; i <= 5; i++) {
+      await point(page);
+      await tapSomething();
+      await back();
+      assert.equal(await sheetOpen(page), false, 'the first Back closes the card, round ' + i);
+      assert.equal(await pointing(), true, 'and leaves Point on, round ' + i);
+      await back();
+      assert.equal(await pointing(), false, 'the second Back ends Point, round ' + i);
+      await settled();
+      assert.equal(page.url(), start);
+      assert.equal(await page.evaluate(() => history.length), steps + 2, 'history doesn’t grow, round ' + i); // two steps forward remain
+    }
+    // ended any other way, Point leaves no step behind
+    for (const how of ['Stop', 'Escape', 'the card, then Escape twice', 'Stop under the card']) {
+      await point(page);
+      if (how === 'Stop') await page.click('#ptBtn');
+      else if (how === 'Escape') await page.keyboard.press('Escape');
+      else {
+        await tapSomething();
+        if (how === 'Stop under the card') { await page.$eval('#ptBtn', b => b.click()); await page.click('#sheet [data-close]'); }
+        else {
+          await page.keyboard.press('Escape');
+          assert.equal(await sheetOpen(page), false, 'Escape closes the card first');
+          assert.equal(await pointing(), true, 'and leaves Point on');
+          await page.keyboard.press('Escape');
+        }
+      }
+      await settled();
+      assert.equal(await pointing(), false, how + ' ends Point');
+      assert.equal(await sheetOpen(page), false);
+      assert.equal(await page.evaluate(() => history.state), null, how + ' takes Point’s step off again');
+      assert.equal(await page.evaluate(() => history.length), steps + (/card/.test(how) ? 2 : 1), how + ' leaves history as it was');
+    }
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Austin, Nov 15 2026: sunrise is 7:02 am, so the night that is ending runs until 7:52 am.
 check('pointing stays on the live sky when the night rolls over', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T07:30:00-06:00', init: fakeWakeLock });
