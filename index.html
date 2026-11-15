@@ -1581,6 +1581,7 @@ html.red .chart canvas{background:#050000}
   // ---------- sheets ----------
   var SHEET_OBJ = null; // the object whose card is open, if the sheet is one
   var SHEET_FROM = null; // what had the focus when the sheet opened, to hand it back
+  var SHEET_AT = ''; // the time an open card was drawn for, as it shows it
   // Back closes an open sheet rather than leaving Starhop; on Android the installed app has nothing else. A sheet that
   // opens adds one history entry and Back takes it off again. Done, the backdrop and Escape go back over the entry
   // themselves while it is still the current one. Swapping one sheet for another, or redrawing it, adds nothing.
@@ -1723,7 +1724,7 @@ html.red .chart canvas{background:#050000}
     var rows = epRows(o, sc), adv = adviceFor(o, sc, rows), st = scopeStats();
     // the brightest stars need no hop, nor do the Moon and planets
     var ct = chartTime(o, rs), bright = o.k === 'star' && o.mag < 1.5, hop = o.k === 'planet' || o.k === 'moon' || bright || !ct ? null : hopFor(o, ct.t);
-    var h = '<div class="hd"><h2>' + esc(name) + '<small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" data-close>Done</button></div><div class="bd">' +
+    var h = '<div class="hd"><h2>' + esc(name) + '<small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
       '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + esc(nowTxt) + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span><b>' + esc(f[1]) + '</b></div>'; }).join('') + '</div>' : '') + '</div>' +
       '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart"></canvas><div class="cap">' + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + 'The dashed circle is a typical finderscope field (5°).</div></div>' +
       '<div class="chart"><canvas id="eyepiece" aria-label="Simulated eyepiece view"></canvas><div class="cap" id="epCap"></div></div></div>' +
@@ -1733,7 +1734,7 @@ html.red .chart canvas{background:#050000}
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
       '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB">' + (S.seen[o.id] ? '✓ Seen ' + esc(S.seen[o.id]) : 'Mark as seen') + '</button></div></div>';
     openSheet(h, null, again).querySelector('.bd').scrollTop = keep;
-    SHEET_OBJ = o;
+    SHEET_OBJ = o; SHEET_AT = tTime(T.t);
     $('ctr').addEventListener('click', function () { closeSheet(); SEL = o; center(o); markRows(); if (window.innerWidth < 1000) window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); });
     $('seenB').addEventListener('click', function () { if (S.seen[o.id]) delete S.seen[o.id]; else S.seen[o.id] = tMD(new Date()); save(); openObject(o); renderTargets(); });
     requestAnimationFrame(function () { drawFinder(o, hop, ct); drawEyepiece(o, rows, adv.pick); if (keep && SHEET_OBJ === o) $('sheet').querySelector('.bd').scrollTop = keep; });
@@ -2033,7 +2034,11 @@ html.red .chart canvas{background:#050000}
       var n = currentNight(now);
       if (!sameNight(n, NDATE)) { setNight(n, true, PT.on); return; }
       if (T.auto && now >= NIGHT.start) { T.live = true; T.auto = false; T.t = now; redraw(); renderTonight(); if (SHEET_OBJ) openObject(SHEET_OBJ); return; }
-      if (T.live) { T.t = now; redraw(); }
+      if (T.live) {
+        T.t = now; redraw();
+        // an open card moves on too, once a minute, keeping its place and the focus (see openObject)
+        if (SHEET_OBJ && SHEET_AT !== tTime(now)) openObject(SHEET_OBJ);
+      }
     }
     if (sameNight(NIGHT.n, currentNight(now)) !== SHOWN_TONIGHT) renderTonight();
     drawTimeline(); // the marker for now

@@ -827,6 +827,28 @@ check('an open card follows the time shown, and other sheets stay as they are', 
   } finally { await ctx.close(); }
 });
 
+// At the scope the card is what people read, picking the phone up between looks; it said "At 7:30 pm" all evening.
+check('An open card moves on with the clock', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T19:30:00-06:00' });
+  try {
+    await openCard(page, 'M45');
+    assert.equal(await page.$eval('#sheet .card h3', h => h.textContent), 'At 7:30 pm');
+    await page.$eval('#sheet .bd', b => { b.scrollTop = 240; });
+    const steps = await page.evaluate(() => history.length), first = await text(page, '#sheet .big');
+    for (let i = 1; i <= 5; i++) {
+      await page.clock.runFor('10:00');
+      const at = `At ${7 + Math.floor((30 + 10 * i) / 60)}:${String((30 + 10 * i) % 60).padStart(2, '0')} pm`;
+      await page.waitForFunction(at => document.querySelector('#sheet .card h3').textContent === at, at, { timeout: 5000 }).catch(() => {});
+      assert.equal(await page.$eval('#sheet .card h3', h => h.textContent), at, 'the card keeps up, step ' + i);
+      assert.equal(await page.evaluate(() => history.length), steps, 'no new history entry, step ' + i);
+      assert.equal(await page.$eval('#sheet .bd', b => b.scrollTop), 240, 'the card keeps its place, step ' + i);
+      assert.ok(await page.evaluate(() => document.getElementById('sheet').contains(document.activeElement)), 'the focus stays in the card, step ' + i);
+    }
+    assert.notEqual(await text(page, '#sheet .big'), first, 'the height and direction move on too');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check("typed coordinates take a decimal comma and a real minus sign, and refuse what they can't read", async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00' });
   try {
