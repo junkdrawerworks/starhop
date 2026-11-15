@@ -1238,6 +1238,11 @@ check('a telescope typed in by hand is called by its own size', async () => {
     await page.fill('#scAp', '8');
     await page.click('#scSave');
     assert.match(await text(page, '#toast'), /^Aperture is in millimetres — 8 inches is 203 mm$/, 'an aperture in inches is explained');
+    for (const v of ['8"', '8 in']) {
+      await page.fill('#scAp', v);
+      await page.click('#scSave');
+      assert.match(await text(page, '#toast'), /^Aperture is in millimetres/, `so is one typed with its unit, ${v}`);
+    }
     await page.fill('#scAp', '70');
     await page.fill('#scFl', '700');
     await page.click('#scSave');

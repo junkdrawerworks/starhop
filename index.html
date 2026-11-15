@@ -2285,7 +2285,7 @@ html.red .chart canvas{background:#050000}
     function delName(i) { return epOk(eps[i], 'f') ? 'Remove the ' + eps[i].f + ' mm eyepiece' : 'Remove eyepiece ' + (i + 1); }
     function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '" aria-pressed="' + (s.id === skyv) + '"><b>' + s.name + '</b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
     function stats() {
-      var ap = reading($('scAp').value), fl = reading($('scFl').value);
+      var ap = reading($('scAp').value, true), fl = reading($('scFl').value);
       if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES + '.' : 'Enter the aperture and focal length.') + '</p>'; return; }
       var nelm = SKIES.filter(function (s) { return s.id === skyv; })[0].nelm, good = eps.filter(function (e) { return epOk(e, 'f') && epOk(e, 'a'); });
       $('scStats').innerHTML = '<h3>What it can do</h3><div class="kv"><div><span>Focal ratio</span><b>f/' + (fl / ap).toFixed(1) + '</b></div><div><span>Faintest stars</span><b>mag ' + (nelm + 5 * Math.log10(ap / 7) - 0.6).toFixed(1) + '</b></div><div><span>Splits pairs to</span><b>' + (116 / ap).toFixed(1) + '″</b></div><div><span>Highest useful power</span><b>' + Math.round(Math.min(2 * ap, 350)) + '×</b></div></div>' +
@@ -2301,7 +2301,7 @@ html.red .chart canvas{background:#050000}
       var inp = $('epl').querySelector('[data-i="' + (eps.length - 1) + '"][data-k="f"]'); inp.focus({ preventScroll: true }); inp.select(); inp.scrollIntoView({ block: 'center' });
     });
     $('scSave').addEventListener('click', function () {
-      var ap = reading($('scAp').value), fl = reading($('scFl').value);
+      var ap = reading($('scAp').value, true), fl = reading($('scFl').value);
       if (!(ap > 20 && ap < 2000 && fl > 100 && fl < 20000)) { // the field to fix says so, and takes the focus
         var bad = $(ap > 20 && ap < 2000 ? 'scFl' : 'scAp'); bad.setAttribute('aria-invalid', 'true'); bad.focus();
         toast(ap >= 2 && ap <= 16 ? INCHES : 'Check the aperture and focal length'); return;
@@ -2340,14 +2340,15 @@ html.red .chart canvas{background:#050000}
       .replace(/[.,']/g, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim().replace(/^(saint|fort|mount) /, function (m, w) { return ABBR[w] + ' '; });
   }
   function unfold(f) { return f.replace(/^(st|ft|mt) /, function (m, w) { return UNABBR[w] + ' '; }); }
-  // A typed coordinate. "−97.74" with a real minus sign and "45,76" with a decimal comma are read as meant; anything
-  // else that isn't a plain number ("97.74 W") is refused rather than half read.
   // A number typed in the telescope sheet, read the way it's printed: "H6mm", "K25", "SWA 32", "66°", and "12,5" or
-  // "101,6" with a decimal comma. Anything else is NaN, so it's questioned rather than half read.
-  function reading(v) { v = String(v).trim().replace(/^[a-z]{1,3}\s*(?=[\d.,])/i, '').replace(/\s*(mm|°|deg)$/i, ''); if (/^\d*,\d+$/.test(v)) v = v.replace(',', '.'); return v === '' ? NaN : Number(v); }
+  // "101,6" with a decimal comma. Anything else is NaN, so it's questioned rather than half read. An aperture given in
+  // inches ('8"', "8 in") reads as its number, so the sheet can say aperture is in millimetres.
+  function reading(v, inches) { v = String(v).trim().replace(/^[a-z]{1,3}\s*(?=[\d.,])/i, '').replace(inches ? /\s*(mm|"|″|in|inch|inches)$/i : /\s*(mm|°|deg)$/i, ''); if (/^\d*,\d+$/.test(v)) v = v.replace(',', '.'); return v === '' ? NaN : Number(v); }
   // an eyepiece's focal length (mm) or apparent field (°) that can be used
   function epOk(e, k) { var v = e[k]; return k === 'f' ? v > 1 && v <= 100 : v > 10 && v <= 130; }
   var ORD = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth', 'eleventh', 'twelfth'];
+  // A typed coordinate. "−97.74" with a real minus sign and "45,76" with a decimal comma are read as meant; anything
+  // else that isn't a plain number ("97.74 W") is refused rather than half read.
   function coord(v) { v = String(v).trim().replace(/\u2212/g, '-'); if (/^[-+]?\d*,\d+$/.test(v)) v = v.replace(',', '.'); return v === '' ? NaN : Number(v); }
   // The k towns nearest a spot, nearest first, each with its distance in degrees along the ground (a degree of
   // longitude shrinks toward the poles). None until the list has loaded.
