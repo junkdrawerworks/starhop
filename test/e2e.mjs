@@ -632,6 +632,22 @@ check('the Moon’s band on the timeline is one even bar', async () => {
   } finally { await ctx.close(); }
 });
 
+// The finder chart's stamp had nothing behind it, so lines and markers ran through it. From New York at 8:30 pm on Nov 15
+// a line of Andromeda crosses M31's stamp.
+check('the finder chart’s stamp sits on a plate', async () => {
+  const { ctx, page } = await open({ loc: { name: 'New York, NY', lat: 40.71, lon: -74.01, tz: 'America/New_York' }, time: '2026-11-15T20:30:00-05:00' });
+  try {
+    await openCard(page, 'M31');
+    await page.waitForFunction(() => document.getElementById('finder').__stamp);
+    const top = await page.$eval('#finder', c => {
+      const k = c.width / c.getBoundingClientRect().width, s = c.__stamp, d = c.getContext('2d').getImageData(Math.round((s.x + 8) * k), Math.round((s.y + 1) * k), Math.round((s.w - 14) * k), Math.round(3 * k)).data;
+      let m = 0; for (let i = 0; i < d.length; i += 4) m = Math.max(m, d[i] + d[i + 1] + d[i + 2]); return m;
+    });
+    // Under the plate even a white star comes out below 200 (r + g + b); without it the strip reaches 477.
+    assert.ok(top < 200, `the strip above the stamp's words is dimmed (brightest ${top})`);
+  } finally { await ctx.close(); }
+});
+
 const advice = page => page.$$eval('#sheet .card', cs => cs.find(c => c.querySelector('h3').textContent === 'In your telescope').querySelector('p').textContent);
 
 check('a card says an object is wider than the field only when it is', async () => {
