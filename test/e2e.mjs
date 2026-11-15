@@ -3499,6 +3499,31 @@ check('Stepping a night is announced', async () => {
 });
 
 // The chosen direction, filter and sky were shown by colour alone, and a direction was read as a letter.
+// To a screen reader the map was a canvas labelled "tap an object for details", with nothing said about what it shows.
+check('The map describes itself to a screen reader after it moves, and Enter opens what is nearest the middle', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  try {
+    assert.equal(await page.$eval('#sky', c => c.getAttribute('aria-describedby')), 'skyDesc');
+    assert.doesNotMatch(await page.$eval('#sky', c => c.getAttribute('aria-label')), /tap/i, 'the label doesn’t tell keyboard users to tap');
+    const desc = () => page.$eval('#skyDesc', d => d.textContent);
+    await page.waitForFunction(() => document.getElementById('skyDesc').textContent, null, { timeout: 5000 });
+    assert.match(await desc(), /^The whole sky overhead at 9:00 pm\. In view: the Moon, Saturn, /);
+    await page.click('#dirSeg button[data-d="180"]');
+    await page.focus('#sky');
+    await page.waitForFunction(() => /^Facing south/.test(document.getElementById('skyDesc').textContent), null, { timeout: 5000 });
+    const south = await desc();
+    assert.match(south, /^Facing south, 1\d\d° wide, at 9:00 pm\. In view: [^.]*Fomalhaut[^.]*[.…] Nearest the middle, which Enter opens: ([^.]+)\. What to look at, below the map, lists everything worth a look tonight\.$/);
+    for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(was => document.getElementById('skyDesc').textContent !== was, south, { timeout: 5000 });
+    assert.match(await desc(), /^Facing southwest/, 'it says the new way after the arrow keys move it');
+    const mid = (await desc()).match(/Enter opens: ([^.]+)\./)[1];
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !document.getElementById('sheet').hidden, null, { timeout: 5000 });
+    assert.equal((await text(page, '#sheet .hd h2')).split(' ')[0], mid.split(' ')[0], 'Enter opens ' + mid);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('The direction buttons say which is chosen', async () => {
   const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
   const pressed = name => page.getByRole('button', { name, exact: true, pressed: true }).count();

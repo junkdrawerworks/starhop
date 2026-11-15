@@ -15,7 +15,7 @@
 ## What it does
 
 - **Sky map.** Tonight's sky for your location and time: stars down to about magnitude 6 (and Mira, the variable star in Cetus, as it looks near its brightest), constellation lines and names, the Milky Way, the planets and the Moon (with its phase), plus clusters, nebulae and galaxies. While the Sun is up, or just setting or rising, it shows too, as a disc with nothing to tap: no card offers to point anything at it.
-  - Drag to look around and pinch or scroll to zoom.
+  - Drag to look around and pinch or scroll to zoom; with a keyboard, the arrow keys look around, + and − zoom, and Enter opens what's nearest the middle. A screen reader hears which way the map faces, the time and the names in view.
   - **Up** shows the whole dome overhead, laid out like a planisphere you hold above your head; **N / E / S / W** face a direction.
   - **Show** turns constellation lines, names (apart from the planets and the Moon), deep-sky objects, the Milky Way and an altitude grid on or off.
   - It shows only what the sky allows: twilight, the Moon and how dark your sky is all change which stars appear. Clusters, nebulae and galaxies follow the sky too: they fade as twilight or moonlight makes them harder in your telescope, and come out once the Sun is 6° down.

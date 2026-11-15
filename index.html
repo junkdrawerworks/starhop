@@ -402,7 +402,8 @@ html.red .chart canvas{background:#050000}
   <div class="main">
     <section class="skywrap" aria-label="Sky view">
       <div class="skybox" id="skybox">
-        <canvas id="sky" tabindex="0" aria-label="Map of the sky. Drag to look around, pinch or scroll to zoom, tap an object for details."></canvas>
+        <canvas id="sky" tabindex="0" aria-label="Map of the sky. Arrow keys look around, plus and minus zoom, and Enter opens what is nearest the middle." aria-describedby="skyDesc"></canvas>
+        <p class="sr" id="skyDesc"></p>
         <div class="overlay ov-tl"><div class="when" id="when"></div><button class="pill" id="nowBtn" type="button">Now</button><div class="banner" id="banner" hidden></div></div>
         <div class="overlay ov-tr"><button class="pill" id="layBtn" type="button" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Show</button></div>
         <div class="layers" id="layers" hidden></div>
@@ -1092,7 +1093,7 @@ html.red .chart canvas{background:#050000}
           x0 += sh; b.x += sh; if (!clear(b)) continue;
         }
         g.fillStyle = L.color; g.fillText(L.t, x0, by);
-        keep.push(b); placed.push({ t: L.t, x: x0 - 1, y: b.y, w: tw + 2, h: b.h, ax: L.x, ay: L.y, obj: L.obj });
+        keep.push(b); placed.push({ t: L.t, say: L.say || L.t, x: x0 - 1, y: b.y, w: tw + 2, h: b.h, ax: L.x, ay: L.y, obj: L.obj });
         break;
       }
     });
@@ -1205,7 +1206,7 @@ html.red .chart canvas{background:#050000}
       // constellation names in the old atlas style
       if (!o.noCons) {
         var cfont = 'italic 400 ' + (vw.fov > 120 ? 13 : 15) + 'px "IM Fell English", Georgia, serif', ccol = tcol('#DDB05A', RED ? 0.6 : 0.5);
-        CONS.forEach(function (c) { if (vw.fov > 140 && c.rk > 1) return; if (vw.fov > 90 && c.rk > 2) return; var hv = rot(sc.m, c.lvec); if (hv[2] < 0.05) return; var p = proj(P, hv); if (!p || p[0] < 30 || p[0] > w - 30 || p[1] < 20 || p[1] > h - 20) return; labs.push({ t: c.n.toUpperCase().split('').join(' '), x: p[0], y: p[1], center: true, font: cfont, color: ccol, pri: 7 }); });
+        CONS.forEach(function (c) { if (vw.fov > 140 && c.rk > 1) return; if (vw.fov > 90 && c.rk > 2) return; var hv = rot(sc.m, c.lvec); if (hv[2] < 0.05) return; var p = proj(P, hv); if (!p || p[0] < 30 || p[0] > w - 30 || p[1] < 20 || p[1] > h - 20) return; labs.push({ t: c.n.toUpperCase().split('').join(' '), say: c.n, x: p[0], y: p[1], center: true, font: cfont, color: ccol, pri: 7 }); });
       }
     }
     // planets
@@ -1418,7 +1419,34 @@ html.red .chart canvas{background:#050000}
     var res = render(cx, W, H, V, T.t, { sel: SEL, sun: true, reserve: KEEP.rects.slice() });
     HITS = res.hits; LAST = res;
     PT.guide = PT.on ? pointGuide(res) : null;
+    describeSoon();
     if (T.t.getTime() !== TLK.t || NIGHT !== TLK.n || RED !== TLK.red || LAYOUT !== TLK.g) drawTimeline(); // the map moved, not the time
+  }
+  // The map in words for a screen reader, its description: which way it faces, how wide, the time, the names it shows
+  // (most important first, as the labels are placed) and what Enter opens. It's written once the map has held still for
+  // a moment, not on every frame of a drag.
+  var DESC = { k: '', t: 0 };
+  // the named thing nearest the middle (an unnamed star only when nothing named is in view)
+  function nearMiddle() {
+    var best = null, bd = 1e9;
+    HITS.forEach(function (h) { var d = Math.hypot(h.x - W / 2, h.y - H / 2) + (h.obj.k === 'star' && !h.obj.lab ? 1e4 : 0); if (h.x >= 0 && h.y >= 0 && h.x <= W && h.y <= H && d < bd) { bd = d; best = h.obj; } });
+    return best && objById(best.k, best.id != null ? best.id : best.i);
+  }
+  function describeSoon() {
+    var k = [Math.round(V.az), Math.round(V.alt), Math.round(V.fov), tTime(T.t), tDay(T.t), W, H, S.layers.names, S.layers.dso].join('|');
+    if (k === DESC.k) return;
+    DESC.k = k; clearTimeout(DESC.t); DESC.t = setTimeout(describe, 600);
+  }
+  function describe() {
+    if (!LAST) return;
+    var where = V.alt > 85 && V.fov > 150 ? 'The whole sky overhead' : (V.alt > 70 ? 'Looking up, toward the ' : 'Facing ') + dirName(V.az);
+    var names = [], seen = {};
+    LAST.labels.forEach(function (l) { var n = l.say === 'Moon' ? 'the Moon' : l.say === 'Sun' ? 'the Sun' : l.say; if (n && !seen[n]) { seen[n] = 1; names.push(n); } });
+    var mid = nearMiddle();
+    $('skyDesc').textContent = where + (/whole/.test(where) ? '' : ', ' + Math.round(V.fov) + '° wide,') + ' at ' + tTime(T.t) + '. ' +
+      (names.length ? 'In view: ' + names.slice(0, 8).join(', ') + (names.length > 8 ? '…' : '.') : 'Nothing named is in view.') +
+      (mid ? ' Nearest the middle, which Enter opens: ' + (mid.k === 'dso' || mid.k === 'double' ? dsoName(mid) : mid.name) + '.' : '') +
+      ' What to look at, below the map, lists everything worth a look tonight.';
   }
   var KEEP = { k: '' }, LAYOUT = 0; // the buttons over the map, measured; LAYOUT counts resizes and font loads, which move them
   function html(el, h) { if (el._h !== h) { el._h = h; el.innerHTML = h; } }
@@ -1473,6 +1501,7 @@ html.red .chart canvas{background:#050000}
     cv.addEventListener('wheel', function (e) { e.preventDefault(); V.fov = clamp(V.fov * Math.pow(1.0015, e.deltaY), 2, 200); redraw(); syncDir(); }, { passive: false });
     cv.addEventListener('keydown', function (e) {
       var k = e.key, st = V.fov / 12;
+      if (k === 'Enter') { var o = nearMiddle(); if (o) { e.preventDefault(); select(o, true); } return; }
       if (k === 'ArrowLeft') V.az = norm360(V.az - st); else if (k === 'ArrowRight') V.az = norm360(V.az + st); else if (k === 'ArrowUp') V.alt = clamp(V.alt + st, -5, 90); else if (k === 'ArrowDown') V.alt = clamp(V.alt - st, -5, 90); else if (k === '+' || k === '=') V.fov = clamp(V.fov / 1.3, 2, 200); else if (k === '-') V.fov = clamp(V.fov * 1.3, 2, 200); else return;
       e.preventDefault(); redraw(); syncDir();
     });
