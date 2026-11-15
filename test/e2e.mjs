@@ -80,6 +80,8 @@ async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, re
 }
 const ready = page => page.waitForFunction(() => document.querySelector('#keys').children.length > 0 || /couldn|wrong/.test(document.querySelector('#tonightSec').textContent), null, { timeout: 90000 });
 const text = (page, sel) => page.$eval(sel, el => el.innerText.replace(/\s+/g, ' ').trim());
+// The text as it shows, without the words only screen readers get.
+const shown = (page, sel) => page.$eval(sel, el => { const sr = [...el.querySelectorAll('.sr')]; sr.forEach(s => { s.hidden = true; }); const t = el.innerText; sr.forEach(s => { s.hidden = false; }); return t.replace(/\s+/g, ' ').trim(); });
 const sheetOpen = page => page.$eval('#sheet', el => !el.hidden);
 const fontsLoaded = page => page.evaluate(async () => { await document.fonts.ready; return [...new Set([...document.fonts].filter(f => f.status === 'loaded').map(f => f.family.replace(/"/g, '')))].sort(); });
 const FONTS = ['Atkinson Hyperlegible', 'DM Mono', 'IM Fell English'];
@@ -1926,6 +1928,28 @@ check('The telescope sheet’s fields say which eyepiece they belong to', async 
   } finally { await ctx.close(); }
 });
 
+// How a card and the page sound read aloud: no primes, one main heading, charts described by their captions.
+check('A card says arcminutes and arcseconds, and the page has one main heading', async () => {
+  const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  try {
+    assert.equal(await page.getByRole('heading', { level: 1 }).count(), 1, 'one main heading');
+    assert.equal(await page.getByRole('heading', { level: 1, name: 'Starhop' }).count(), 1, 'named Starhop');
+    assert.doesNotMatch(await page.locator('.tlhd').ariaSnapshot(), /\bimg\b/, 'the night arrows’ drawings are hidden: ' + await page.locator('.tlhd').ariaSnapshot());
+    await openCard(page, 'M57');
+    const kv = await page.locator('#sheet .kv').ariaSnapshot();
+    assert.match(kv, /1\.4 arcminutes × 1 arcminute/, kv);
+    assert.doesNotMatch(kv, /′/);
+    assert.match(await shown(page, '#sheet .kv'), /SIZE 1\.4′ × 1′/i, 'it still shows the primes');
+    for (const [id, re] of [['finder', /finderscope field/], ['eyepiece', /× with the \d+ mm/]]) {
+      const desc = await page.$eval('#' + id, c => document.getElementById(c.getAttribute('aria-describedby'))?.textContent || '');
+      assert.match(desc, re, 'the ' + id + ' chart is described by its caption');
+    }
+    await page.keyboard.press('Escape');
+    await openCard(page, 'albireo');
+    assert.match(await page.locator('#sheet .kv').ariaSnapshot(), /Separation\W+[\d.]+ arcseconds/);
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026, by the USNO convention (PyEphem): Saturn rises 6:37 pm and sets 6:48 am, Jupiter rises 2:58 am, Mars 1:58 am.
 // Sunset is 7:01 pm and sunrise 7:32 am, and the card gives the times between them, so Saturn is up at dusk.
 check('planet rise and set times match the standard ones', async () => {
@@ -1944,7 +1968,7 @@ check('M73, a few faint stars, takes its size from SEDS and gets no cluster sket
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
     await openCard(page, 'M73');
-    const size = await page.$$eval('#sheet .kv div', ds => ds.find(d => d.querySelector('span').textContent === 'Size').querySelector('b').textContent);
+    const size = (await shown(page, '#sheet .kv')).match(/SIZE (\S+)/i)[1];
     assert.equal(size, '2.8′', 'M73 size');
     assert.equal(await advice(page), 'It spans 2.8′. Find it with the 25 mm (2.0° field), then try the 10 mm (65×) for a closer look.');
     await page.waitForFunction(() => document.getElementById('epCap').textContent);
@@ -1964,7 +1988,7 @@ check('M13 ranks above M40 on an Austin November night', async () => {
     assert.ok(at('M40') >= 14, 'M40 is among the first 14 targets, the ones shown before Show all');
     await openCard(page, 'M40');
     assert.equal(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), 'Winnecke 4 · M40');
-    assert.match(await text(page, '#sheet .kv'), /9\.7 \+ 10\.2 SEPARATION 53\.2″/i);
+    assert.match(await shown(page, '#sheet .kv'), /9\.7 \+ 10\.2 SEPARATION 53\.2″/i);
     assert.match(await advice(page), /^The two stars are 53\.2″ apart/);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
@@ -1996,7 +2020,7 @@ check('The Omega and Lagoon nebulae rate Easy in a 130 mm from the suburbs', asy
     assert.equal(rate('M8'), 'Easy', 'the Lagoon Nebula');
     assert.notEqual(rate('M20'), 'Very hard', 'the Trifid Nebula');
     await openCard(page, 'M17');
-    assert.match(await text(page, '#sheet .kv'), /mag 7\.0 SIZE 11′ DIFFICULTY Easy/i);
+    assert.match(await shown(page, '#sheet .kv'), /mag 7\.0 SIZE 11′ DIFFICULTY Easy/i);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
