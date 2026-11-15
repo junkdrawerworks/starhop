@@ -4085,6 +4085,36 @@ check('a Moon–planet pairing is offered only when you can see it', async () =>
   } finally { await ctx.close(); }
 });
 
+// Astronomy Engine has Mars and Jupiter 1.2° apart at 02:00 UTC on 16 Nov 2026, 88° from the Sun (from Austin they're
+// up before dawn), and Venus and Mars 0.3° apart at 00:40 UTC on 25 Nov 2027, 27° from the Sun (in Austin's evening
+// twilight on the 24th). In August 2027 Mercury and Venus (11th), Mercury and Jupiter (19th) and Venus and Jupiter (26th)
+// pass within 0.7° of each other, but no more than 9° from the Sun, lost in its glare.
+check('Coming up lists bright planets passing each other, when you can see them from here', async () => {
+  const cases = [
+    ['2026-11-15T21:00:00-06:00', 'Mars near Jupiter', /^1\.2° apart, \d+° up in the southeast before dawn/, 16, 'Nov'],
+    ['2027-11-20T21:00:00-06:00', 'Venus near Mars', /^0\.3° apart, 13° up in the southwest after dusk/, 24, 'Nov'],
+  ];
+  for (const [time, title, re, d, mon] of cases) {
+    const { ctx, page, problems } = await open({ time });
+    try {
+      const e = (await events(page)).find(x => x.title === title);
+      assert.ok(e, title + ' is listed');
+      assert.match(e.text, re);
+      assert.equal(`${e.d} ${e.mon}`, `${d} ${mon}`);
+      const m = afterNoon(e.at);
+      assert.ok(m >= 5 * 60 + 55 && m <= 18 * 60 + 45, `${title} at ${e.at} is in the dark`);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+  const { ctx, page, problems } = await open({ time: '2027-08-05T21:00:00-05:00' });
+  try {
+    const ev = await events(page);
+    assert.ok(ev.some(e => e.mon === 'Sep' || e.mon === 'Oct'), 'the list runs past the end of August');
+    assert.deepEqual(ev.filter(e => /^(Mercury|Venus|Mars|Jupiter|Saturn) near/.test(e.title)), [], 'pairs in the Sun’s glare are left out');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('coming up lists the next moon phases and a meteor shower, in order', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
   try {

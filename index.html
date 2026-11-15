@@ -2184,7 +2184,7 @@ html.red .chart canvas{background:#050000}
     ['Southern Delta Aquariids', 128, 25, 340, -16], ['Perseids', 140.0, 100, 48, 58], ['Draconids', 195.4, 5, 262, 54],
     ['Orionids', 208, 20, 95, 16], ['Leonids', 235.27, 15, 152, 22], ['Geminids', 262.2, 150, 112, 33], ['Ursids', 270.7, 10, 217, 76]
   ];
-  var BRIGHT = ['Venus', 'Mars', 'Jupiter', 'Saturn'];
+  var BRIGHT = ['Venus', 'Mars', 'Jupiter', 'Saturn'], PAIRS = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'];
   var SUN = { k: 'body', b: A.Body.Sun }, MOON = { k: 'body', b: A.Body.Moon };
   function ordinal(d) { return d + (d % 100 > 10 && d % 100 < 14 ? 'th' : ['th', 'st', 'nd', 'rd'][d % 10] || 'th'); }
   // "2 am" or "midnight": the nearest whole hour
@@ -2285,6 +2285,34 @@ html.red .chart canvas{background:#050000}
       text: look === close ? deg.replace(/^./, 'A') : 'Look ' + (parts(look.t, tz()).h >= 12 ? 'after dusk' : 'before dawn') + ' on the ' + ordinal(parts(look.t, tz()).d) + ', ' + deg };
   }
 
+  // Two bright planets passing each other, as seen from here: within a day and a half of their closest, the dark hours
+  // nearest it when the Sun is at least 6° down and both are 5° up, and in those the time they're highest. Null when
+  // there's no such time, which leaves out pairs lost in the Sun's glare, or when they're over 2.5° apart by then.
+  function planetPairEvent(a, b, t0) {
+    function eq(p, t) { return A.Equator(A.Body[p], t, OBS, true, true); }
+    function apart(t) { var x = eq(a, t), y = eq(b, t); return sep(vec(x.ra * 15, x.dec), vec(y.ra * 15, y.dec)); }
+    var close = t0, x, t, d = apart(t0);
+    for (x = -24; x <= 24; x++) { t = new Date(t0.getTime() + x * 3600e3); var dx = apart(t); if (dx < d) { d = dx; close = t; } }
+    var all = [], runs = [], run = null;
+    for (x = -36 * 4; x <= 36 * 4; x++) {
+      t = new Date(close.getTime() + x * 15 * 60e3);
+      var st = { t: t, sun: altOf(SUN, t), i: all.length };
+      st.lo = st.sun < -6 ? Math.min(altOf({ k: 'body', b: A.Body[a] }, t), altOf({ k: 'body', b: A.Body[b] }, t)) : -90;
+      all.push(st);
+      if (st.lo > 5) { if (!run) runs.push(run = []); run.push(st); } else run = null;
+    }
+    if (!runs.length) return null;
+    function gap(r) { return Math.min.apply(null, r.map(function (s) { return Math.abs(s.t - close); })); }
+    var best = runs.reduce(function (p, q) { return gap(q) < gap(p) ? q : p; });
+    var look = best.reduce(function (p, q) { return q.lo > p.lo ? q : p; }), first = all[best[0].i - 1], next = all[best[best.length - 1].i + 1];
+    var dl = apart(look.t); if (dl > 2.5) return null;
+    var y = eq(a, look.t), az = A.Horizon(look.t, OBS, y.ra, y.dec, 'normal').azimuth, h = Math.round(look.lo);
+    // highest as the evening's dark begins, or as the morning's ends
+    var when = look === best[0] && first && first.sun >= -6 && parts(look.t, tz()).h >= 12 ? 'after dusk' : look === best[best.length - 1] && next && next.sun >= -6 && parts(look.t, tz()).h < 12 ? 'before dawn' : 'around ' + hourWord(look.t);
+    return { t: look.t, at: true, title: a + ' near ' + b, k: 'pair',
+      text: dl.toFixed(1) + '° apart, ' + (h < 10 ? 'low in the ' + dirName(az) : h + '° up in the ' + dirName(az)) + ' ' + when + ' — a pretty pairing to the naked eye and in binoculars.' };
+  }
+
   // A solar eclipse as seen from here: how much of the Sun is covered, or for how long it's total or a ring, and where
   // the Sun is then. A partial one is never rounded up to 100%: from 99% on it's cut to two decimals, since the gap
   // between 99.97% and totality is a short drive. If the Sun sets or rises during it, it says so.
@@ -2351,6 +2379,19 @@ html.red .chart canvas{background:#050000}
       }
       BRIGHT.forEach(function (p, i) {
         for (var j = 1; j < ts.length - 1; j++) if (d[i][j] < d[i][j - 1] && d[i][j] <= d[i][j + 1] && d[i][j] < 7) (function (t) { steps.push(function () { add(pairEvent(p, t)); }); })(ts[j]);
+      });
+    });
+    steps.push(function () {
+      // Bright planets passing each other: their directions from Earth's centre once a day for 200 days, and each time
+      // two come within 2°, pairs planetPairEvent finds as seen from here.
+      var pv = PAIRS.map(function (p) { var out = []; for (var k = 0; k <= 200; k++) { var v = A.GeoVector(A.Body[p], new Date(now.getTime() + k * 86400e3), true); out.push(unit([v.x, v.y, v.z])); } return out; });
+      PAIRS.forEach(function (a, i) {
+        PAIRS.forEach(function (b, j) {
+          if (j <= i) return;
+          var d = pv[i].map(function (v, k) { return sep(v, pv[j][k]); });
+          // today's own count too, when they're closest before tomorrow
+          for (var k = 0; k < d.length - 1; k++) if ((!k || d[k] < d[k - 1]) && d[k] <= d[k + 1] && d[k] < 2) (function (t) { steps.push(function () { add(planetPairEvent(a, b, t)); }); })(new Date(now.getTime() + k * 86400e3));
+        });
       });
     });
     steps.push(function () {
