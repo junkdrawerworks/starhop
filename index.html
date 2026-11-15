@@ -1081,7 +1081,7 @@ html.red .chart canvas{background:#050000}
   // Draw the sky for one view. Used for the big map and for finder charts. o.reserve lists boxes labels keep off.
   function render(g, w, h, vw, t, o) {
     o = o || {};
-    var sc = scene(t), P = view(vw, w, h), hits = [], labs = [], keep = (o.reserve || []).slice();
+    var sc = scene(t), P = view(vw, w, h), hits = [], labs = [], keep = (o.reserve || []).slice(), sunAt = null;
     // Labels are collected as things are drawn and placed at the end. The target's and the selection's go outside
     // their rings ('t' and 's').
     var tStar = o.target ? (o.target.k === 'star' ? o.target.i : o.target.star) : null, sStar = o.sel ? (o.sel.k === 'star' ? o.sel.i : o.sel.star) : null;
@@ -1213,6 +1213,20 @@ html.red .chart canvas{background:#050000}
         hits.push({ x: mp[0], y: mp[1], r: mr + 8, dr: mr, pr: 5, obj: mObj });
       }
     }
+    // The Sun on the big map (o.sun) while it's up or just below the horizon: a small warm disc, labelled but with nothing
+    // to tap, so no card ever offers to point a telescope at it. Finder charts and eyepiece sketches never draw it.
+    if (o.sun && sc.sun.alt > -2) {
+      var sun = proj(P, sc.sun.h);
+      if (sun) {
+        var sr = Math.max(6, 0.533 * D2R * P.s / 2), sg = g.createRadialGradient(sun[0], sun[1], sr * 0.6, sun[0], sun[1], sr * 2.6);
+        sg.addColorStop(0, col('#FFD27A', 0.55)); sg.addColorStop(1, col('#FFD27A', 0));
+        g.fillStyle = sg; g.beginPath(); g.arc(sun[0], sun[1], sr * 2.6, 0, 2 * Math.PI); g.fill();
+        g.fillStyle = col('#FFF1C9', 1); g.beginPath(); g.arc(sun[0], sun[1], sr, 0, 2 * Math.PI); g.fill();
+        g.strokeStyle = col('#FFB347', 0.9); g.lineWidth = 1.2; g.stroke();
+        if (!o.noLabels && sc.sun.alt >= 0) label(null, 'Sun', sun[0], sun[1], sr, 5, 4, '700 12.5px "Atkinson Hyperlegible", sans-serif', tcol('#FFD27A', 0.95), 1);
+        sunAt = { x: sun[0], y: sun[1], r: sr };
+      }
+    }
     // the ground: the horizon is a circle in this projection. It's drawn through three horizon points a quarter turn
     // apart, which are never straight behind the view's centre, and projected without dropping any past the edge, since
     // they're often far outside the view when it faces a direction or is zoomed in.
@@ -1267,7 +1281,7 @@ html.red .chart canvas{background:#050000}
     }
     var placed = placeLabels(g, w, h, labs, keep);
     placed.forEach(function (l) { if (l.obj) l.obj.lab = true; }); // a labelled star is the likelier one to be tapped
-    return { hits: hits, P: P, sc: sc, labels: compass.concat(placed), ring: ring, hollow: faint.length / 5 };
+    return { hits: hits, P: P, sc: sc, labels: compass.concat(placed), ring: ring, hollow: faint.length / 5, sun: sunAt };
   }
   function circle3(a, b, c) {
     var d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1])); if (Math.abs(d) < 1e-6) return null;
@@ -1381,7 +1395,7 @@ html.red .chart canvas{background:#050000}
       KEEP = { k: k, rects: [] };
       ['when', 'nowBtn', 'banner', 'layBtn', 'dirSeg', 'ptFix', 'ptBtn', 'zOut', 'zIn'].forEach(function (id) { var e = $(id).getBoundingClientRect(); if (e.width) KEEP.rects.push({ x: e.left - r.left - 2, y: e.top - r.top - 2, w: e.width + 4, h: e.height + 4 }); });
     }
-    var res = render(cx, W, H, V, T.t, { sel: SEL, reserve: KEEP.rects.slice() });
+    var res = render(cx, W, H, V, T.t, { sel: SEL, sun: true, reserve: KEEP.rects.slice() });
     HITS = res.hits; LAST = res;
     if (T.t.getTime() !== TLK.t || NIGHT !== TLK.n || RED !== TLK.red || LAYOUT !== TLK.g) drawTimeline(); // the map moved, not the time
   }
@@ -1391,6 +1405,7 @@ html.red .chart canvas{background:#050000}
   var EAT_TAP = false; // a tap that closes the layers menu shouldn't also pick a star
   cv.__hits = function () { return HITS; }; // lets automated tests find tappable objects
   cv.__labels = function () { return LAST ? LAST.labels : []; }; // and see where the labels went
+  cv.__sun = function () { return LAST ? LAST.sun : null; }; // where the Sun is drawn
   cv.__inks = function () { return Object.keys(INKS); }; // and the colours of the words on the map, the charts and the timeline
   var raf = 0; function redraw() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; draw(); }); }
 

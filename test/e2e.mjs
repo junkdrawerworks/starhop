@@ -1429,6 +1429,36 @@ check('At dusk and by day the message is one line in the corner, and the middle 
   }
 });
 
+// By day the map showed the Moon and Venus but no Sun, and the glow on the horizon at dusk had no source.
+check('The Sun shows on the map by day as a disc with nothing to tap, and never on a chart', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T14:00:00-06:00' });
+  try {
+    await page.click('#nowBtn');
+    await page.waitForTimeout(150);
+    const sun = await page.$eval('#sky', c => c.__sun());
+    assert.ok(sun, 'the Sun is drawn');
+    const lab = await page.$eval('#sky', c => c.__labels().find(l => l.t === 'Sun'));
+    assert.ok(lab, 'and labelled');
+    assert.ok(!lab.obj, 'its label opens nothing');
+    assert.equal(await page.$eval('#sky', c => c.__hits().filter(h => /sun/i.test(h.obj.id || '')).length), 0, 'nothing to tap');
+    const box = await page.locator('#sky').boundingBox();
+    await page.mouse.click(box.x + sun.x, box.y + sun.y);
+    await page.mouse.click(box.x + lab.x + lab.w / 2, box.y + lab.y + lab.h / 2);
+    await page.waitForTimeout(200);
+    if (await sheetOpen(page)) assert.doesNotMatch(await text(page, '#sheet .hd h2'), /Sun/, 'a tap on it opens no card for the Sun');
+    if (await sheetOpen(page)) await page.click('#sheet [data-close]');
+    await openCard(page, 'Venus');
+    await page.waitForTimeout(200);
+    assert.ok(!(await page.$eval('#finder', c => c.__labels.map(l => l.t))).includes('Sun'), 'Venus’s finder chart has no Sun');
+    await page.click('#sheet [data-close]');
+    // at night it's gone
+    const tl = await page.locator('#tlc').boundingBox(); await page.locator('#tlc').click({ position: { x: tl.width * 0.5, y: tl.height / 2 } }); await page.waitForTimeout(150);
+    assert.match(await text(page, '#when'), /^1[12]:\d\d [ap]m/);
+    assert.equal(await page.$eval('#sky', c => c.__sun()), null, 'no Sun at midnight');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('pointing stays on the live sky when the night rolls over', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T07:30:00-06:00', init: fakeWakeLock });
   try {
