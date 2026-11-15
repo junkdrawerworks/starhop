@@ -1991,6 +1991,7 @@ check('The finder chart draws the finder chosen in the telescope sheet', async (
     const t = await ring();
     assert.ok(Math.abs(t.deg - 4) < 0.05, 'the Telrad’s outer ring is 4° across: ' + t.deg);
     assert.match(await text(page, '#finderCap'), /The circles are your Telrad’s rings, 4°, 2° and ½° across\./);
+    assert.match(await text(page, '#finderCap'), /too faint to see by eye from your sky; your lowest-power eyepiece shows them\.$/, 'a Telrad doesn’t magnify, so it doesn’t show them');
     await page.click('#sheet [data-close]');
     await page.click('#scopeBtn');
     await page.click('#fdOpts [data-f="dot"]');
@@ -2006,6 +2007,7 @@ check('The finder chart draws the finder chosen in the telescope sheet', async (
     await openCard(page, 'M13');
     await page.waitForFunction(() => /6×30/.test(document.getElementById('finderCap').textContent) && document.getElementById('finder').__ring);
     assert.ok(Math.abs((await ring()).deg - 7) < 0.05, 'a 6×30 finder’s circle is 7° across');
+    assert.match(await text(page, '#finderCap'), /a finder shows them\.$/);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });

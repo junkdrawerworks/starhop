@@ -422,10 +422,10 @@ html.red .chart canvas{background:#050000}
   ];
   function isBino() { return S.scope.kind === 'bino'; }
   // The finder on the telescope, whose field the finder chart draws. A Telrad's three rings are 4°, 2° and ½° across;
-  // a red-dot finder shows a dot on the open sky, with no field to draw.
+  // a red-dot finder shows a dot on the open sky, with no field to draw. Neither magnifies, as a finderscope (optic) does.
   var FINDERS = [
-    { id: 'fs', name: 'Finderscope', sub: '5° field', rings: [{ deg: 5, dash: true, a: 0.6 }], cap: 'The dashed circle is a typical finderscope field (5°).' },
-    { id: 'f30', name: 'Small 6×30 finder', sub: '7° field', rings: [{ deg: 7, dash: true, a: 0.6 }], cap: 'The dashed circle is a small 6×30 finder’s field (7°).' },
+    { id: 'fs', name: 'Finderscope', sub: '5° field', optic: true, rings: [{ deg: 5, dash: true, a: 0.6 }], cap: 'The dashed circle is a typical finderscope field (5°).' },
+    { id: 'f30', name: 'Small 6×30 finder', sub: '7° field', optic: true, rings: [{ deg: 7, dash: true, a: 0.6 }], cap: 'The dashed circle is a small 6×30 finder’s field (7°).' },
     { id: 'telrad', name: 'Telrad', sub: 'Rings of ½°, 2° and 4°', rings: [{ deg: 4, a: 0.6 }, { deg: 2, a: 0.6 }, { deg: 0.5, a: 0.6 }], cap: 'The circles are your Telrad’s rings, 4°, 2° and ½° across.' },
     { id: 'dot', name: 'Red dot', sub: 'No field circle', rings: [], cap: 'Your red-dot finder has no field to draw: put its dot where the target sits among these stars.' }
   ];
@@ -2222,7 +2222,7 @@ html.red .chart canvas{background:#050000}
     // IM Fell has no Greek, so a Bayer letter (ξ Sco) is set upright in the body face, as in the line under it
     var h = '<div class="hd"><h2><span>' + esc(name).replace(/^[\u0370-\u03ff]/, '<span class="gk">$&</span>') + '</span><small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
       '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + nowTxt + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span>' + val(f[1], spokenArcs(esc(f[1]))) + '</div>'; }).join('') + '</div>' : '') + '</div>' +
-      '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart" aria-describedby="finderCap"></canvas><div class="cap" id="finderCap">' + esc(eyeTxt) + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + finder().cap + (sky().nelm < 5.6 ? ' Hollow dots are stars too faint to see by eye from your sky; ' + (isBino() ? 'binoculars show' : 'a finder shows') + ' them.' : '') + '</div></div>' +
+      '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart" aria-describedby="finderCap"></canvas><div class="cap" id="finderCap">' + esc(eyeTxt) + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + finder().cap + (sky().nelm < 5.6 ? ' Hollow dots are stars too faint to see by eye from your sky; ' + (isBino() ? 'binoculars show' : finder().optic ? 'a finder shows' : 'your lowest-power eyepiece shows') + ' them.' : '') + '</div></div>' +
       '<div class="chart"><canvas id="eyepiece" aria-label="Simulated eyepiece view" aria-describedby="epCap"></canvas><div class="cap" id="epCap"></div></div></div>' +
       (isBino() ? '<div class="card"><h3>In your binoculars</h3><p>' + esc(adv.txt) + '</p><p class="mono">' + Math.round(rows[0].M) + '× · ' + spokenArcs(field(rows[0].tf)) + ' field</p></div>' :
       '<div class="card"><h3>In your telescope</h3><p>' + esc(adv.txt) + '</p><div class="epsw"><table class="eps"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th><th></th></tr></thead><tbody>' +
