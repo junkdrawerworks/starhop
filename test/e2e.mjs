@@ -1613,12 +1613,18 @@ check('A star seen at 1 am is dated by the night, with its year', async () => {
     assert.equal(await text(page, '#seenB'), '✓ Seen Sun, Nov 15');
     await page.click('#sheet [data-close]');
     assert.equal(await tag(page, 'M45'), '✓ Seen Sun, Nov 15', 'the list says so too');
-    // a mark made while planning another night goes under that night
-    await page.click('#nextN');
+    // a mark made while looking back at an earlier night goes under that night
+    await page.click('#prevN');
     await openCard(page, 'M45');
     await page.click('#seenB'); // takes the mark off
     await page.click('#seenB');
-    assert.deepEqual(await seen(page), { M45: '2026-11-16' });
+    assert.deepEqual(await seen(page), { M45: '2026-11-14' });
+    await page.click('#sheet [data-close]');
+    // and one made while planning a night still to come goes under tonight, since it can't have been seen yet
+    await page.click('#nextN'); await page.click('#nextN');
+    await openCard(page, 'M45');
+    await page.click('#seenB'); await page.click('#seenB');
+    assert.deepEqual(await seen(page), { M45: '2026-11-15' });
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
   ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, seen: { M31: '2026-11-15', M45: 'Aug 2', M57: 7 } }), time: '2027-11-14T20:30:00-06:00' }));
