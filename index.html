@@ -543,8 +543,11 @@ html.red .chart canvas{background:#050000}
     exact(N.moonless, [N.astD].concat(moonMatters ? sets : []), [N.astM].concat(moonMatters ? rises : []), true);
     return N;
   }
-  function phaseName(ang) {
-    if (ang < 6 || ang > 354) return 'New Moon';
+  // Within about a day of full the Moon looks full (98% lit or more) and is called so, as it's listed in Coming up;
+  // likewise new.
+  function phaseName(ang, illum) {
+    if (illum >= 0.98) return 'Full Moon';
+    if (ang < 6 || ang > 354 || illum <= 0.02) return 'New Moon';
     if (ang < 84) return 'Waxing crescent'; if (ang < 96) return 'First quarter'; if (ang < 174) return 'Waxing gibbous';
     if (ang < 186) return 'Full Moon'; if (ang < 264) return 'Waning gibbous'; if (ang < 276) return 'Last quarter'; return 'Waning crescent';
   }
@@ -707,7 +710,7 @@ html.red .chart canvas{background:#050000}
       return { alt: ba, t: tw[bi], az: bz, sun: sunAt(tw[bi]) };
     }
     var mb = bestBody(A.Body.Moon);
-    if (mb.alt > 5) list.push({ k: 'moon', id: 'Moon', name: 'The Moon', type: phaseName(N.moonPhase) + ', ' + Math.round(N.moonIllum * 100) + '% lit', best: mb, rate: { r: 'eye', label: 'Naked eye' }, score: 50 });
+    if (mb.alt > 5) list.push({ k: 'moon', id: 'Moon', name: 'The Moon', type: phaseName(N.moonPhase, N.moonIllum) + ', ' + Math.round(N.moonIllum * 100) + '% lit', best: mb, rate: { r: 'eye', label: 'Naked eye' }, score: 50 });
     PLANETS.forEach(function (p) {
       var bb = bestBody(A.Body[p.id]); if (bb.alt < 6) return;
       var il = A.Illumination(A.Body[p.id], bb.t);
@@ -1334,7 +1337,7 @@ html.red .chart canvas{background:#050000}
     keys.sort(function (a, b) { return a[1] - b[1]; });
     $('keys').innerHTML = keys.map(function (k) { return '<span>' + k[0] + ' <b>' + esc(tTime(k[1])) + '</b></span>'; }).join('');
     // summary
-    var ph = phaseName(N.moonPhase), il = Math.round(N.moonIllum * 100), verdict;
+    var ph = phaseName(N.moonPhase, N.moonIllum), il = Math.round(N.moonIllum * 100), verdict;
     var ml = N.moonless.map(function (s) { return s.b - s.a; }).reduce(function (a, b) { return a + b; }, 0) / 3600e3;
     var longest = N.moonless.slice().sort(function (a, b) { return (b.b - b.a) - (a.b - a.a); })[0];
     if (N.midnightSun) verdict = 'The Sun doesn’t set tonight, so the sky stays light. Stick to the Moon and the brightest planets.';
@@ -1636,7 +1639,7 @@ html.red .chart canvas{background:#050000}
       rows.forEach(function (r, i) { if (r.ok && r.M <= 250) pick = i; });
       if (pick < 0) pick = rows.length - 1;
       var r = rows[pick], ratio = p.diam * r.M / 1865;
-      if (o.k === 'moon') txt = (rows[0].tf >= sc.moon.diam ? 'The whole Moon fits in the ' + rows[0].f + ' mm eyepiece (' + field(rows[0].tf) + ' field).' : 'The Moon (' + (sc.moon.diam * 60).toFixed(1) + '′ across) is wider than your lowest-power field (' + field(rows[0].tf) + '), so even the ' + rows[0].f + ' mm shows part of it at a time.') + ' At ' + Math.round(r.M) + '× with the ' + r.f + ' mm, sweep along the terminator — the line between light and dark — where shadows make craters stand out.';
+      if (o.k === 'moon') txt = (rows[0].tf >= sc.moon.diam ? 'The whole Moon fits in the ' + rows[0].f + ' mm eyepiece (' + field(rows[0].tf) + ' field).' : 'The Moon (' + (sc.moon.diam * 60).toFixed(1) + '′ across) is wider than your lowest-power field (' + field(rows[0].tf) + '), so even the ' + rows[0].f + ' mm shows part of it at a time.') + (sc.moon.illum > 0.95 ? ' Near full there are few shadows, so look for the dark seas and the bright rays from the crater Tycho at ' + Math.round(r.M) + '× with the ' + r.f + ' mm; a Moon filter or a higher power cuts the glare.' : ' At ' + Math.round(r.M) + '× with the ' + r.f + ' mm, sweep along the terminator — the line between light and dark — where shadows make craters stand out.');
       else txt = 'At ' + Math.round(r.M) + '× (the ' + r.f + ' mm), ' + o.id + ' looks ' + (ratio >= 1.15 ? 'about ' + ratio.toFixed(1) + '× as wide as' : ratio >= 0.85 ? 'about as wide as' : 'about ' + (ratio < 0.25 ? (1 / ratio).toFixed(0) : (1 / ratio).toFixed(1)) + '× smaller than') + ' the full Moon does to your eye.' + (o.id === 'Uranus' || o.id === 'Neptune' ? ' At low power it looks like a star; high power shows a tiny coloured disc.' : '');
       return { txt: txt, pick: pick };
     }
@@ -1697,7 +1700,7 @@ html.red .chart canvas{background:#050000}
         Neptune: 'The farthest planet: a faint blue dot. Finding it is the challenge.'
       }[o.id];
     } else if (o.k === 'moon') {
-      sub = phaseName(sc.moon.phase) + ' · ' + Math.round(sc.moon.illum * 100) + '% lit · in ' + con;
+      sub = phaseName(sc.moon.phase, sc.moon.illum) + ' · ' + Math.round(sc.moon.illum * 100) + '% lit · in ' + con;
       var age = sc.moon.phase / 360 * 29.53;
       facts = [['Age', age.toFixed(1) + ' days'], ['Distance', Math.round(sc.moon.dist * AU_KM).toLocaleString() + ' km'], ['Size', (sc.moon.diam * 60).toFixed(1) + '′']];
       about = 'Craters, mountains and lava plains show best along the terminator, where the Sun is low and shadows are long. The full Moon is the flattest and brightest view — a Moon filter helps.';

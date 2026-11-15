@@ -1213,6 +1213,21 @@ check('ξ Sco’s card names it', async () => {
   } finally { await ctx.close(); }
 });
 
+// Astronomy Engine: full at 14:54 UT on 24 Nov 2026; at 9 pm in Austin that evening the Moon is 99.5% lit, but it was
+// called "Waning gibbous", and its card said to look along the terminator, which there isn't.
+check('the Full Moon date says Full Moon', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-24T21:00:00-06:00' });
+  try {
+    assert.match(await text(page, '#tonightSec .moonrow b'), /^Full Moon · \d+% lit$/);
+    await openCard(page, 'Moon');
+    assert.match(await text(page, '#sheet .hd h2 small'), /^Full Moon · /);
+    const tip = await advice(page);
+    assert.match(tip, /Tycho/, 'the card says what to look at near full');
+    assert.doesNotMatch(tip, /terminator/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('the Moon card says the whole Moon fits only when it does', async () => {
   const c11 = { name: 'C11', ap: 280, fl: 2800, eps: [{ f: 25, a: 52 }, { f: 12, a: 52 }], set: true };
   let { ctx, page } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: c11 }), time: '2026-10-18T20:00:00-05:00' });
