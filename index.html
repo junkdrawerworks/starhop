@@ -380,9 +380,17 @@ html.red .chart canvas{background:#050000}
   .top{gap:6px;padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
   .brand{font-size:22px;margin-right:0}.brand svg{width:19px;height:19px}
   #locBtn .t{max-width:38vw}
-  #scopeBtn{padding:0 10px}#scopeBtn .t{display:none}
+  /* the word Telescope stays until one is set, kept whole while the place's name gives way */
+  #scopeBtn{padding:0 10px;flex:none}#scopeBtn.set .t{display:none}
   .ov-b .seg button{padding:0 8px;min-width:30px}
 }
+/* a small phone: the header packs tighter, to leave the place's name and Telescope room */
+@media (max-width:380px){
+  .top{gap:4px}.brand{font-size:21px}.brand svg{width:18px;height:18px}
+  #locBtn{padding:0 9px;gap:5px}#scopeBtn{padding:0 9px;gap:5px}
+}
+/* narrower still there's no room for both words, and the place matters more: the telescope is its icon again */
+@media (max-width:340px){#scopeBtn .t{display:none}}
 /* a phone zoomed to 200% or so: the brand keeps its mark and leaves its room to the place, and a target row puts its
    rating under its lines, which would otherwise have room for a letter at a time */
 @media (max-width:300px){
@@ -3144,7 +3152,7 @@ html.red .chart canvas{background:#050000}
     });
     drawInst(); drawEps(); drawBarlow(); drawViews(); drawFinders(); drawSky(); stats();
   }
-  function renderScopeChip() { var n = S.scope.set ? (S.scope.name || S.scope.ap + ' mm') : 'Telescope'; $('scopeName').textContent = n; $('scopeBtn').setAttribute('aria-label', S.scope.set ? (isBino() ? 'Binoculars: ' : 'Telescope: ') + n : 'Your telescope'); }
+  function renderScopeChip() { var n = S.scope.set ? (S.scope.name || S.scope.ap + ' mm') : 'Telescope'; $('scopeName').textContent = n; $('scopeBtn').classList.toggle('set', !!S.scope.set); $('scopeBtn').setAttribute('aria-label', S.scope.set ? (isBino() ? 'Binoculars: ' : 'Telescope: ') + n : 'Your telescope'); }
   $('scopeBtn').addEventListener('click', scopeSheet);
   // The first visit's line on what Starhop is for, until Got it, Set your telescope or a telescope is set. Whichever
   // button took it away, the focus goes on: to the map, or to the telescope chip the sheet hands it back to.

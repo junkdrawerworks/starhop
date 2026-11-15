@@ -2230,6 +2230,23 @@ check('A first visit says what Starhop is for, until Got it or a telescope is se
   } finally { await c.ctx.close(); }
 });
 
+check('On a phone the telescope button says Telescope until one is set', async () => {
+  for (const size of [[390, 844], [360, 740]]) {
+    const { ctx, page, problems } = await open({ size, time: '2026-11-15T21:00:00-06:00' });
+    try {
+      const word = () => page.$eval('#scopeName', el => el.offsetWidth > 0 && el.scrollWidth <= el.clientWidth ? el.textContent : '');
+      assert.equal(await word(), 'Telescope', 'the word shows whole at ' + size[0] + ' px');
+      assert.equal(await text(page, '#locName'), 'Austin, TX', 'beside the place');
+      await page.click('#scopeBtn');
+      await page.selectOption('#scPre', 's6');
+      await page.click('#scSave');
+      assert.equal(await word(), '', 'a telescope set, the button is its icon again');
+      assert.equal(await page.$eval('#scopeBtn', b => b.getAttribute('aria-label')), 'Telescope: 8″ Dobsonian');
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
 check('a damaged or partial save still opens, keeps what makes sense, and is left as it was', async () => {
   const saves = [
     '{"loc":{"name":"Home"}}', '{"loc":{"name":"Home","lat":30.27,"lon":-97.74,"tz":"Mars/Olympus"}}',
