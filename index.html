@@ -1893,7 +1893,7 @@ html.red .chart canvas{background:#050000}
       rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + r.f + ' mm</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>' +
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
-      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB">' + (S.seen[o.id] ? '<span aria-hidden="true">✓ </span>Seen ' + esc(seenText(S.seen[o.id])) : 'Mark as seen') + '</button></div></div>';
+      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB"' + (S.seen[o.id] ? ' aria-label="Seen ' + esc(seenText(S.seen[o.id])) + '">✓ Seen ' + esc(seenText(S.seen[o.id])) : '>Mark as seen') + '</button></div></div>';
     openSheet(h, null, again).querySelector('.bd').scrollTop = keep;
     SHEET_OBJ = o; SHEET_AT = tTime(T.t);
     $('ctr').addEventListener('click', function () { closeSheet(); SEL = o; center(o); markRows(); if (window.innerWidth < 1000) window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); });
