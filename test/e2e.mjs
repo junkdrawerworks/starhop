@@ -51,14 +51,14 @@ const base = `http://localhost:${server.address().port}/`;
 const AUSTIN = { name: 'Austin, TX', lat: 30.27, lon: -97.74, tz: 'America/Chicago' };
 const browser = await pw.chromium.launch();
 
-// Opens Starhop at phone size (or desktop) with a saved location, or a raw save, and the clock set to `time`.
+// Opens Starhop at phone size (or desktop, or `size`, [width, height]) with a saved location, or a raw save, and the clock set to `time`.
 // Anything the page asks of another site is refused and listed in `outside`.
 // `init` runs in the page before Starhop does. `route` is [url pattern, handler] for the page's requests, and with
 // `wait` false it returns as soon as the page has loaded, without waiting for the sky to be drawn. `geo` is where the
 // device says it is, { latitude, longitude }, with leave to ask.
-async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, reducedMotion = 'no-preference', init, route, wait = true, geo } = {}) {
+async function open({ loc = AUSTIN, save, time, tz, phone = true, size, sw = false, reducedMotion = 'no-preference', init, route, wait = true, geo } = {}) {
   const ctx = await browser.newContext({
-    viewport: phone ? { width: 390, height: 844 } : { width: 1280, height: 800 },
+    viewport: size ? { width: size[0], height: size[1] } : phone ? { width: 390, height: 844 } : { width: 1280, height: 800 },
     deviceScaleFactor: phone ? 2 : 1, isMobile: phone, hasTouch: phone, locale: 'en-US',
     timezoneId: tz || (loc && loc.tz) || 'America/Chicago', serviceWorkers: sw ? 'allow' : 'block', reducedMotion,
     ...(geo ? { geolocation: geo, permissions: ['geolocation'] } : {}),
@@ -874,6 +874,28 @@ check('A remembered compass correction can be reset', async () => {
 });
 
 // Austin, Nov 15 2026: sunrise is 7:02 am, so the night that is ending runs until 7:52 am.
+// Stop sat at the left until a compass correction showed beside it, then jumped to the right, or on a narrow phone
+// stayed left while the correction took its row.
+check('Stop stays under the right thumb when a compass correction shows', async () => {
+  for (const size of [[320, 568], [360, 740], [375, 667], [390, 844], [667, 375], [844, 390]]) {
+    const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', size, init: fakeWakeLock });
+    try {
+      await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+      await point(page);
+      const stop = () => page.$eval('#ptBtn', b => { const r = b.getBoundingClientRect(); return [Math.round(r.right), Math.round(r.bottom)]; });
+      const before = await stop();
+      assert.ok(await page.$eval('.ov-b .zoom', z => z.getBoundingClientRect().right) >= size[0] - 14, `${size}: Stop, − and + are at the right`);
+      const c = await page.$eval('#sky', c => { const r = c.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+      await page.mouse.move(c[0], c[1]); await page.mouse.down(); await page.mouse.move(c[0] + 80, c[1] + 20, { steps: 8 }); await page.mouse.up();
+      await page.waitForFunction(() => !document.getElementById('ptFix').hidden, null, { timeout: 5000 }).catch(() => {});
+      assert.ok(await page.$eval('#ptFix', f => !f.hidden), `${size}: the correction shows`);
+      assert.deepEqual(await stop(), before, `${size}: Stop stays where it was`);
+      assert.ok(await page.evaluate(() => { const a = document.getElementById('ptFix').getBoundingClientRect(), b = document.querySelector('.ov-b .zoom').getBoundingClientRect(); return a.right <= b.left || a.bottom <= b.top; }), `${size}: the correction keeps clear of Stop`);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
 check('pointing stays on the live sky when the night rolls over', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T07:30:00-06:00', init: fakeWakeLock });
   try {
