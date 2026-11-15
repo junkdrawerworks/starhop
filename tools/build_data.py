@@ -148,6 +148,17 @@ DOUBLES = [
     ('acamar', 'Acamar', dict(bayer='θ1', con='Eri'), 8.2, 90, '3.2 + 4.1', 'Two white stars close together, near the end of Eridanus, the river.'),  # PZ 2AB, 2020
     ('betatuc', 'Beta Tucanae', dict(bayer='β1', con='Tuc'), 27.1, 168, '4.3 + 4.5', 'Two matched blue-white stars, an easy split at the lowest power.'),  # LCL 119AC, 2021
     ('peri', 'p Eridani', dict(bayer='p', con='Eri'), 11.3, 185, '5.8 + 5.9', 'Two matched orange stars, near neighbours of the Sun like 61 Cygni.'),  # DUN 5, 2024
+    # Northern pairs, added in November 2026
+    ('gammadel', 'Gamma Delphini', dict(bayer='γ2', con='Del'), 8.5, 266, '4.4 + 5.0', 'A gold star and a paler yellow one, close but easy.'),  # STF2727AB, 2025
+    ('achird', 'Achird', dict(bayer='η', con='Cas'), 13.5, 327, '3.5 + 7.4', 'A yellow star like the Sun with a dim reddish companion.'),  # STF 60AB, 2025
+    ('betamon', 'Beta Monocerotis', dict(bayer='β', con='Mon'), 7.1, 133, '4.6 + 5.0', 'Three matched white stars in a short curve; the second and third are 3″ apart and need more power.'),  # STF 919AB, 2026 (BC 3.0", 2026)
+    ('deltacep', 'Delta Cephei', dict(hip='110991'), 41.0, 192, '4.2 + 6.1', 'A yellow star with a blue companion, wide and easy. The yellow one is the variable star that brightens and fades every 5.4 days.'),  # STFA 58AC, 2025
+    ('iotacnc', 'Iota Cancri', dict(hip='43103'), 30.5, 308, '4.1 + 6.0', 'A gold star and a blue-white one, a fainter Albireo for winter and spring.'),  # STF1268, 2022
+    ('nudra', 'Nu Draconis', dict(hip='85829'), 62.2, 308, '4.9 + 4.9', 'Two matched white stars wide apart, an easy split even in binoculars.'),  # STFA 35, 2023
+    ('rasalgethi', 'Rasalgethi', dict(bayer='α1', con='Her'), 4.9, 101, '3.5 + 5.4', 'An orange giant with a companion close beside it that looks greenish against it.'),  # STF2140AB, 2025
+    ('porrima', 'Porrima', dict(bayer='γ', con='Vir'), 3.2, 352, '3.5 + 3.5', 'Two matched white stars that circle each other every 169 years; they closed to a single point in 2005 and are opening again.'),  # STF1670AB, 2024
+    ('alya', 'Alya', dict(bayer='θ1', con='Ser'), 22.4, 106, '4.6 + 4.9', 'Two matched white stars, an easy and pretty pair at the tail of the Serpent.'),  # STF2417AB, 2019
+    ('xiboo', 'Xi Boötis', dict(bayer='ξ', con='Boo'), 4.8, 289, '4.8 + 7.0', 'A yellow star with an orange companion close by.'),  # STF1888AB, 2025
 ]
 # Each of Epsilon Lyrae's stars is a close pair: STF2382AB 2.1" (5.15 + 6.10, 2025) and STF2383CD 2.4" (5.25 + 5.38, 2025).
 INNER = {'epslyr': [2.1, 2.4]}
@@ -350,12 +361,18 @@ ADDED = {
     'NGC 2070': ('Tarantula Nebula', 40.0, 8.2), 'NGC 3766': ('Pearl Cluster', 12.0, 5.3), 'NGC 3918': ('Blue Planetary', 0.2, None),
     'NGC 2808': ('', 13.8, 6.3), 'NGC 3293': ('Gem Cluster', 40.0, 4.7), 'NGC 2477': ('', 27.0, 5.8), 'NGC 3201': ('', 18.2, 6.8),
     'NGC 4945': ('', 20.0, None), 'NGC 300': ('', 20.0, None), 'NGC 1365': ('Great Barred Spiral', 9.8, 9.5), 'NGC 6744': ('', 15.5, None),
+    # and for northern skies
+    'NGC 891': ('', 13.5, 10.0), 'NGC 7331': ('', 10.7, 9.5), 'NGC 6210': ('Turtle Nebula', 0.2, None), 'NGC 7789': ('Caroline’s Rose', 16.0, 6.7),
+    'NGC 1502': ('', 8.0, 5.7), 'NGC 4631': ('Whale Galaxy', 15.1, 9.3), 'NGC 2169': ('37 Cluster', 7.0, 5.9), 'NGC 2903': ('', 12.6, 8.9),
+    'IC 4665': ('', 41.0, 4.2),
 }
 # NGC 2000.0's 40' for the Gem Cluster takes in the nebula around it; the cluster itself is d3-celestial's 8'. Its 40'
 # and magnitude 8.2 for the Tarantula Nebula spread the whole faint glow, which rated the bright knot you see Very hard
 # from the suburbs; that knot is OpenNGC's 16' at visual magnitude 7.25 (github.com/mattiaverga/OpenNGC, NGC.csv).
 SIZE = {'NGC 3293': 8.0, 'NGC 2070': 16.0}
 MAG = {'NGC 2070': 7.25}
+# The Turtle's magnitude is photographic in NGC 2000.0 (9.0) and in d3-celestial (11.7); OpenNGC's visual one is 9.65.
+MAG['NGC 6210'] = 9.7
 # The Gem Cluster is a cluster in faint nebula, like the Christmas Tree Cluster.
 CLUSTER = {'NGC 3293'}
 for k, (nm, size, mag) in ADDED.items():
@@ -370,6 +387,40 @@ for k, (nm, size, mag) in ADDED.items():
     dso.append({'id': k, 'cat': k, 'name': nm or k, 'type': 'Open cluster' if k in CLUSTER else TYPE.get(p['type'], 'Deep-sky object'),
                 'kind': 'cluster' if k in CLUSTER else KIND.get(p['type'], 'cluster'), 'mag': MAG.get(k, mag if mag is not None else r(p['mag'], 1)),
                 'dim': [r(size, 1), r(minor, 1)], 'ra': r(ra_of(lon), 3), 'dec': r(lat, 3)})
+# Three northern classics d3-celestial has no usable entry for. The Needle Galaxy (NGC 4565) is in dsos.20.json only,
+# with a 15.9 magnitude and a 0.8' size: its size (16.2') and magnitude (9.6) are NGC 2000.0's, and its position and the
+# ratio of its axes (2.89' to 16.75') OpenNGC's (github.com/mattiaverga/OpenNGC, NGC.csv, read November 2026; CC-BY-SA
+# 4.0), which takes them from NED and HyperLEDA.
+dso.append({'id': 'NGC 4565', 'cat': 'NGC 4565', 'name': 'Needle Galaxy', 'type': 'Spiral galaxy', 'kind': 'galaxy', 'mag': 9.6,
+            'dim': [16.2, r(16.2 * 2.89 / 16.75, 1)], 'ra': r((12 + 36 / 60 + 20.78 / 3600) * 15, 3), 'dec': r(25 + 59 / 60 + 15.6 / 3600, 3)})
+# Stock 2 has no NGC or IC number. Its position (2h 14m 43s, +59° 29' 06") and 60' size are from Dias et al.'s catalogue of
+# open clusters (2002, A&A 389, 871; version 3.5, VizieR B/ocl), and its magnitude, 4.9, is the integrated V of Kharchenko
+# et al. (2009, A&A 504, 681; VizieR J/A+A/504/681): their distance modulus in V, 8.953, plus its integrated absolute
+# magnitude, −4.091.
+dso.append({'id': 'Stock 2', 'cat': 'Stock 2', 'name': 'Stock 2', 'type': 'Open cluster', 'kind': 'cluster', 'mag': r(8.953 - 4.091, 1),
+            'dim': [60.0, 60.0], 'ra': r((2 + 14 / 60 + 43 / 3600) * 15, 3), 'dec': r(59 + 29 / 60 + 6 / 3600, 3)})
+# Kemble's Cascade is an asterism, a line of stars with no catalogue entry in d3-celestial, the NGC or Dias et al. It runs
+# northwest from NGC 1502 to as far again beyond HD 24479 (HIP 18505), the 5th-magnitude star in its middle, so it's
+# placed on that star and is twice as long as NGC 1502 is from it, with a nominal 10' width. Its magnitude adds up the
+# Hipparcos stars within 0.25° of that line in d3-celestial's stars.8.json, leaving out NGC 1502's own.
+s8 = {f['id']: f for f in json.load(open(D / 'stars.8.json'))['features']}
+n1502 = next(d for d in dso if d['id'] == 'NGC 1502')
+mid = s8[18505]['geometry']['coordinates']
+a_v, m_v = unit(n1502['ra'], n1502['dec']), unit(ra_of(mid[0]), mid[1])
+half = math.degrees(math.acos(sum(x * y for x, y in zip(a_v, m_v))))
+pole = [a_v[1] * m_v[2] - a_v[2] * m_v[1], a_v[2] * m_v[0] - a_v[0] * m_v[2], a_v[0] * m_v[1] - a_v[1] * m_v[0]]
+pn = math.sqrt(sum(x * x for x in pole))
+flux = 0
+for f in s8.values():
+    lon, lat = f['geometry']['coordinates']
+    v = unit(ra_of(lon), lat)
+    off = abs(math.degrees(math.asin(sum(x * y for x, y in zip(v, pole)) / pn)))
+    along = math.degrees(math.acos(max(-1, min(1, sum(x * y for x, y in zip(v, a_v))))))
+    back = math.degrees(math.acos(max(-1, min(1, sum(x * y for x, y in zip(v, m_v))))))
+    if off < 0.25 and n1502['dim'][0] / 120 < along and back < half:  # past NGC 1502's edge, within the line's length
+        flux += 10 ** (-0.4 * float(f['properties']['mag']))
+dso.append({'id': 'Kemble 1', 'cat': 'Kemble 1', 'name': 'Kemble’s Cascade', 'type': 'Asterism', 'kind': 'cluster', 'mag': r(-2.5 * math.log10(flux), 1),
+            'dim': [r(2 * half * 60, 1), 10.0], 'ra': r(ra_of(mid[0]), 3), 'dec': r(mid[1], 3)})
 dump('dso.json', {'dso': dso, 'doubles': doubles})
 print(f'  {len(dso)} deep-sky objects, {len(doubles)} doubles')
 

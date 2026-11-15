@@ -3361,6 +3361,35 @@ check('The Tarantula Nebula is rated for the bright knot you see', async () => {
   } finally { await ctx.close(); }
 });
 
+// The northern list had no Needle Galaxy (the build asked for it and dropped it: d3-celestial has it only with a 0.8′
+// size and magnitude 15.9), no Kemble's Cascade and no Stock 2. Austin, Feb 15 2027, from a dark site.
+check('A dark winter night in Austin lists the Needle Galaxy, Kemble’s Cascade and the new northern doubles', async () => {
+  const { dso, doubles } = JSON.parse(await readFile(join(root, 'data/dso.json'), 'utf8'));
+  const north = ['NGC 4565', 'Kemble 1', 'Stock 2', 'NGC 891', 'NGC 7331', 'NGC 6210', 'NGC 7789', 'NGC 1502', 'NGC 4631', 'NGC 2169', 'NGC 2903', 'IC 4665'];
+  for (const id of north) {
+    const d = dso.find(x => x.id === id);
+    assert.ok(d && d.mag > 0 && d.dim[0] > 0 && d.dim[1] > 0, `${id} is in the data with a magnitude and a size`);
+  }
+  const needle = dso.find(d => d.id === 'NGC 4565');
+  assert.deepEqual([needle.mag, needle.dim[0]], [9.6, 16.2], 'the Needle at NGC 2000.0’s magnitude and size');
+  const kemble = dso.find(d => d.id === 'Kemble 1');
+  assert.ok(kemble.dim[0] > 150 && kemble.dim[0] < 190, 'Kemble’s Cascade is nearly 3° long: ' + kemble.dim[0]);
+  const pairs = ['gammadel', 'achird', 'betamon', 'deltacep', 'iotacnc', 'nudra', 'rasalgethi', 'porrima', 'alya', 'xiboo'];
+  assert.deepEqual(pairs.filter(id => !doubles.some(d => d.id === id)), [], 'the northern doubles are in the data');
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, sky: 'dark' }), time: '2027-02-15T21:00:00-06:00' });
+  try {
+    const ids = (await targetRows(page)).map(r => r.id);
+    assert.deepEqual(['NGC 4565', 'Kemble 1', 'Stock 2', 'NGC 7789', 'iotacnc', 'betamon', 'porrima', 'rasalgethi'].filter(id => !ids.includes(id)), [], 'listed');
+    await openCard(page, 'Kemble 1');
+    assert.match(await text(page, '#sheet .hd h2'), /^Kemble’s Cascade Asterism in Camelopard/);
+    assert.match(await text(page, '#sheet'), /nearly 3° long, running down to the little cluster NGC 1502/);
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'porrima');
+    assert.match(await text(page, '#sheet'), /Separation 3\.2″/i);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 const only = process.argv[2];
 let failed = 0, ran = 0;
 for (const [name, fn] of checks) {

@@ -31,7 +31,15 @@ The sizes and magnitudes of the NGC objects added in November 2026 (the southern
 
 ## OpenNGC
 
-The Tarantula Nebula's size and magnitude come from OpenNGC by Mattia Verga (https://github.com/mattiaverga/OpenNGC, `NGC.csv`, read November 2026), released under the Creative Commons Attribution-ShareAlike 4.0 license (CC BY-SA 4.0); OpenNGC draws them from the NASA/IPAC Extragalactic Database, HyperLEDA and SIMBAD.
+The Tarantula Nebula's size and magnitude, the Turtle Nebula's (NGC 6210) visual magnitude, and the Needle Galaxy's (NGC 4565) position and the ratio of its axes come from OpenNGC by Mattia Verga (https://github.com/mattiaverga/OpenNGC, `NGC.csv`, read November 2026), released under the Creative Commons Attribution-ShareAlike 4.0 license (CC BY-SA 4.0); OpenNGC draws them from the NASA/IPAC Extragalactic Database, HyperLEDA and SIMBAD.
+
+## Open cluster catalogues
+
+Stock 2, which has no NGC or IC number, takes its position and size from the catalogue of optically visible open clusters by Dias, Alessi, Moitinho & Lépine (2002, A&A 389, 871; version 3.5, VizieR B/ocl), and its magnitude from the integrated V of Kharchenko, Piskunov, Schilbach, Röser & Scholz (2009, A&A 504, 681; VizieR J/A+A/504/681), both read through VizieR in November 2026.
+
+## Kemble's Cascade
+
+Kemble's Cascade, an asterism with no entry in these catalogues, is measured from d3-celestial's own star catalog by `tools/build_data.py`: it's placed on HD 24479 (HIP 18505), the 5th-magnitude star in its middle, runs twice as far as NGC 1502 is from that star, and its magnitude adds up the catalog's stars along the line.
 
 ## Washington Double Star Catalog
 
