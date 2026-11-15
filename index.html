@@ -206,7 +206,10 @@ html.red .sheetbg{background:rgba(4,0,0,.62)}
 .sheet .hd{display:flex;align-items:center;gap:10px;padding:14px 16px 8px}
 .sheet .hd h2{margin:0;flex:1;font:italic 400 25px/1.1 var(--disp);min-width:0;text-wrap:balance}
 .sheet .hd h2 small{display:block;font:400 13px var(--body);font-style:normal;color:var(--ink2);margin-top:3px}
-.sheet .bd{overflow:auto;padding:4px 16px 20px;display:flex;flex-direction:column;gap:14px;-webkit-overflow-scrolling:touch}
+.sheet .bd{overflow:auto;overscroll-behavior:contain;padding:4px 16px 20px;display:flex;flex-direction:column;gap:14px;-webkit-overflow-scrolling:touch}
+/* on a phone a sheet covers the page, which holds still behind it: a swipe past a card's end, or on its heading or the
+   backdrop, would otherwise scroll the page on, and closing the card would leave you somewhere else */
+@media (max-width:999.98px){html.sheeted,html.sheeted body{overflow:hidden;overscroll-behavior:none}html.sheeted{scrollbar-gutter:stable}}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--brass);background:var(--brass);color:var(--brass-ink);font-weight:700;font-size:14px}
 .btn.sec{background:var(--panel2);border-color:var(--line2);color:var(--ink)}
 .btn.sm{height:32px;padding:0 11px;font-size:13px}
@@ -1824,7 +1827,7 @@ html.red .chart canvas{background:#050000}
   var WIDE = window.matchMedia ? matchMedia('(min-width: 1000px)') : { matches: false };
   function sheetModal() {
     var sh = $('sheet').hidden ? null : $('sheet').querySelector('.sheet'), modal = !!sh && !WIDE.matches;
-    $('app').inert = modal;
+    $('app').inert = modal; document.documentElement.classList.toggle('sheeted', !!sh);
     if (sh) { if (modal) sh.setAttribute('aria-modal', 'true'); else sh.removeAttribute('aria-modal'); }
   }
   if (WIDE.addEventListener) WIDE.addEventListener('change', sheetModal); else if (WIDE.addListener) WIDE.addListener(sheetModal);

@@ -1088,6 +1088,56 @@ check('A card following the clock doesn’t stop a scroll in progress', async ()
   } finally { await ctx.close(); }
 });
 
+// A swipe that ran past the end of a card scrolled the page behind it, and closing the card left you at the credits.
+check('Swiping past the end of a card leaves the list where it was', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
+  try {
+    await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    const { swipe } = await touchOf(ctx, page);
+    const y = () => page.evaluate(() => Math.round(scrollY));
+    const locked = () => page.evaluate(() => document.documentElement.classList.contains('sheeted'));
+    await page.evaluate(() => scrollTo(0, document.getElementById('targetSec').offsetTop - 60));
+    const y0 = await y();
+    assert.ok(y0 > 300, 'the page is scrolled to the list');
+    await openCard(page, 'Saturn');
+    for (let i = 0; i < 5; i++) await swipe(195, 760, 195, 160); // up, past the card's end
+    const bd = await page.$eval('#sheet .bd', b => [Math.round(b.scrollTop), b.scrollHeight - b.clientHeight]);
+    assert.ok(bd[0] >= bd[1] - 2, 'the card scrolls to its end');
+    assert.equal(await y(), y0, 'the page behind stays put');
+    await swipe(195, 150, 195, 600); // on the backdrop and the card's heading
+    assert.equal(await y(), y0, 'a swipe on the heading or the backdrop leaves the page alone too');
+    await page.click('#sheet [data-close]');
+    assert.equal(await y(), y0, 'Done leaves the list where it was');
+    await openCard(page, 'Moon');
+    for (let i = 0; i < 3; i++) await swipe(195, 400, 195, 800); // down, past the card's top
+    assert.equal(await y(), y0, 'a swipe down at the top of a card leaves the page alone');
+    await page.click('#sheet [data-close]');
+    // every way out of a sheet unlocks the page again, and it scrolls as before
+    const ways = { Done: () => page.click('#sheet [data-close]'), 'the backdrop': () => page.mouse.click(195, 20), Escape: () => page.keyboard.press('Escape'),
+      Back: () => page.evaluate(() => history.back()), 'a new place': async () => { await page.click('#sheet [data-close]'); await page.click('#locBtn'); await page.fill('#lq', 'Tucs'); await page.click('#lres button'); } };
+    for (let round = 1; round <= 10; round++) for (const [how, close] of Object.entries(ways)) {
+      if (how !== 'a new place' || round === 1) {
+        await openCard(page, 'Moon');
+        assert.ok(await locked(), 'an open card holds the page still');
+        await close();
+        await page.waitForFunction(() => document.getElementById('sheet').hidden && !document.documentElement.classList.contains('sheeted'), null, { timeout: 5000 }).catch(() => {});
+        assert.equal(await locked(), false, `closing with ${how} lets the page scroll again, round ${round}`);
+        assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).overflowY), 'visible', `the page’s own overflow is back, round ${round}`);
+      }
+    }
+    await page.evaluate(() => scrollTo(0, 800));
+    const y1 = await y();
+    await swipe(195, 600, 195, 300);
+    assert.ok(await y() > y1 + 100, 'a swipe scrolls the page after all that');
+    await page.evaluate(() => scrollTo(0, 0));
+    await point(page);
+    assert.ok(await page.evaluate(() => document.documentElement.classList.contains('pointing')), 'Point still starts');
+    await page.click('#ptBtn');
+    assert.equal(await page.evaluate(() => document.documentElement.classList.contains('pointing')), false, 'and stops');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // At 1 am the list led with the Moon and Albireo, both set hours before, and only opening each card said so.
 // Austin, Nov 15 2026: the Moon sets at 10:53 pm and Jupiter rises at 12:08 am.
 check('A row says tonight whether it is up now, rises later or has set', async () => {
