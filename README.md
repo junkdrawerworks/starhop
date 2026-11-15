@@ -26,7 +26,7 @@
   - On summer nights that never get properly dark, deep-sky objects and doubles are timed for when the Sun is at least 6° down; when it never gets that far, only the Moon and the brightest planets are listed.
 - **Object cards:**
   - **Where to look:** altitude in fists at arm's length, compass direction, and rise, set and highest times.
-  - **Finder chart:** a naked-eye view around the target, a 5° finderscope circle, and a star-hop, e.g. "about a third of the way from η Her to Tianji, 2.5° from η Her" for M13.
+  - **Finder chart:** a naked-eye view around the target, the finder you set under Telescope (a 5° finderscope circle, a small 6×30 finder's 7°, a Telrad's rings of 4°, 2° and ½°, or nothing for a red dot), and a star-hop, e.g. "about a third of the way from η Her to Tianji, 2.5° from η Her" for M13.
   - **Your telescope:** magnification and field for each eyepiece, which one to use, and a sketch of the eyepiece view. Tap another eyepiece to see its view.
   - **Planets:** Jupiter's four moons in their positions for that time, Saturn's rings at their current tilt, and the phases of Venus and Mercury.
 - **Coming up.** Moon phases, meteor shower peaks, planet oppositions and elongations, the Moon passing bright planets, and eclipses, as seen from your location. Tap one to step to its night.

@@ -412,7 +412,16 @@ html.red .chart canvas{background:#050000}
     { name: '127 mm Maksutov', ap: 127, fl: 1500 },
     { name: '8″ Schmidt-Cassegrain', ap: 203, fl: 2032 }
   ];
-  var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], set: false };
+  // The finder on the telescope, whose field the finder chart draws. A Telrad's three rings are 4°, 2° and ½° across;
+  // a red-dot finder shows a dot on the open sky, with no field to draw.
+  var FINDERS = [
+    { id: 'fs', name: 'Finderscope', sub: '5° field', rings: [{ deg: 5, dash: true, a: 0.6 }], cap: 'The dashed circle is a typical finderscope field (5°).' },
+    { id: 'f30', name: 'Small 6×30 finder', sub: '7° field', rings: [{ deg: 7, dash: true, a: 0.6 }], cap: 'The dashed circle is a small 6×30 finder’s field (7°).' },
+    { id: 'telrad', name: 'Telrad', sub: 'Rings of ½°, 2° and 4°', rings: [{ deg: 4, a: 0.6 }, { deg: 2, a: 0.6 }, { deg: 0.5, a: 0.6 }], cap: 'The circles are your Telrad’s rings, 4°, 2° and ½° across.' },
+    { id: 'dot', name: 'Red dot', sub: 'No field circle', rings: [], cap: 'Your red-dot finder has no field to draw: put its dot where the target sits among these stars.' }
+  ];
+  function finder() { return FINDERS.filter(function (f) { return f.id === S.scope.finder; })[0] || FINDERS[0]; }
+  var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], finder: 'fs', set: false };
   var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, seen: {} };
   try { var saved = JSON.parse(localStorage.getItem(LS) || 'null'); if (plain(saved)) S = checkSave(saved, S); } catch (e) { }
   function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { } }
@@ -427,7 +436,8 @@ html.red .chart canvas{background:#050000}
     out.loc = la >= -90 && la <= 90 && lo >= -180 && lo <= 180 && zoneOk(l.tz) ? Object.assign({}, l, { lat: la, lon: lo, name: typeof l.name === 'string' && l.name ? l.name : la.toFixed(2) + '°, ' + lo.toFixed(2) + '°' }) : null;
     var ap = plain(sc) ? num(sc.ap) : NaN, fl = plain(sc) ? num(sc.fl) : NaN;
     out.scope = ap > 0 && fl > 0 ? Object.assign({}, sc, { name: typeof sc.name === 'string' ? sc.name : '', ap: ap, fl: fl, set: !!sc.set,
-      eps: (Array.isArray(sc.eps) ? sc.eps : []).filter(function (e) { return plain(e) && num(e.f) > 1 && num(e.a) > 10; }).map(function (e) { return { f: num(e.f), a: num(e.a) }; }) }) : d.scope;
+      eps: (Array.isArray(sc.eps) ? sc.eps : []).filter(function (e) { return plain(e) && num(e.f) > 1 && num(e.a) > 10; }).map(function (e) { return { f: num(e.f), a: num(e.a) }; }),
+      finder: FINDERS.some(function (f) { return f.id === sc.finder; }) ? sc.finder : 'fs' }) : d.scope;
     if (!SKIES.some(function (k) { return k.id === sv.sky; })) out.sky = d.sky;
     out.red = sv.red === true;
     out.layers = Object.assign({}, d.layers, plain(sv.layers) ? sv.layers : {});
@@ -2143,7 +2153,7 @@ html.red .chart canvas{background:#050000}
     // IM Fell has no Greek, so a Bayer letter (ξ Sco) is set upright in the body face, as in the line under it
     var h = '<div class="hd"><h2><span>' + esc(name).replace(/^[\u0370-\u03ff]/, '<span class="gk">$&</span>') + '</span><small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
       '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + nowTxt + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span>' + val(f[1], spokenArcs(esc(f[1]))) + '</div>'; }).join('') + '</div>' : '') + '</div>' +
-      '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart" aria-describedby="finderCap"></canvas><div class="cap" id="finderCap">' + esc(eyeTxt) + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + 'The dashed circle is a typical finderscope field (5°).' + (sky().nelm < 5.6 ? ' Hollow dots are stars too faint to see by eye from your sky; a finder shows them.' : '') + '</div></div>' +
+      '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart" aria-describedby="finderCap"></canvas><div class="cap" id="finderCap">' + esc(eyeTxt) + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + finder().cap + (sky().nelm < 5.6 ? ' Hollow dots are stars too faint to see by eye from your sky; a finder shows them.' : '') + '</div></div>' +
       '<div class="chart"><canvas id="eyepiece" aria-label="Simulated eyepiece view" aria-describedby="epCap"></canvas><div class="cap" id="epCap"></div></div></div>' +
       '<div class="card"><h3>In your telescope</h3><p>' + esc(adv.txt) + '</p><div class="epsw"><table class="eps"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th><th></th></tr></thead><tbody>' +
       rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + r.f + ' mm</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
@@ -2195,7 +2205,7 @@ html.red .chart canvas{background:#050000}
     var vw = { az: aa.az, alt: aa.alt, fov: fov }, stamp = 'Naked-eye view · ' + tTime(t);
     g.font = '700 11px "Atkinson Hyperlegible", sans-serif';
     var clearStrip = { x: 0, y: f.h - 21, w: g.measureText(stamp).width + 14, h: 21, t: stamp }; // no labels under the stamp
-    var res = render(g, f.w, f.h, vw, t, { target: o, hop: hop && hop.a && hop.b ? { a: hop.a, b: hop.b, stars: hop.stars || [] } : null, rings: [{ deg: 5, dash: true, a: 0.6 }], lim: 5.6, eye: sky().nelm, labelMag: 3.9, noMW: false, noGrid: true, dso: true, noCompass: false, reserve: [clearStrip] });
+    var res = render(g, f.w, f.h, vw, t, { target: o, hop: hop && hop.a && hop.b ? { a: hop.a, b: hop.b, stars: hop.stars || [] } : null, rings: finder().rings, lim: 5.6, eye: sky().nelm, labelMag: 3.9, noMW: false, noGrid: true, dso: true, noCompass: false, reserve: [clearStrip] });
     c.__labels = res.labels; c.__ring = res.ring; c.__hollow = res.hollow; // tests read where the labels and the finderscope circle went, how many stars are hollow,
     c.__at = function (ra, dec) { return proj(res.P, rot(res.sc.m, vec(ra, dec))); }; // and where a J2000 position lands
     c.__stamp = clearStrip; // tests check the labels kept off it, and the time it shows
@@ -2345,12 +2355,13 @@ html.red .chart canvas{background:#050000}
       '<div class="grid2"><label class="fld"><span>Name</span><input id="scName" autocomplete="off" maxlength="40" placeholder="e.g. 70 mm refractor"></label><label class="fld"><span>Aperture (mm)</span><input id="scAp" inputmode="decimal" autocomplete="off"></label><label class="fld"><span>Focal length (mm)</span><input id="scFl" inputmode="decimal" autocomplete="off"></label></div>' +
       '<p class="hint">Printed on the tube or box: 70/700 means a 70 mm aperture and 700 mm focal length.</p>' +
       '<div class="fld"><span>Eyepieces — focal length and apparent field</span><p class="hint">The number on each eyepiece (H20mm, K25). Not sure of the field? Leave 52°.</p><div class="epl" id="epl"></div><button class="btn sec sm" type="button" id="epAdd" style="align-self:flex-start">+ Add an eyepiece</button></div>' +
+      '<div class="fld"><span>Your finder</span><div class="opts" id="fdOpts" role="group" aria-label="Your finder"></div></div>' +
       '<div class="fld"><span>Your sky</span><p class="hint">Each sky’s Bortle class goes by the faintest star you see by eye, as Bortle’s scale gives it (Sky &amp; Telescope, February 2001).</p><div class="opts" id="skyOpts"></div></div>' +
       '<div class="card" id="scStats"></div></div>');
     // Until a telescope is set, the example's name stays out of the field, so one typed in by hand isn't saved under it.
     $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = sc.fl;
     var picked = null; // the name a quick pick put in the field
-    var skyv = S.sky;
+    var skyv = S.sky, fdv = finder().id;
     function drawEps() {
       // each field and Remove button says which eyepiece it belongs to, as the rows' short labels can't
       // (only the first row shows its labels; the rest have them for screen readers)
@@ -2360,6 +2371,7 @@ html.red .chart canvas{background:#050000}
     }
     function delName(i) { return epOk(eps[i], 'f') ? 'Remove the ' + eps[i].f + ' mm eyepiece' : 'Remove eyepiece ' + (i + 1); }
     function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '" aria-pressed="' + (s.id === skyv) + '"><b>' + s.name + ' <span class="bt">Bortle ' + s.bortle + '</span></b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
+    function drawFinders() { $('fdOpts').innerHTML = FINDERS.map(function (f) { return '<button class="opt' + (f.id === fdv ? ' on' : '') + '" type="button" data-f="' + f.id + '" aria-pressed="' + (f.id === fdv) + '"><b>' + f.name + '</b><small>' + f.sub + '</small></button>'; }).join(''); $('fdOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { fdv = b.dataset.f; drawFinders(); }); }); }
     function stats() {
       var ap = reading($('scAp').value, true), fl = reading($('scFl').value);
       if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES + '.' : 'Enter the aperture and focal length.') + '</p>'; return; }
@@ -2394,10 +2406,10 @@ html.red .chart canvas{background:#050000}
       // A name left empty, or a quick pick's or the example's with other numbers, gives way to one from the numbers.
       var name = $('scName').value.trim();
       if (!name || PRESETS.concat(DEFAULT_SCOPE).some(function (p) { return p.name === name && (p.ap !== ap || p.fl !== fl); })) name = ap + ' mm, f/' + Math.round(fl / ap * 10) / 10;
-      S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), set: true }; S.sky = skyv; save();
+      S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), finder: fdv, set: true }; S.sky = skyv; save();
       closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies'); // the chip hides its name on a phone
     });
-    drawEps(); drawSky(); stats();
+    drawEps(); drawFinders(); drawSky(); stats();
   }
   function renderScopeChip() { var n = S.scope.set ? (S.scope.name || S.scope.ap + ' mm') : 'Telescope'; $('scopeName').textContent = n; $('scopeBtn').setAttribute('aria-label', S.scope.set ? 'Telescope: ' + n : 'Your telescope'); }
   $('scopeBtn').addEventListener('click', scopeSheet);

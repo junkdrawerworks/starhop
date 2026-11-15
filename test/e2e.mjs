@@ -1965,6 +1965,56 @@ check('The finder circle is as wide as the field it names', async () => {
   } finally { await ctx.close(); }
 });
 
+// The finder chart drew a 5° finderscope circle whatever finder the telescope has. A Telrad's reticle is three rings,
+// 4°, 2° and ½° across (Agena Astro's listing for its replacement reticle); a red-dot finder has no field at all.
+check('The finder chart draws the finder chosen in the telescope sheet', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  const ring = () => page.$eval('#finder', c => {
+    const at = c.__at(250.4217, 36.4613), off = c.__at(250.4217, 36.4613 + 1); // M13, and 1° north of it
+    return c.__ring && { r: c.__ring.r, deg: c.__ring.r / Math.hypot(off[0] - at[0], off[1] - at[1]) * 2 };
+  });
+  try {
+    await page.click('#scopeBtn');
+    assert.equal(await page.$eval('#fdOpts [aria-pressed="true"]', b => b.dataset.f), 'fs', 'a finderscope to start with');
+    await page.click('#fdOpts [data-f="telrad"]');
+    assert.equal(await page.$eval('#fdOpts [aria-pressed="true"]', b => b.innerText.replace(/\s+/g, ' ')), 'Telrad Rings of ½°, 2° and 4°');
+    await page.click('#scSave');
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('starhop.v1'))).scope.finder, 'telrad', 'it is kept');
+    await openCard(page, 'M13');
+    await page.waitForFunction(() => document.getElementById('finder').__ring, null, { timeout: 5000 });
+    const t = await ring();
+    assert.ok(Math.abs(t.deg - 4) < 0.05, 'the Telrad’s outer ring is 4° across: ' + t.deg);
+    assert.match(await text(page, '#finderCap'), /The circles are your Telrad’s rings, 4°, 2° and ½° across\./);
+    await page.click('#sheet [data-close]');
+    await page.click('#scopeBtn');
+    await page.click('#fdOpts [data-f="dot"]');
+    await page.click('#scSave');
+    await openCard(page, 'M13');
+    await page.waitForFunction(() => /red-dot/.test(document.getElementById('finderCap').textContent));
+    await page.waitForFunction(() => document.getElementById('finder').__labels);
+    assert.equal(await ring(), null, 'no circle for a red-dot finder');
+    await page.click('#sheet [data-close]');
+    await page.click('#scopeBtn');
+    await page.click('#fdOpts [data-f="f30"]');
+    await page.click('#scSave');
+    await openCard(page, 'M13');
+    await page.waitForFunction(() => /6×30/.test(document.getElementById('finderCap').textContent) && document.getElementById('finder').__ring);
+    assert.ok(Math.abs((await ring()).deg - 7) < 0.05, 'a 6×30 finder’s circle is 7° across');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// A save from before the finder was a choice, or with one Starhop doesn't know, has a finderscope.
+check('A saved telescope without a finder opens with a finderscope', async () => {
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: { name: 'Mine', ap: 150, fl: 750, eps: [{ f: 25, a: 52 }], set: true, finder: 'laser' } }), time: '2026-10-13T21:00:00-05:00' });
+  try {
+    await openCard(page, 'M13');
+    await page.waitForFunction(() => document.getElementById('finder').__ring);
+    assert.match(await text(page, '#finderCap'), /typical finderscope field \(5°\)/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('the finder chart’s stamp sits on a plate', async () => {
   const { ctx, page } = await open({ loc: { name: 'New York, NY', lat: 40.71, lon: -74.01, tz: 'America/New_York' }, time: '2026-11-15T20:30:00-05:00' });
   try {
