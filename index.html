@@ -421,8 +421,17 @@ html.red .chart canvas{background:#050000}
     { id: 'telrad', name: 'Telrad', sub: 'Rings of ½°, 2° and 4°', rings: [{ deg: 4, a: 0.6 }, { deg: 2, a: 0.6 }, { deg: 0.5, a: 0.6 }], cap: 'The circles are your Telrad’s rings, 4°, 2° and ½° across.' },
     { id: 'dot', name: 'Red dot', sub: 'No field circle', rings: [], cap: 'Your red-dot finder has no field to draw: put its dot where the target sits among these stars.' }
   ];
+  // Which way round the telescope shows the sky. A reflector turns it upside down; a refractor, Maksutov or
+  // Schmidt-Cassegrain with a star diagonal shows it the right way up but mirrored left to right.
+  var VIEWS = [
+    { id: 'inv', name: 'Upside down', sub: 'Reflectors and Dobsonians', cap: 'upside down from the naked-eye view' },
+    { id: 'mir', name: 'Mirrored', sub: 'With a star diagonal', cap: 'mirrored left to right from the naked-eye view' },
+    { id: 'sky', name: 'As the sky', sub: 'The way your eye sees it', cap: 'the same way round as the naked-eye view' }
+  ];
+  function guessView(name) { return /reflector|dobsonian|newton/i.test(name) ? 'inv' : /refractor|maksutov|schmidt|cassegrain/i.test(name) ? 'mir' : 'sky'; }
+  function viewOf() { return VIEWS.filter(function (v) { return v.id === S.scope.view; })[0] || VIEWS[2]; }
   function finder() { return FINDERS.filter(function (f) { return f.id === S.scope.finder; })[0] || FINDERS[0]; }
-  var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], barlow: 1, finder: 'fs', set: false };
+  var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], barlow: 1, view: 'inv', finder: 'fs', set: false };
   var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, seen: {} };
   try { var saved = JSON.parse(localStorage.getItem(LS) || 'null'); if (plain(saved)) S = checkSave(saved, S); } catch (e) { }
   function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { } }
@@ -439,6 +448,7 @@ html.red .chart canvas{background:#050000}
     out.scope = ap > 0 && fl > 0 ? Object.assign({}, sc, { name: typeof sc.name === 'string' ? sc.name : '', ap: ap, fl: fl, set: !!sc.set,
       eps: (Array.isArray(sc.eps) ? sc.eps : []).filter(function (e) { return plain(e) && num(e.f) > 1 && num(e.a) > 10; }).map(function (e) { return { f: num(e.f), a: num(e.a) }; }),
       barlow: num(sc.barlow) === 2 || num(sc.barlow) === 3 ? num(sc.barlow) : 1,
+      view: VIEWS.some(function (v) { return v.id === sc.view; }) ? sc.view : guessView(typeof sc.name === 'string' ? sc.name : ''),
       finder: FINDERS.some(function (f) { return f.id === sc.finder; }) ? sc.finder : 'fs' }) : d.scope;
     if (!SKIES.some(function (k) { return k.id === sv.sky; })) out.sky = d.sky;
     out.red = sv.red === true;
@@ -2188,13 +2198,13 @@ html.red .chart canvas{background:#050000}
       function pick() {
         EPS = { o: o, i: +tr.dataset.i };
         $('sheet').querySelectorAll('.eps tbody tr').forEach(function (t) { var on = t === tr; t.classList.toggle('on', on); t.setAttribute('aria-pressed', String(on)); });
-        drawEyepiece(o, rows, EPS.i);
+        drawEyepiece(o, rows, EPS.i, ct);
       }
       tr.addEventListener('click', pick);
       tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
     });
     // a redraw draws its charts straight away, so they don't show blank for a frame
-    function charts() { drawFinder(o, hop, ct); drawEyepiece(o, rows, shown); if (keep && SHEET_OBJ === o) $('sheet').querySelector('.bd').scrollTop = keep; }
+    function charts() { drawFinder(o, hop, ct); drawEyepiece(o, rows, shown, ct); if (keep && SHEET_OBJ === o) $('sheet').querySelector('.bd').scrollTop = keep; }
     if (again) charts(); else requestAnimationFrame(charts);
   }
   // The time the finder chart shows, and where the target is then. Low now, so the chart shows it at its highest
@@ -2231,8 +2241,20 @@ html.red .chart canvas{background:#050000}
     g.fillStyle = col('#04070F', 0.8); g.beginPath(); if (g.roundRect) g.roundRect(clearStrip.x + 2, clearStrip.y, clearStrip.w - 2, clearStrip.h - 2, 5); else g.rect(clearStrip.x + 2, clearStrip.y, clearStrip.w - 2, clearStrip.h - 2); g.fill();
     g.font = '700 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#A7AFC6', 0.9); g.textAlign = 'left'; g.fillText(stamp, 8, f.h - 8);
   }
-  // A simulated view in the eyepiece, north up and east left.
-  function drawEyepiece(o, rows, pick) {
+  // The eyepiece sketch's frame around a direction on the sky: e is the vector that points to the sketch's left and n
+  // the one that points up. It starts as the finder chart does at time t, with the zenith up as the naked eye sees it,
+  // then turns or mirrors the way the telescope shows it (VIEWS). e0 and n0 are the sky's own east and north there.
+  function epFrame(cv, t) {
+    var e0 = unit(cross([0, 0, 1], cv)), n0 = cross(cv, e0), m = A.Rotation_EQJ_HOR(t, OBS).rot, z = [m[0][2], m[1][2], m[2][2]], k = dot(z, cv);
+    var u = [z[0] - k * cv[0], z[1] - k * cv[1], z[2] - k * cv[2]];
+    u = Math.hypot(u[0], u[1], u[2]) < 1e-6 ? n0 : unit(u); // straight overhead, any way up will do: north
+    var left = cross(u, cv), v = viewOf().id;
+    function neg(a) { return [-a[0], -a[1], -a[2]]; }
+    if (v === 'inv') { left = neg(left); u = neg(u); } else if (v === 'mir') left = neg(left);
+    return { e: left, n: u, e0: e0, n0: n0 };
+  }
+  // A simulated view in the eyepiece, turned to match the finder chart at its time (ct) and the way the telescope shows it.
+  function drawEyepiece(o, rows, pick, ct) {
     var c = $('eyepiece'); if (!c) return;
     var f = fitCanvas(c), g = c.getContext('2d'); g.setTransform(f.dpr, 0, 0, f.dpr, 0, 0);
     var w = f.w, R = w / 2 - 6, cx0 = w / 2, cy0 = f.h / 2;
@@ -2241,7 +2263,10 @@ html.red .chart canvas{background:#050000}
     var r = rows[pick], fovMin = r.tf * 60, scale = R / (fovMin / 2); // px per arcminute
     g.save(); g.beginPath(); g.arc(cx0, cy0, R, 0, 2 * Math.PI); g.clip();
     g.fillStyle = col('#0A0F1C', 1); g.fillRect(0, 0, w, f.h);
-    var t = T.t, sc = scene(t), rd = objRaDec(o, t), cvec = vec(rd.ra, rd.dec), e = unit(cross([0, 0, 1], cvec)), nth = cross(cvec, e);
+    var t = T.t, sc = scene(t), rd = objRaDec(o, t), cvec = vec(rd.ra, rd.dec), fr = epFrame(cvec, ct ? ct.t : t), e = fr.e, nth = fr.n;
+    // where north and east point in the sketch, as unit steps across the screen (x right, y down)
+    var nDir = [-dot(fr.n0, e), -dot(fr.n0, nth)], eDir = [-dot(fr.e0, e), -dot(fr.e0, nth)];
+    c.__frame = { n: nDir, e: eDir }; // tests read which way the sketch is turned
     function sky2px(v) { var d = dot(v, cvec); if (d < 0.99) return null; return [cx0 - dot(v, e) / d * R2D * 60 * scale, cy0 - dot(v, nth) / d * R2D * 60 * scale]; }
     // background stars from the catalog, leaving out a double's own pair, which is sketched below
     var own = o.k === 'double' ? Math.cos(Math.max(2 * o.sep / 3600, 1 / 60) * D2R) : 2;
@@ -2256,11 +2281,11 @@ html.red .chart canvas{background:#050000}
       if (o.id === 'Jupiter') {
         // Jupiter's light takes 35 to 52 minutes to get here, so the moons are drawn where they were when it left
         var gv = A.GeoVector(A.Body.Jupiter, t, true), jd = Math.hypot(gv.x, gv.y, gv.z), jm = A.JupiterMoons(new Date(t.getTime() - jd / A.C_AUDAY * 864e5));
-        var jv = [gv.x / jd, gv.y / jd, gv.z / jd], je = unit(cross([0, 0, 1], jv)), jn = cross(jv, je), placed = c.__moons = {}; // tests read where they went
+        var jv = [gv.x / jd, gv.y / jd, gv.z / jd], jf = epFrame(jv, ct ? ct.t : t), je = jf.e, jn = jf.n, placed = c.__moons = {}; // tests read where they went
         var seen = [], taken = [{ x: cx0 - dpx / 2 - 1, y: cy0 - dpx / 2 - 1, w: dpx + 2, h: dpx + 2 }];
         [['io', 'I'], ['europa', 'E'], ['ganymede', 'G'], ['callisto', 'C']].forEach(function (mm) {
           var m = jm[mm[0]], mv = [m.x, m.y, m.z], x = -dot(mv, je) / jd * R2D * 60 * scale, y = -dot(mv, jn) / jd * R2D * 60 * scale, depth = dot(mv, jv);
-          placed[mm[0]] = { east: dot(mv, je) / jd * R2D * 60, north: dot(mv, jn) / jd * R2D * 60 }; // arcminutes
+          placed[mm[0]] = { east: dot(mv, jf.e0) / jd * R2D * 60, north: dot(mv, jf.n0) / jd * R2D * 60 }; // arcminutes
           if (Math.hypot(x, y) < dpx / 2 && depth > 0) return; // behind the planet
           g.fillStyle = col('#F4EEDC', 1); g.beginPath(); g.arc(cx0 + x, cy0 + y, 1.6, 0, 2 * Math.PI); g.fill();
           seen.push([mm, cx0 + x, cy0 + y]); taken.push({ x: cx0 + x - 2.5, y: cy0 + y - 2.5, w: 5, h: 5 });
@@ -2284,10 +2309,10 @@ html.red .chart canvas{background:#050000}
       drawPhase(g, cx0, cy0, mr, sc.moon.illum, Math.atan2(sp[1], sp[0]), col('#EEE7D2', 1), col('#1B1F2B', 1));
     } else if (o.k === 'double') {
       var sepPx = o.sep / 60 * scale, cols = { albireo: ['#FFD27A', '#9EC0FF'], almach: ['#FFC27A', '#A8C4FF'], izar: ['#FFC98A', '#A9E0D8'], '61cyg': ['#FFB978', '#FFC98A'], algieba: ['#FFD89A', '#FFE0A8'], alphacen: ['#FFE6B0', '#FFC98A'], peri: ['#FFD09A', '#FFC48A'], gammadel: ['#FFC98A', '#FFF1DB'], achird: ['#FFF1DB', '#FFB27A'], deltacep: ['#FFE3A8', '#A8C4FF'], iotacnc: ['#FFD27A', '#BFD3FF'], rasalgethi: ['#FFB070', '#C8E8C8'], xiboo: ['#FFE6B0', '#FFB978'] }[o.id] || ['#F4F2FF', '#DDE6FF'];
-      // The primary at the centre and the companion at its position angle (measured from north through east, and east is
-      // to the left here). The dots' areas go by the stars' brightness, gently, so a matched pair looks matched.
+      // The primary at the centre and the companion at its position angle (measured from north through east, which
+      // point where the N and E marks do). The dots' areas go by the stars' brightness, gently, so a matched pair looks matched.
       var spl = splits(r, o), drawSep = Math.max(12, sepPx), pa = (o.pa || 0) * D2R, mm = mags(o), r2 = Math.max(1.1, 3.2 * Math.pow(10, -0.12 * (mm[1] - mm[0])));
-      var bx = cx0 - Math.sin(pa) * drawSep, by = cy0 - Math.cos(pa) * drawSep;
+      var bx = cx0 + (Math.cos(pa) * nDir[0] + Math.sin(pa) * eDir[0]) * drawSep, by = cy0 + (Math.cos(pa) * nDir[1] + Math.sin(pa) * eDir[1]) * drawSep;
       g.fillStyle = col(cols[0], 1); g.beginPath(); g.arc(cx0, cy0, 3.2, 0, 2 * Math.PI); g.fill();
       c.__pair = spl ? { a: [cx0, cy0, 3.2], b: [bx, by, r2] } : { a: [cx0, cy0, 3.2] }; // tests read where the stars went
       if (spl) { g.fillStyle = col(cols[1], 1); g.beginPath(); g.arc(bx, by, r2, 0, 2 * Math.PI); g.fill(); if (sepPx < 12) cap += ' · the pair is drawn wider apart than it looks'; }
@@ -2320,8 +2345,17 @@ html.red .chart canvas{background:#050000}
     g.restore();
     g.strokeStyle = col('#2B3860', 1); g.lineWidth = 2; g.beginPath(); g.arc(cx0, cy0, R, 0, 2 * Math.PI); g.stroke();
     if (o.k === 'planet') closeUp(g, w - 50, f.h - 50, 42, o, sc.planets.filter(function (x) { return x.id === o.id; })[0], e, nth);
-    g.font = '700 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#6F7896', 1); g.fillText('N', cx0 - 4, 14); g.fillText('E', 6, cy0 + 4);
-    $('epCap').textContent = cap + '. Many telescopes flip or mirror this view.';
+    // N and E just inside the rim, where north and east lie
+    g.font = '700 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#6F7896', 1); g.textAlign = 'center'; g.textBaseline = 'middle';
+    var marks = c.__marks = {};
+    [['N', nDir], ['E', eDir]].forEach(function (q) {
+      // a planet's close-up sits at the lower right, under its own label: a mark that would land there comes in toward the centre
+      for (var rr = R - 9; rr > R / 2; rr -= 4) { var x = cx0 + q[1][0] * rr, y = cy0 + q[1][1] * rr; if (o.k !== 'planet' || (Math.hypot(x - (w - 50), y - (f.h - 50)) > 52 && !(x > w - 90 && y > f.h - 120))) break; }
+      g.fillText(q[0], x, y); marks[q[0]] = [x, y];
+    });
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    var vw = viewOf();
+    $('epCap').textContent = cap + '. Drawn as ' + (S.scope.set ? 'your ' : 'a ') + (S.scope.name || S.scope.ap + ' mm telescope') + ' shows it: ' + vw.cap + '.';
   }
 
   // Saturn's ring plane, from its pole (RA 40.589°, Dec 83.537°; IAU, Archinal et al. 2018). B is Earth's latitude above
@@ -2341,6 +2375,9 @@ html.red .chart canvas{background:#050000}
     g.strokeStyle = col('#E7CF8D', front ? 0.9 : 0.85); g.lineWidth = lw; g.stroke();
     g.restore();
   }
+  // Moves the drawing to (x, y) and turns it so up is toward a planet's north pole (RA and Dec, IAU, Archinal et al.
+  // 2018) as the sketch shows it, so Jupiter's belts and Mars's polar cap turn with the view. Saves the state to restore.
+  function poleUp(g, x, y, ra, dec, e, nth) { var p = vec(ra, dec); g.save(); g.translate(x, y); g.rotate(Math.atan2(-dot(p, e), dot(p, nth))); }
   // An enlarged sketch of the planet, since at true scale it is only a few pixels across.
   function closeUp(g, x, y, r, o, pl, e, nth) {
     g.save(); g.fillStyle = col('#0A0F1C', 0.95); g.strokeStyle = col('#2B3860', 1); g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); g.fill(); g.stroke();
@@ -2354,10 +2391,10 @@ html.red .chart canvas{background:#050000}
     } else if (o.id === 'Venus' || o.id === 'Mercury' || o.id === 'Mars') {
       var sun = scene(T.t).sun, sv = vec(sun.ra, sun.dec), ang = Math.atan2(-dot(sv, nth), -dot(sv, e));
       drawPhase(g, x, y, pr, pl.frac, ang, col(pl.col, 1), col('#1A1F2C', 1));
-      if (o.id === 'Mars') { g.fillStyle = col('#FFFFFF', 0.85); g.beginPath(); g.ellipse(x, y - pr * 0.82, pr * 0.3, pr * 0.14, 0, 0, 2 * Math.PI); g.fill(); g.fillStyle = col('#7A3A22', 0.5); g.beginPath(); g.ellipse(x - pr * 0.1, y + pr * 0.1, pr * 0.45, pr * 0.2, -0.3, 0, 2 * Math.PI); g.fill(); }
+      if (o.id === 'Mars') { poleUp(g, x, y, 317.269, 54.433, e, nth); g.fillStyle = col('#FFFFFF', 0.85); g.beginPath(); g.ellipse(0, -pr * 0.82, pr * 0.3, pr * 0.14, 0, 0, 2 * Math.PI); g.fill(); g.fillStyle = col('#7A3A22', 0.5); g.beginPath(); g.ellipse(-pr * 0.1, pr * 0.1, pr * 0.45, pr * 0.2, -0.3, 0, 2 * Math.PI); g.fill(); g.restore(); }
     } else {
       g.fillStyle = col(pl.col, 1); g.beginPath(); g.arc(x, y, pr, 0, 2 * Math.PI); g.fill();
-      if (o.id === 'Jupiter') { g.save(); g.beginPath(); g.arc(x, y, pr, 0, 2 * Math.PI); g.clip(); g.fillStyle = col('#A0703F', 0.75); g.fillRect(x - pr, y - pr * 0.32, pr * 2, pr * 0.2); g.fillRect(x - pr, y + pr * 0.14, pr * 2, pr * 0.2); g.restore(); }
+      if (o.id === 'Jupiter') { g.save(); g.beginPath(); g.arc(x, y, pr, 0, 2 * Math.PI); g.clip(); poleUp(g, x, y, 268.057, 64.495, e, nth); g.fillStyle = col('#A0703F', 0.75); g.fillRect(-pr, -pr * 0.32, pr * 2, pr * 0.2); g.fillRect(-pr, pr * 0.14, pr * 2, pr * 0.2); g.restore(); g.restore(); }
     }
     g.restore();
     g.font = '700 10px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#6F7896', 1); g.textAlign = 'center'; g.fillText('Close-up', x, y - r - 5); g.textAlign = 'left';
@@ -2373,13 +2410,14 @@ html.red .chart canvas{background:#050000}
       '<p class="hint">Printed on the tube or box: 70/700 means a 70 mm aperture and 700 mm focal length.</p>' +
       '<div class="fld"><span>Eyepieces — focal length and apparent field</span><p class="hint">The number on each eyepiece (H20mm, K25). Not sure of the field? Leave 52°.</p><div class="epl" id="epl"></div><button class="btn sec sm" type="button" id="epAdd" style="align-self:flex-start">+ Add an eyepiece</button></div>' +
       '<div class="fld"><span>Barlow</span><p class="hint">A Barlow lens goes in front of an eyepiece and doubles or triples its power.</p><div class="opts" id="bwOpts" role="group" aria-label="Barlow"></div></div>' +
+      '<div class="fld"><span>What you see through it</span><div class="opts" id="vwOpts" role="group" aria-label="What you see through it"></div></div>' +
       '<div class="fld"><span>Your finder</span><div class="opts" id="fdOpts" role="group" aria-label="Your finder"></div></div>' +
       '<div class="fld"><span>Your sky</span><p class="hint">Each sky’s Bortle class goes by the faintest star you see by eye, as Bortle’s scale gives it (Sky &amp; Telescope, February 2001).</p><div class="opts" id="skyOpts"></div></div>' +
       '<div class="card" id="scStats"></div></div>');
     // Until a telescope is set, the example's name stays out of the field, so one typed in by hand isn't saved under it.
     $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = sc.fl;
     var picked = null; // the name a quick pick put in the field
-    var skyv = S.sky, fdv = finder().id, bwv = sc.barlow || 1;
+    var skyv = S.sky, fdv = finder().id, bwv = sc.barlow || 1, vwv = viewOf().id;
     function drawEps() {
       // each field and Remove button says which eyepiece it belongs to, as the rows' short labels can't
       // (only the first row shows its labels; the rest have them for screen readers)
@@ -2390,6 +2428,7 @@ html.red .chart canvas{background:#050000}
     function delName(i) { return epOk(eps[i], 'f') ? 'Remove the ' + eps[i].f + ' mm eyepiece' : 'Remove eyepiece ' + (i + 1); }
     function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '" aria-pressed="' + (s.id === skyv) + '"><b>' + s.name + ' <span class="bt">Bortle ' + s.bortle + '</span></b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
     function drawBarlow() { $('bwOpts').innerHTML = [[1, 'None'], [2, '2×'], [3, '3×']].map(function (o) { return '<button class="opt' + (o[0] === bwv ? ' on' : '') + '" type="button" data-b="' + o[0] + '" aria-pressed="' + (o[0] === bwv) + '"><b>' + o[1] + '</b></button>'; }).join(''); $('bwOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { bwv = +b.dataset.b; drawBarlow(); stats(); }); }); }
+    function drawViews() { $('vwOpts').innerHTML = VIEWS.map(function (v) { return '<button class="opt' + (v.id === vwv ? ' on' : '') + '" type="button" data-v="' + v.id + '" aria-pressed="' + (v.id === vwv) + '"><b>' + v.name + '</b><small>' + v.sub + '</small></button>'; }).join(''); $('vwOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { vwv = b.dataset.v; drawViews(); }); }); }
     function drawFinders() { $('fdOpts').innerHTML = FINDERS.map(function (f) { return '<button class="opt' + (f.id === fdv ? ' on' : '') + '" type="button" data-f="' + f.id + '" aria-pressed="' + (f.id === fdv) + '"><b>' + f.name + '</b><small>' + f.sub + '</small></button>'; }).join(''); $('fdOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { fdv = b.dataset.f; drawFinders(); }); }); }
     function stats() {
       var ap = reading($('scAp').value, true), fl = reading($('scFl').value);
@@ -2398,7 +2437,7 @@ html.red .chart canvas{background:#050000}
       $('scStats').innerHTML = '<h3>What it can do</h3><div class="kv"><div><span>Focal ratio</span><b>f/' + (fl / ap).toFixed(1) + '</b></div><div><span>Faintest stars</span><b>mag ' + (nelm + 5 * Math.log10(ap / 7) - 0.6).toFixed(1) + '</b></div><div><span>Splits pairs to</span><b>' + (116 / ap).toFixed(1) + '″</b></div><div><span>Highest useful power</span><b>' + Math.round(Math.min(2 * ap, 350)) + '×</b></div></div>' +
         (good.length ? '<div class="epsw"><table class="eps plain"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th></tr></thead><tbody>' + epTable(ap, fl, good, bwv).map(function (r) { return '<tr><td>' + epCell(r) + '</td><td>' + Math.round(r.M) + '×</td><td>' + spokenArcs(field(r.tf)) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '');
     }
-    $('scPre').addEventListener('change', function () { var p = PRESETS[+this.value]; if (!p) return; $('scName').value = picked = p.name; $('scAp').value = p.ap; $('scFl').value = p.fl; $('scAp').removeAttribute('aria-invalid'); $('scFl').removeAttribute('aria-invalid'); stats(); });
+    $('scPre').addEventListener('change', function () { var p = PRESETS[+this.value]; if (!p) return; $('scName').value = picked = p.name; $('scAp').value = p.ap; $('scFl').value = p.fl; vwv = guessView(p.name); drawViews(); $('scAp').removeAttribute('aria-invalid'); $('scFl').removeAttribute('aria-invalid'); stats(); });
     // new numbers after a quick pick make it some other telescope, so the pick's name goes unless it was typed over
     ['scAp', 'scFl'].forEach(function (id) { $(id).addEventListener('input', function () { if (picked && $('scName').value === picked) $('scName').value = ''; picked = null; this.removeAttribute('aria-invalid'); stats(); }); });
     $('epAdd').addEventListener('click', function () {
@@ -2425,10 +2464,10 @@ html.red .chart canvas{background:#050000}
       // A name left empty, or a quick pick's or the example's with other numbers, gives way to one from the numbers.
       var name = $('scName').value.trim();
       if (!name || PRESETS.concat(DEFAULT_SCOPE).some(function (p) { return p.name === name && (p.ap !== ap || p.fl !== fl); })) name = ap + ' mm, f/' + Math.round(fl / ap * 10) / 10;
-      S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), barlow: bwv, finder: fdv, set: true }; S.sky = skyv; save();
+      S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), barlow: bwv, view: vwv, finder: fdv, set: true }; S.sky = skyv; save();
       closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies'); // the chip hides its name on a phone
     });
-    drawEps(); drawBarlow(); drawFinders(); drawSky(); stats();
+    drawEps(); drawBarlow(); drawViews(); drawFinders(); drawSky(); stats();
   }
   function renderScopeChip() { var n = S.scope.set ? (S.scope.name || S.scope.ap + ' mm') : 'Telescope'; $('scopeName').textContent = n; $('scopeBtn').setAttribute('aria-label', S.scope.set ? 'Telescope: ' + n : 'Your telescope'); }
   $('scopeBtn').addEventListener('click', scopeSheet);

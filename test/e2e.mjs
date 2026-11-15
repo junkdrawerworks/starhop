@@ -1721,12 +1721,18 @@ const litSide = page => page.$eval('#eyepiece', c => {
 
 // Oct 1 2026, 7:20 pm: Venus is a 14% crescent in the evening sky, so its lit side faces the Sun in the west.
 check('Venus in the eyepiece is lit on the side facing the Sun', async () => {
-  const scope = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 4, a: 52 }], set: true };
+  const scope = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 4, a: 52 }], set: true, view: 'sky' };
   const { ctx, page } = await open({ save: JSON.stringify({ loc: AUSTIN, scope }), time: '2026-10-01T19:20:00-05:00' });
   try {
     await openCard(page, 'Venus');
     await page.waitForFunction(() => /163×/.test(document.getElementById('epCap').textContent));
-    assert.ok(await litSide(page) > 1, 'the crescent is lit on its west side, toward the Sun');
+    assert.ok(await litSide(page) > 1, 'the crescent is lit on its west side, toward the Sun, at the right as the eye sees Venus in the southwest');
+    await page.click('#sheet [data-close]');
+    await page.evaluate(s => localStorage.setItem('starhop.v1', s), JSON.stringify({ loc: AUSTIN, scope: { ...scope, view: 'inv' } }));
+    await page.reload(); await ready(page);
+    await openCard(page, 'Venus');
+    await page.waitForFunction(() => /163×/.test(document.getElementById('epCap').textContent));
+    assert.ok(await litSide(page) < -1, 'and at the left when the telescope turns the view upside down');
   } finally { await ctx.close(); }
 });
 
@@ -2233,9 +2239,70 @@ check('A Barlow in the telescope sheet adds its powers to the eyepieces', async 
 });
 
 // The sketch drew every companion due west of its primary (position angle 270°), the same size whatever the two
-// magnitudes. The WDS's latest measures put Albireo B at 54° (northeast, so up and to the left in a north-up, east-left
-// view) and Mesarthim's matched pair (4.5 and 4.6) at 359°, due north.
-check('Albireo’s companion is drawn up and to the left', async () => {
+// magnitudes. The WDS's latest measures put Albireo B at 54° (northeast, between the sketch's N and E marks) and
+// Mesarthim's matched pair (4.5 and 4.6) at 359°, due north.
+// The eyepiece sketch was drawn north up and east left, while the finder chart beside it has the zenith up, and most
+// telescopes turn or mirror the view besides, so the two pictures never matched each other or the eyepiece. A reflector
+// shows the view upside down (turned 180°); a star diagonal shows it the right way up but mirrored left to right.
+check('The eyepiece sketch is turned the way the finder chart and the telescope show it', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  // north and east as unit steps across the finder chart, at M13
+  const finderDirs = () => page.$eval('#finder', c => {
+    const at = c.__at(250.4217, 36.4613), n = c.__at(250.4217, 36.4613 + 0.1), e = c.__at(250.4217 + 0.1 / Math.cos(36.4613 * Math.PI / 180), 36.4613);
+    const u = p => { const d = [p[0] - at[0], p[1] - at[1]], l = Math.hypot(d[0], d[1]); return [d[0] / l, d[1] / l]; };
+    return { n: u(n), e: u(e) };
+  });
+  const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]) < 0.02;
+  const card = async () => {
+    await openCard(page, 'M13');
+    await page.waitForFunction(() => document.getElementById('finder').__ring && document.getElementById('eyepiece').__frame);
+    return { f: await finderDirs(), p: await page.$eval('#eyepiece', c => c.__frame), cap: await text(page, '#epCap'), marks: await page.$eval('#eyepiece', c => c.__marks) };
+  };
+  const pick = async (label) => { await page.click('#scopeBtn'); await page.selectOption('#scPre', { label }); };
+  try {
+    let { f, p, cap, marks } = await card();
+    assert.ok(near(p.n, [-f.n[0], -f.n[1]]) && near(p.e, [-f.e[0], -f.e[1]]), `the example 130 mm reflector turns it upside down: ${JSON.stringify({ f, p })}`);
+    assert.match(cap, /\. Drawn as a 130 mm reflector shows it: upside down from the naked-eye view\.$/);
+    const w = await page.$eval('#eyepiece', c => c.getBoundingClientRect().width);
+    assert.ok(Math.abs(marks.N[0] - (w / 2 + p.n[0] * (w / 2 - 15))) < 1, 'the N mark sits where north is');
+    await page.click('#sheet [data-close]');
+    await pick('80 mm refractor (80 mm, f/5.0)');
+    assert.equal(await page.$eval('#vwOpts [aria-pressed="true"]', b => b.dataset.v), 'mir', 'a refractor’s quick pick sets a mirrored view');
+    await page.click('#scSave');
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('starhop.v1'))).scope.view, 'mir', 'it is kept');
+    ({ f, p, cap } = await card());
+    assert.ok(near(p.n, [-f.n[0], f.n[1]]) && near(p.e, [-f.e[0], f.e[1]]), `a star diagonal mirrors it left to right: ${JSON.stringify({ f, p })}`);
+    assert.match(cap, /Drawn as your 80 mm refractor shows it: mirrored left to right from the naked-eye view\.$/);
+    await page.click('#sheet [data-close]');
+    await page.click('#scopeBtn');
+    await page.click('#vwOpts [data-v="sky"]');
+    await page.click('#scSave');
+    ({ f, p, cap } = await card());
+    assert.ok(near(p.n, f.n) && near(p.e, f.e), 'as the sky, it matches the finder chart');
+    assert.match(cap, /the same way round as the naked-eye view\.$/);
+    await page.click('#sheet [data-close]');
+    await pick('8″ Dobsonian (203 mm, f/5.9)');
+    assert.equal(await page.$eval('#vwOpts [aria-pressed="true"]', b => b.dataset.v), 'inv', 'a Dobsonian’s quick pick turns it upside down');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// A save from before the view was a choice is guessed from the telescope's name, and anything else is shown as the sky.
+check('A saved telescope without a view guesses it from its name', async () => {
+  for (const [name, want] of [['6″ Dobsonian', /upside down/], ['127 mm Maksutov', /mirrored/], ['Grandad’s', /same way round/]]) {
+    const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: { name, ap: 150, fl: 1200, eps: [{ f: 25, a: 52 }], set: true, view: 'sideways' } }), time: '2026-10-13T21:00:00-05:00' });
+    try {
+      await openCard(page, 'M13');
+      await page.waitForFunction(() => document.getElementById('epCap').textContent);
+      assert.match(await text(page, '#epCap'), want, name);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
+// A step across the eyepiece sketch as a position angle, from north through east, by where its N and E point.
+const paOf = (page, a, b) => page.$eval('#eyepiece', (c, [a, b]) => { const f = c.__frame, d = [b[0] - a[0], b[1] - a[1]]; return Math.atan2(d[0] * f.e[0] + d[1] * f.e[1], d[0] * f.n[0] + d[1] * f.n[1]) * 180 / Math.PI; }, [a, b]);
+check('Albireo’s companion is drawn to the northeast', async () => {
   const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
   const pair = () => page.waitForFunction(() => document.getElementById('eyepiece').__pair?.b && document.getElementById('eyepiece').__pair).then(h => h.jsonValue());
   try {
@@ -2243,14 +2310,13 @@ check('Albireo’s companion is drawn up and to the left', async () => {
     let { a, b } = await pair();
     const { w, h } = await page.$eval('#eyepiece', c => { const r = c.getBoundingClientRect(); return { w: r.width, h: r.height }; });
     assert.deepEqual([Math.round(a[0]), Math.round(a[1])], [Math.round(w / 2), Math.round(h / 2)], 'Albireo A is at the centre');
-    assert.ok(b[0] < a[0] && b[1] < a[1], `B is up and to the left of A: ${JSON.stringify({ a, b })}`);
-    const pa = Math.atan2(a[0] - b[0], a[1] - b[1]) * 180 / Math.PI;
+    const pa = await paOf(page, a, b);
     assert.ok(Math.abs(pa - 54) < 1, 'at position angle 54°: ' + pa);
     assert.ok(b[2] < a[2], 'B, 1.5 magnitudes fainter, is drawn smaller');
     await page.click('#sheet [data-close]');
     await openCard(page, 'mesarthim');
     ({ a, b } = await pair());
-    assert.ok(Math.abs(b[0] - a[0]) < 1 && b[1] < a[1], 'Mesarthim’s pair lies north–south');
+    assert.ok(Math.abs((await paOf(page, a, b) + 360) % 360 - 359) < 1, 'Mesarthim’s pair lies north–south');
     assert.ok(b[2] / a[2] > 0.95, 'and is drawn matched');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
@@ -2271,10 +2337,12 @@ check('The Double Cluster is one row with both its numbers, and its sketch shows
     const groups = await page.waitForFunction(() => document.getElementById('eyepiece').__groups).then(h => h.jsonValue());
     const w = await page.$eval('#eyepiece', c => c.getBoundingClientRect().width);
     assert.equal(groups.length, 2, 'two clusters drawn');
-    const [h, chi] = groups;
-    assert.ok(chi[0] < h[0], 'χ Persei, to the east, is drawn to the left');
-    assert.ok(Math.abs(chi[1] - h[1]) < 0.1 * (h[0] - chi[0]), 'side by side, east and west');
-    assert.ok(Math.abs((h[0] + chi[0]) / 2 - w / 2) < 2, 'either side of the centre');
+    const [h, chi] = groups, f = await page.$eval('#eyepiece', c => c.__frame), d = [chi[0] - h[0], chi[1] - h[1]];
+    const east = d[0] * f.e[0] + d[1] * f.e[1], north = d[0] * f.n[0] + d[1] * f.n[1];
+    assert.ok(east > 0, 'χ Persei is drawn to the east');
+    assert.ok(Math.abs(north) < 0.1 * east, 'side by side, east and west');
+    const hh = await page.$eval('#eyepiece', c => c.getBoundingClientRect().height);
+    assert.ok(Math.hypot((h[0] + chi[0]) / 2 - w / 2, (h[1] + chi[1]) / 2 - hh / 2) < 2, 'either side of the centre');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
