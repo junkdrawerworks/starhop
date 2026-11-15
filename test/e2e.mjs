@@ -1315,7 +1315,7 @@ check('a card says an object is wider than the field only when it is', async () 
     const say = async id => { await openCard(page, id); const a = await advice(page); await page.click('#sheet [data-close]'); return a; };
     assert.equal(await say('M45'), 'At 1.8° across, it fills most of your lowest-power field (2.0°). Use the 25 mm, or try binoculars.');
     assert.match(await say('M31'), /^At 3\.0° across, it’s wider than your lowest-power field \(2\.0°\)\./);
-    assert.match(await say('M57'), /^It spans 1′\. Find it with the 25 mm \(2\.0° field\), then try the 10 mm \(65×\) for a closer look\.$/);
+    assert.match(await say('M57'), /^It spans 1\.4′\. Find it with the 25 mm \(2\.0° field\), then try the 10 mm \(65×\) for a closer look\.$/);
   } finally { await ctx.close(); }
 });
 
@@ -1664,14 +1664,15 @@ check('planet rise and set times match the standard ones', async () => {
   } finally { await ctx.close(); }
 });
 
-// d3-celestial gives M73 no size, and the card made one up; SEDS gives its four stars as 2.8′ across.
+// d3-celestial gives M73 no size, and the card made one up; SEDS gives its four stars as 2.8′ across. Sizes under 10′
+// show to a tenth, since the Ring Nebula's 1.4′ × 1.0′ showed as 1′ × 1′.
 check('M73, a few faint stars, takes its size from SEDS and gets no cluster sketch', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
     await openCard(page, 'M73');
     const size = await page.$$eval('#sheet .kv div', ds => ds.find(d => d.querySelector('span').textContent === 'Size').querySelector('b').textContent);
-    assert.equal(size, '3′', 'M73 size');
-    assert.equal(await advice(page), 'It spans 3′. Find it with the 25 mm (2.0° field), then try the 10 mm (65×) for a closer look.');
+    assert.equal(size, '2.8′', 'M73 size');
+    assert.equal(await advice(page), 'It spans 2.8′. Find it with the 25 mm (2.0° field), then try the 10 mm (65×) for a closer look.');
     await page.waitForFunction(() => document.getElementById('epCap').textContent);
     assert.doesNotMatch(await text(page, '#epCap'), /sketch/, 'M73 has no cluster sketch');
   } finally { await ctx.close(); }
