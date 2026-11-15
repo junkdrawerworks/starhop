@@ -2330,6 +2330,58 @@ check('The eyepiece sketch shows what shares the field, faded as hard as each on
   } finally { await ctx.close(); }
 });
 
+// Cards said "try binoculars" for big objects, but binoculars couldn't be chosen, and many beginners start with 10×50s.
+// Binoculars split a double by the same rule at their one power, about 240 ÷ the separation: Albireo (34.3″) at 7×,
+// ν Draconis (62″) easily, Mizar (14.4″, with a companion 1.7 magnitudes fainter) not at 10×.
+check('Binoculars can be chosen, with one power and field, and the sketch shows their whole field', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  try {
+    await page.click('#scopeBtn');
+    assert.equal(await page.isVisible('#bnMag'), false, 'a telescope’s sheet has no power box');
+    await page.click('#inOpts [data-n="bino"]');
+    assert.equal(await page.isVisible('#epl'), false, 'binoculars have no eyepieces');
+    assert.equal(await page.isVisible('#bwOpts'), false, 'no Barlow');
+    assert.equal(await page.isVisible('#fdOpts'), false, 'and no finder');
+    await page.selectOption('#scPre', { label: '10×50 binoculars (6.5° field)' });
+    assert.deepEqual([await page.inputValue('#scAp'), await page.inputValue('#bnMag'), await page.inputValue('#bnFov')], ['50', '10', '6.5']);
+    assert.match(await text(page, '#scStats'), /Splits pairs to 24″ Power 10× Field 6\.5°/i);
+    await page.click('#scSave');
+    assert.equal(await text(page, '#toast'), 'Ratings now for your 10×50 binoculars under suburban skies');
+    assert.equal(await page.$eval('#scopeBtn', b => b.getAttribute('aria-label')), 'Binoculars: 10×50 binoculars');
+    assert.deepEqual(JSON.parse(await page.evaluate(() => localStorage.getItem('starhop.v1'))).scope, { kind: 'bino', name: '10×50 binoculars', ap: 50, mag: 10, fov: 6.5, set: true });
+    await openCard(page, 'M13');
+    assert.match(await text(page, '#sheet'), /IN YOUR BINOCULARS It spans 17′; your binoculars show it at 10× in a 6\.5° field\. 10× · 6\.5° field/i);
+    assert.equal(await page.$('#sheet .eps'), null, 'one line, not a table');
+    await page.waitForFunction(() => document.getElementById('finder').__ring && document.getElementById('epCap').textContent);
+    assert.equal(await text(page, '#epCap'), '10× · field 6.5° · a sketch, not a photo — expect it fainter. Drawn as your 10×50 binoculars show it: the same way round as the naked-eye view.');
+    assert.match(await text(page, '#finderCap'), /The dashed circle is your binoculars’ field \(6\.5°\)\./);
+    const deg = await page.$eval('#finder', c => { const at = c.__at(250.4217, 36.4613), off = c.__at(250.4217, 36.4613 + 1); return c.__ring.r / Math.hypot(off[0] - at[0], off[1] - at[1]) * 2; });
+    assert.ok(Math.abs(deg - 6.5) < 0.05, 'the finder chart’s circle is the binoculars’ field: ' + deg);
+    await page.click('#sheet [data-close]');
+    for (const [id, re] of [['albireo', /34\.3″ apart, a split in your binoculars \(10×\)\./], ['nudra', /an easy split in your binoculars/], ['mizar', /14\.4″ pair takes about 20×; your binoculars give 10×, so it needs a telescope\./]]) {
+      await openCard(page, id);
+      assert.match(await text(page, '#sheet'), re, id);
+      await page.click('#sheet [data-close]');
+    }
+    // and back to a telescope: its fields come back as they were
+    await page.click('#scopeBtn');
+    await page.click('#inOpts [data-n="scope"]');
+    assert.equal(await page.inputValue('#scFl'), '650');
+    assert.equal(await page.isVisible('#epl'), true);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// A damaged binocular save opens with the example telescope.
+check('A saved pair of binoculars that can’t be read opens with the example telescope', async () => {
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: { kind: 'bino', name: 'Odd', ap: 50, mag: 'ten', fov: 6.5, set: true } }), time: '2026-10-13T21:00:00-05:00' });
+  try {
+    await openCard(page, 'M13');
+    assert.match(await text(page, '#sheet'), /IN YOUR TELESCOPE/i);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // A step across the eyepiece sketch as a position angle, from north through east, by where its N and E point.
 const paOf = (page, a, b) => page.$eval('#eyepiece', (c, [a, b]) => { const f = c.__frame, d = [b[0] - a[0], b[1] - a[1]]; return Math.atan2(d[0] * f.e[0] + d[1] * f.e[1], d[0] * f.n[0] + d[1] * f.n[1]) * 180 / Math.PI; }, [a, b]);
 check('Albireo’s companion is drawn to the northeast', async () => {

@@ -413,6 +413,14 @@ html.red .chart canvas{background:#050000}
     { name: '127 mm Maksutov', ap: 127, fl: 1500 },
     { name: '8″ Schmidt-Cassegrain', ap: 203, fl: 2032 }
   ];
+  // Binoculars: their power, and their true field in degrees as such binoculars typically have (the field is printed on
+  // them, in degrees or as feet at 1,000 yards).
+  var BINOS = [
+    { name: '7×50 binoculars', ap: 50, mag: 7, fov: 7.1 },
+    { name: '10×50 binoculars', ap: 50, mag: 10, fov: 6.5 },
+    { name: '15×70 binoculars', ap: 70, mag: 15, fov: 4.4 }
+  ];
+  function isBino() { return S.scope.kind === 'bino'; }
   // The finder on the telescope, whose field the finder chart draws. A Telrad's three rings are 4°, 2° and ½° across;
   // a red-dot finder shows a dot on the open sky, with no field to draw.
   var FINDERS = [
@@ -429,8 +437,10 @@ html.red .chart canvas{background:#050000}
     { id: 'sky', name: 'As the sky', sub: 'The way your eye sees it', cap: 'the same way round as the naked-eye view' }
   ];
   function guessView(name) { return /reflector|dobsonian|newton/i.test(name) ? 'inv' : /refractor|maksutov|schmidt|cassegrain/i.test(name) ? 'mir' : 'sky'; }
-  function viewOf() { return VIEWS.filter(function (v) { return v.id === S.scope.view; })[0] || VIEWS[2]; }
-  function finder() { return FINDERS.filter(function (f) { return f.id === S.scope.finder; })[0] || FINDERS[0]; }
+  function viewOf() { if (isBino()) return VIEWS[2]; return VIEWS.filter(function (v) { return v.id === S.scope.view; })[0] || VIEWS[2]; }
+  function finder() {
+    if (isBino()) return { rings: [{ deg: S.scope.fov, dash: true, a: 0.6 }], cap: 'The dashed circle is your binoculars’ field (' + S.scope.fov + '°).' };
+    return FINDERS.filter(function (f) { return f.id === S.scope.finder; })[0] || FINDERS[0]; }
   var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], barlow: 1, view: 'inv', finder: 'fs', set: false };
   var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, seen: {} };
   try { var saved = JSON.parse(localStorage.getItem(LS) || 'null'); if (plain(saved)) S = checkSave(saved, S); } catch (e) { }
@@ -444,8 +454,9 @@ html.red .chart canvas{background:#050000}
     var out = Object.assign({}, d, sv), l = sv.loc, sc = sv.scope;
     var la = plain(l) ? num(l.lat) : NaN, lo = plain(l) ? num(l.lon) : NaN;
     out.loc = la >= -90 && la <= 90 && lo >= -180 && lo <= 180 && zoneOk(l.tz) ? Object.assign({}, l, { lat: la, lon: lo, name: typeof l.name === 'string' && l.name ? l.name : la.toFixed(2) + '°, ' + lo.toFixed(2) + '°' }) : null;
-    var ap = plain(sc) ? num(sc.ap) : NaN, fl = plain(sc) ? num(sc.fl) : NaN;
-    out.scope = ap > 0 && fl > 0 ? Object.assign({}, sc, { name: typeof sc.name === 'string' ? sc.name : '', ap: ap, fl: fl, set: !!sc.set,
+    var ap = plain(sc) ? num(sc.ap) : NaN, fl = plain(sc) ? num(sc.fl) : NaN, mg = plain(sc) ? num(sc.mag) : NaN, fov = plain(sc) ? num(sc.fov) : NaN;
+    if (plain(sc) && sc.kind === 'bino') out.scope = ap > 0 && mg >= 2 && mg <= 40 && fov >= 0.5 && fov <= 15 ? { kind: 'bino', name: typeof sc.name === 'string' ? sc.name : '', ap: ap, mag: mg, fov: fov, set: !!sc.set } : d.scope;
+    else out.scope = ap > 0 && fl > 0 ? Object.assign({}, sc, { name: typeof sc.name === 'string' ? sc.name : '', ap: ap, fl: fl, set: !!sc.set,
       eps: (Array.isArray(sc.eps) ? sc.eps : []).filter(function (e) { return plain(e) && num(e.f) > 1 && num(e.a) > 10; }).map(function (e) { return { f: num(e.f), a: num(e.a) }; }),
       barlow: num(sc.barlow) === 2 || num(sc.barlow) === 3 ? num(sc.barlow) : 1,
       view: VIEWS.some(function (v) { return v.id === sc.view; }) ? sc.view : guessView(typeof sc.name === 'string' ? sc.name : ''),
@@ -785,13 +796,14 @@ html.red .chart canvas{background:#050000}
   // Limiting magnitude and resolving power of the telescope.
   function scopeStats() {
     var ap = S.scope.ap, nelm = sky().nelm;
-    return { lm: nelm + 5 * Math.log10(ap / 7) - 0.6, dawes: 116 / ap, maxMag: Math.round(Math.min(2 * ap, 350)), fr: S.scope.fl / ap };
+    return { lm: nelm + 5 * Math.log10(ap / 7) - 0.6, dawes: 116 / ap, maxMag: isBino() ? S.scope.mag : Math.round(Math.min(2 * ap, 350)) };
   }
   // The power that splits a double star. The list's rating, the card's advice and the eyepiece sketch all go by it: an
   // eyepiece splits the pair when it reaches this power. A rule of thumb: about 240 ÷ the separation in arcseconds, and
   // a quarter more for each magnitude the companion is fainter than the primary beyond the first, since a faint one is
-  // lost in the glare (so Rigel's, 6.5 magnitudes fainter at 9.4″, takes about 61×, not 26×). At least 20×.
-  function pairPower(sep, dm) { return Math.max(20, 240 / sep * (1 + 0.25 * Math.max(0, dm - 1))); }
+  // lost in the glare (so Rigel's, 6.5 magnitudes fainter at 9.4″, takes about 61×, not 26×). At least 20× in a
+  // telescope, whose eyepieces seldom go lower; binoculars split by the same rule at their own power (Albireo at 10×).
+  function pairPower(sep, dm) { var p = 240 / sep * (1 + 0.25 * Math.max(0, dm - 1)); return isBino() ? p : Math.max(20, p); }
   function splitPower(o) { var m = mags(o); return pairPower(o.sep, m[1] - m[0]); }
   // A double's two magnitudes, from text like '3.2 + 4.7'.
   function mags(o) { var m = String(o.mags).split('+').map(parseFloat); return [m[0], m[1] != null && !isNaN(m[1]) ? m[1] : m[0]]; }
@@ -2031,7 +2043,7 @@ html.red .chart canvas{background:#050000}
 
   // ---------- object card ----------
   var BEST_TYPE = { planet: 'Planet', moon: 'Our Moon', star: 'Star', double: 'Double star' };
-  function epRows() { return epTable(S.scope.ap, S.scope.fl, S.scope.eps, S.scope.barlow); }
+  function epRows() { var sc = S.scope; return isBino() ? [{ bino: true, b: 1, M: sc.mag, tf: sc.fov, a: sc.fov * sc.mag, xp: sc.ap / sc.mag, ok: true, use: true }] : epTable(sc.ap, sc.fl, sc.eps, sc.barlow); }
   // Each eyepiece's power, true field and exit pupil, lowest power first. With a Barlow, each eyepiece comes again at
   // the Barlow's power (its apparent field stays the same, so its true field shrinks). An eyepiece past the telescope's
   // highest useful power is still listed; a Barlow's power past it is listed but never suggested or counted (use).
@@ -2046,9 +2058,10 @@ html.red .chart canvas{background:#050000}
     return out.sort(function (x, y) { return x.M - y.M || x.b - y.b; });
   }
   // An eyepiece as the advice names it: the 10 mm, or the 10 mm with the 2× Barlow; and as the tables list it
-  function epName(r) { return r.f + ' mm' + (r.b > 1 ? ' with the ' + r.b + '× Barlow' : ''); }
+  function epName(r) { return r.bino ? 'binoculars' : r.f + ' mm' + (r.b > 1 ? ' with the ' + r.b + '× Barlow' : ''); }
+  function epThe(r) { return r.bino ? 'your binoculars' : 'the ' + epName(r); }
   function epCell(r) { return r.f + ' mm' + (r.b > 1 ? ' + ' + r.b + '×' : ''); }
-  function moreHint() { return S.scope.barlow > 1 ? 'a shorter eyepiece' : 'a shorter eyepiece or a 2× Barlow'; }
+  function moreHint() { return isBino() ? 'a telescope' : S.scope.barlow > 1 ? 'a shorter eyepiece' : 'a shorter eyepiece or a 2× Barlow'; }
   // A size in arcminutes: to a tenth under 10′, so the Ring Nebula is 1.4′ × 1′, not 1′ × 1′
   function arcmin(x) { return (x < 10 ? Math.round(x * 10) / 10 : Math.round(x)) + '′'; }
   // Screen readers say ′ and ″ as "prime" and "double prime", or skip them, so they hear arcminutes and arcseconds.
@@ -2059,12 +2072,13 @@ html.red .chart canvas{background:#050000}
     var adv = advice(o, sc, rows);
     if (rows.length && (o.k === 'dso' || o.k === 'double')) {
       var ns = sharing(o, o.v || vec(o.ra, o.dec), rows[0].tf).map(function (q) { return q.id; });
-      if (ns.length) adv.txt += ' ' + (ns.length > 1 ? ns.slice(0, -1).join(', ') + ' and ' + ns[ns.length - 1] + ' share' : ns[0] + ' shares') + ' the ' + epName(rows[0]) + ' field.';
+      if (ns.length) adv.txt += ' ' + (ns.length > 1 ? ns.slice(0, -1).join(', ') + ' and ' + ns[ns.length - 1] + ' share' : ns[0] + ' shares') + (rows[0].bino ? ' your binoculars’ field.' : ' the ' + epName(rows[0]) + ' field.');
     }
     return adv;
   }
   function advice(o, sc, rows) {
     if (!rows.length) return { txt: 'Add your eyepieces under Telescope to see how this will look.', pick: -1 };
+    if (rows[0].bino) return { txt: binoAdvice(o, sc, rows[0]), pick: 0 };
     var st = scopeStats(), pick = -1, txt = '';
     if (o.k === 'planet' || o.k === 'moon') {
       var p = o.k === 'moon' ? { diam: sc.moon.diam * 3600 } : sc.planets.filter(function (x) { return x.id === o.id; })[0];
@@ -2089,6 +2103,25 @@ html.red .chart canvas{background:#050000}
     else if (pick < 0 && sz * 1.6 > low.tf * 60) { pick = 0; txt = 'At ' + size + ' across, it fills most of your lowest-power field (' + field(low.tf) + '). Use the ' + epName(low) + ', or try binoculars.'; }
     else { pick = Math.max(pick, 0); txt = (o.dim && o.dim[0] ? 'It spans ' + size + '. ' : '') + 'Find it with the ' + epName(low) + ' (' + field(low.tf) + ' field)' + (pick ? ', then try the ' + epName(rows[pick]) + ' (' + Math.round(rows[pick].M) + '×) for a closer look.' : '.'); }
     return { txt: txt, pick: pick };
+  }
+  // The same for binoculars, at their one power and field.
+  function binoAdvice(o, sc, r) {
+    var M = Math.round(r.M), fld = field(r.tf);
+    if (o.k === 'moon') return 'The whole Moon fits in your binoculars’ ' + fld + ' field. ' + (sc.moon.illum > 0.95 ? 'Near full there are few shadows, but the dark seas show plainly.' : 'Along the terminator — the line between light and dark — the biggest craters show even at ' + M + '×.');
+    if (o.k === 'planet') {
+      var p = sc.planets.filter(function (x) { return x.id === o.id; })[0], ratio = p.diam * r.M / 1865;
+      return 'At ' + M + '×, ' + o.id + ' looks about ' + (ratio < 0.25 ? (1 / ratio).toFixed(0) : (1 / ratio).toFixed(1)) + '× smaller than the full Moon does to your eye: a point or a tiny disc.' +
+        (o.id === 'Jupiter' ? ' Held steady, your binoculars show its four big moons as faint stars in a line beside it.' : o.id === 'Saturn' ? ' Its rings need a telescope.' : '');
+    }
+    if (o.k === 'double') {
+      var need = splitPower(o);
+      if (need > r.M) return 'Splitting a ' + o.sep + '″ pair takes about ' + Math.round(need) + '×; your binoculars give ' + M + '×, so it needs a telescope.' + (o.inner ? ' So does each of its stars, a close pair itself.' : '');
+      return 'The two stars are ' + o.sep + '″ apart, ' + (need <= r.M * 0.6 ? 'an easy split' : 'a split') + ' in your binoculars (' + M + '×).' + (o.inner ? ' Each star is itself a close pair, ' + o.inner[0] + '″ and ' + o.inner[1] + '″ apart, which needs a telescope.' : '');
+    }
+    if (o.k === 'star') return 'A star stays a point at any power. Your binoculars show it with the stars around it, in a ' + fld + ' field.';
+    var sz = (o.dim && o.dim[0]) || 0, size = sz >= 60 ? (sz / 60).toFixed(1) + '°' : arcmin(sz);
+    if (sz > r.tf * 60) return 'At ' + size + ' across, it’s wider than your binoculars’ field (' + fld + '): pan across it.';
+    return (sz ? 'It spans ' + size + '; your' : 'Your') + ' binoculars show it at ' + M + '× in a ' + fld + ' field.';
   }
   // Epsilon Lyrae's two stars are each a close pair as well: whether your eyepieces split them.
   function innerPairs(o, rows, st) {
@@ -2189,11 +2222,12 @@ html.red .chart canvas{background:#050000}
     // IM Fell has no Greek, so a Bayer letter (ξ Sco) is set upright in the body face, as in the line under it
     var h = '<div class="hd"><h2><span>' + esc(name).replace(/^[\u0370-\u03ff]/, '<span class="gk">$&</span>') + '</span><small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
       '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + nowTxt + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span>' + val(f[1], spokenArcs(esc(f[1]))) + '</div>'; }).join('') + '</div>' : '') + '</div>' +
-      '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart" aria-describedby="finderCap"></canvas><div class="cap" id="finderCap">' + esc(eyeTxt) + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + finder().cap + (sky().nelm < 5.6 ? ' Hollow dots are stars too faint to see by eye from your sky; a finder shows them.' : '') + '</div></div>' +
+      '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart" aria-describedby="finderCap"></canvas><div class="cap" id="finderCap">' + esc(eyeTxt) + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + finder().cap + (sky().nelm < 5.6 ? ' Hollow dots are stars too faint to see by eye from your sky; ' + (isBino() ? 'binoculars show' : 'a finder shows') + ' them.' : '') + '</div></div>' +
       '<div class="chart"><canvas id="eyepiece" aria-label="Simulated eyepiece view" aria-describedby="epCap"></canvas><div class="cap" id="epCap"></div></div></div>' +
+      (isBino() ? '<div class="card"><h3>In your binoculars</h3><p>' + esc(adv.txt) + '</p><p class="mono">' + Math.round(rows[0].M) + '× · ' + spokenArcs(field(rows[0].tf)) + ' field</p></div>' :
       '<div class="card"><h3>In your telescope</h3><p>' + esc(adv.txt) + '</p><div class="epsw"><table class="eps"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th><th></th></tr></thead><tbody>' +
       rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + epCell(r) + '</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
-      '</tbody></table></div></div>' +
+      '</tbody></table></div></div>') +
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
       '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB"' + (S.seen[o.id] ? ' aria-label="Seen ' + esc(seenText(S.seen[o.id])) + '">✓ Seen ' + esc(seenText(S.seen[o.id])) : '>Mark as seen') + '</button></div></div>';
     openSheet(h, null, again).querySelector('.bd').scrollTop = keep;
@@ -2312,7 +2346,7 @@ html.red .chart canvas{background:#050000}
     // How plain a cluster, nebula or galaxy is: faded as its Difficulty is, so a Hard one is drawn faint (M33 from a city)
     function fadeOf(q) { return q.mag == null ? 0.6 : clamp(1.15 - 0.22 * rating(q, sc.moon.alt > 0 && sc.moon.illum > 0.3, sc.sun.alt).d, 0.15, 1); }
     var tags = [], nbrs = c.__nbrs = [];
-    var cap = Math.round(r.M) + '× with the ' + epName(r) + ' · field ' + (r.tf >= 1 ? r.tf.toFixed(1) + '°' : Math.round(fovMin) + '′');
+    var cap = Math.round(r.M) + '×' + (r.bino ? '' : ' with the ' + epName(r)) + ' · field ' + (r.tf >= 1 ? r.tf.toFixed(1) + '°' : Math.round(fovMin) + '′');
     if (o.k === 'planet') {
       var pl = sc.planets.filter(function (x) { return x.id === o.id; })[0], dpx = Math.max(2.2, pl.diam / 60 * scale);
       var ring = o.id === 'Saturn' ? saturnRing(pl, e, nth) : null;
@@ -2372,7 +2406,9 @@ html.red .chart canvas{background:#050000}
     // the labels, beside each object on the side with room inside the field
     g.font = '700 10.5px "Atkinson Hyperlegible", sans-serif'; g.textBaseline = 'middle';
     tags.forEach(function (tg) {
-      var tw = g.measureText(tg[0]).width, gap = Math.min(tg[3], 40) + 4, right = tg[1] + gap + tw < cx0 + Math.sqrt(Math.max(0, R * R - (tg[2] - cy0) * (tg[2] - cy0))) - 4;
+      // outward, away from the target at the centre, unless that runs past the rim
+      var tw = g.measureText(tg[0]).width, gap = Math.min(tg[3], 40) + 4, half = Math.sqrt(Math.max(0, R * R - (tg[2] - cy0) * (tg[2] - cy0))) - 4;
+      var fitsR = tg[1] + gap + tw < cx0 + half, fitsL = tg[1] - gap - tw > cx0 - half, right = tg[1] >= cx0 ? fitsR || !fitsL : !fitsL && fitsR;
       g.fillStyle = col('#A7AFC6', tg[4]); g.textAlign = right ? 'left' : 'right'; g.fillText(tg[0], tg[1] + (right ? gap : -gap), tg[2]);
     });
     g.textAlign = 'left'; g.textBaseline = 'alphabetic';
@@ -2389,7 +2425,7 @@ html.red .chart canvas{background:#050000}
     });
     g.textAlign = 'left'; g.textBaseline = 'alphabetic';
     var vw = viewOf();
-    $('epCap').textContent = cap + '. Drawn as ' + (S.scope.set ? 'your ' : 'a ') + (S.scope.name || S.scope.ap + ' mm telescope') + ' shows it: ' + vw.cap + '.';
+    $('epCap').textContent = cap + '. Drawn as ' + (S.scope.set ? 'your ' : 'a ') + (S.scope.name || S.scope.ap + (isBino() ? ' mm binoculars' : ' mm telescope')) + (isBino() ? ' show' : ' shows') + ' it: ' + vw.cap + '.';
   }
 
   // Saturn's ring plane, from its pole (RA 40.589°, Dec 83.537°; IAU, Archinal et al. 2018). B is Earth's latitude above
@@ -2437,21 +2473,32 @@ html.red .chart canvas{background:#050000}
   // ---------- telescope settings ----------
   var INCHES = 'Aperture is in millimetres — 8 inches is 203 mm';
   function scopeSheet() {
-    var sc = S.scope, eps = sc.eps.map(function (e) { return { f: e.f, a: e.a }; });
-    openSheet('<div class="hd"><h2>Your telescope<small>Used for difficulty ratings and eyepiece views</small></h2><button class="btn sec sm" type="button" data-close>Cancel</button><button class="btn sm" type="button" id="scSave">Save</button></div><div class="bd">' +
-      '<label class="fld"><span>Quick pick</span><select id="scPre"><option value="">Choose a common telescope…</option>' + PRESETS.map(function (p, i) { return '<option value="' + i + '">' + esc(p.name) + ' (' + p.ap + ' mm, f/' + (p.fl / p.ap).toFixed(1) + ')</option>'; }).join('') + '</select></label>' +
-      '<div class="grid2"><label class="fld"><span>Name</span><input id="scName" autocomplete="off" maxlength="40" placeholder="e.g. 70 mm refractor"></label><label class="fld"><span>Aperture (mm)</span><input id="scAp" inputmode="decimal" autocomplete="off"></label><label class="fld"><span>Focal length (mm)</span><input id="scFl" inputmode="decimal" autocomplete="off"></label></div>' +
-      '<p class="hint">Printed on the tube or box: 70/700 means a 70 mm aperture and 700 mm focal length.</p>' +
-      '<div class="fld"><span>Eyepieces — focal length and apparent field</span><p class="hint">The number on each eyepiece (H20mm, K25). Not sure of the field? Leave 52°.</p><div class="epl" id="epl"></div><button class="btn sec sm" type="button" id="epAdd" style="align-self:flex-start">+ Add an eyepiece</button></div>' +
-      '<div class="fld"><span>Barlow</span><p class="hint">A Barlow lens goes in front of an eyepiece and doubles or triples its power.</p><div class="opts" id="bwOpts" role="group" aria-label="Barlow"></div></div>' +
-      '<div class="fld"><span>What you see through it</span><div class="opts" id="vwOpts" role="group" aria-label="What you see through it"></div></div>' +
-      '<div class="fld"><span>Your finder</span><div class="opts" id="fdOpts" role="group" aria-label="Your finder"></div></div>' +
+    // With binoculars set, the telescope's part starts from the example, and the other way round.
+    var sc = S.scope, bn = isBino() ? sc : BINOS[1], ts = isBino() ? DEFAULT_SCOPE : sc, eps = ts.eps.map(function (e) { return { f: e.f, a: e.a }; });
+    openSheet('<div class="hd"><h2>Your telescope<small>Or binoculars: used for difficulty ratings and eyepiece views</small></h2><button class="btn sec sm" type="button" data-close>Cancel</button><button class="btn sm" type="button" id="scSave">Save</button></div><div class="bd">' +
+      '<div class="fld"><span>What you observe with</span><div class="opts" id="inOpts" role="group" aria-label="What you observe with"></div></div>' +
+      '<label class="fld"><span>Quick pick</span><select id="scPre"><option value="">Choose a common telescope or binoculars…</option><optgroup label="Telescopes">' + PRESETS.map(function (p, i) { return '<option value="s' + i + '">' + esc(p.name) + ' (' + p.ap + ' mm, f/' + (p.fl / p.ap).toFixed(1) + ')</option>'; }).join('') + '</optgroup><optgroup label="Binoculars">' + BINOS.map(function (p, i) { return '<option value="b' + i + '">' + esc(p.name) + ' (' + p.fov + '° field)</option>'; }).join('') + '</optgroup></select></label>' +
+      '<div class="grid2"><label class="fld"><span>Name</span><input id="scName" autocomplete="off" maxlength="40" placeholder="e.g. 70 mm refractor"></label><label class="fld"><span>Aperture (mm)</span><input id="scAp" inputmode="decimal" autocomplete="off"></label><label class="fld" data-only="scope"><span>Focal length (mm)</span><input id="scFl" inputmode="decimal" autocomplete="off"></label>' +
+      '<label class="fld" data-only="bino"><span>Power (×)</span><input id="bnMag" inputmode="decimal" autocomplete="off"></label><label class="fld" data-only="bino"><span>Field (°)</span><input id="bnFov" inputmode="decimal" autocomplete="off"></label></div>' +
+      '<p class="hint" data-only="scope">Printed on the tube or box: 70/700 means a 70 mm aperture and 700 mm focal length.</p>' +
+      '<p class="hint" data-only="bino">Printed on the binoculars: 10×50 means 10× power and 50 mm lenses. The field is given in degrees, or as feet at 1,000 yards (340 ft is 6.5°).</p>' +
+      '<div class="fld" data-only="scope"><span>Eyepieces — focal length and apparent field</span><p class="hint">The number on each eyepiece (H20mm, K25). Not sure of the field? Leave 52°.</p><div class="epl" id="epl"></div><button class="btn sec sm" type="button" id="epAdd" style="align-self:flex-start">+ Add an eyepiece</button></div>' +
+      '<div class="fld" data-only="scope"><span>Barlow</span><p class="hint">A Barlow lens goes in front of an eyepiece and doubles or triples its power.</p><div class="opts" id="bwOpts" role="group" aria-label="Barlow"></div></div>' +
+      '<div class="fld" data-only="scope"><span>What you see through it</span><div class="opts" id="vwOpts" role="group" aria-label="What you see through it"></div></div>' +
+      '<div class="fld" data-only="scope"><span>Your finder</span><div class="opts" id="fdOpts" role="group" aria-label="Your finder"></div></div>' +
       '<div class="fld"><span>Your sky</span><p class="hint">Each sky’s Bortle class goes by the faintest star you see by eye, as Bortle’s scale gives it (Sky &amp; Telescope, February 2001).</p><div class="opts" id="skyOpts"></div></div>' +
       '<div class="card" id="scStats"></div></div>');
     // Until a telescope is set, the example's name stays out of the field, so one typed in by hand isn't saved under it.
-    $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = sc.fl;
+    $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = ts.fl; $('bnMag').value = bn.mag; $('bnFov').value = bn.fov;
     var picked = null; // the name a quick pick put in the field
-    var skyv = S.sky, fdv = finder().id, bwv = sc.barlow || 1, vwv = viewOf().id;
+    var skyv = S.sky, fdv = isBino() ? 'fs' : finder().id, bwv = ts.barlow || 1, vwv = isBino() ? guessView(ts.name) : viewOf().id, inv = isBino() ? 'bino' : 'scope';
+    // Telescope or binoculars: the sheet shows the fields for the one chosen
+    function drawInst() {
+      $('inOpts').innerHTML = [['scope', 'Telescope'], ['bino', 'Binoculars']].map(function (o) { return '<button class="opt' + (o[0] === inv ? ' on' : '') + '" type="button" data-n="' + o[0] + '" aria-pressed="' + (o[0] === inv) + '"><b>' + o[1] + '</b></button>'; }).join('');
+      $('inOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { if (inv !== b.dataset.n) { inv = b.dataset.n; if (picked && $('scName').value === picked) $('scName').value = ''; picked = null; } drawInst(); stats(); }); });
+      $('sheet').querySelectorAll('[data-only]').forEach(function (el) { el.hidden = el.dataset.only !== inv; });
+      $('scName').placeholder = inv === 'bino' ? 'e.g. 10×50 binoculars' : 'e.g. 70 mm refractor';
+    }
     function drawEps() {
       // each field and Remove button says which eyepiece it belongs to, as the rows' short labels can't
       // (only the first row shows its labels; the rest have them for screen readers)
@@ -2466,14 +2513,27 @@ html.red .chart canvas{background:#050000}
     function drawFinders() { $('fdOpts').innerHTML = FINDERS.map(function (f) { return '<button class="opt' + (f.id === fdv ? ' on' : '') + '" type="button" data-f="' + f.id + '" aria-pressed="' + (f.id === fdv) + '"><b>' + f.name + '</b><small>' + f.sub + '</small></button>'; }).join(''); $('fdOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { fdv = b.dataset.f; drawFinders(); }); }); }
     function stats() {
       var ap = reading($('scAp').value, true), fl = reading($('scFl').value);
+      if (inv === 'bino') {
+        var mg = reading($('bnMag').value), fov = reading($('bnFov').value);
+        if (!(ap > 20 && mg >= 2 && fov >= 0.5)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES + '.' : 'Enter the aperture, power and field.') + '</p>'; return; }
+        var nl = SKIES.filter(function (s) { return s.id === skyv; })[0].nelm;
+        $('scStats').innerHTML = '<h3>What they can do</h3><div class="kv"><div><span>Faintest stars</span><b>mag ' + (nl + 5 * Math.log10(ap / 7) - 0.6).toFixed(1) + '</b></div><div><span>Splits pairs to</span><b>' + Math.round(240 / mg) + '″</b></div><div><span>Power</span><b>' + Math.round(mg) + '×</b></div><div><span>Field</span><b>' + fov + '°</b></div></div>';
+        return;
+      }
       if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES + '.' : 'Enter the aperture and focal length.') + '</p>'; return; }
       var nelm = SKIES.filter(function (s) { return s.id === skyv; })[0].nelm, good = eps.filter(function (e) { return epOk(e, 'f') && epOk(e, 'a'); });
       $('scStats').innerHTML = '<h3>What it can do</h3><div class="kv"><div><span>Focal ratio</span><b>f/' + (fl / ap).toFixed(1) + '</b></div><div><span>Faintest stars</span><b>mag ' + (nelm + 5 * Math.log10(ap / 7) - 0.6).toFixed(1) + '</b></div><div><span>Splits pairs to</span><b>' + (116 / ap).toFixed(1) + '″</b></div><div><span>Highest useful power</span><b>' + Math.round(Math.min(2 * ap, 350)) + '×</b></div></div>' +
         (good.length ? '<div class="epsw"><table class="eps plain"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th></tr></thead><tbody>' + epTable(ap, fl, good, bwv).map(function (r) { return '<tr><td>' + epCell(r) + '</td><td>' + Math.round(r.M) + '×</td><td>' + spokenArcs(field(r.tf)) + '</td></tr>'; }).join('') + '</tbody></table></div>' : '');
     }
-    $('scPre').addEventListener('change', function () { var p = PRESETS[+this.value]; if (!p) return; $('scName').value = picked = p.name; $('scAp').value = p.ap; $('scFl').value = p.fl; vwv = guessView(p.name); drawViews(); $('scAp').removeAttribute('aria-invalid'); $('scFl').removeAttribute('aria-invalid'); stats(); });
+    $('scPre').addEventListener('change', function () {
+      var v = this.value, p = (v[0] === 'b' ? BINOS : PRESETS)[+v.slice(1)]; if (!p) return;
+      $('scName').value = picked = p.name; $('scAp').value = p.ap; $('scAp').removeAttribute('aria-invalid');
+      if (v[0] === 'b') { inv = 'bino'; $('bnMag').value = p.mag; $('bnFov').value = p.fov; $('bnMag').removeAttribute('aria-invalid'); $('bnFov').removeAttribute('aria-invalid'); }
+      else { inv = 'scope'; $('scFl').value = p.fl; vwv = guessView(p.name); drawViews(); $('scFl').removeAttribute('aria-invalid'); }
+      drawInst(); stats();
+    });
     // new numbers after a quick pick make it some other telescope, so the pick's name goes unless it was typed over
-    ['scAp', 'scFl'].forEach(function (id) { $(id).addEventListener('input', function () { if (picked && $('scName').value === picked) $('scName').value = ''; picked = null; this.removeAttribute('aria-invalid'); stats(); }); });
+    ['scAp', 'scFl', 'bnMag', 'bnFov'].forEach(function (id) { $(id).addEventListener('input', function () { if (picked && $('scName').value === picked) $('scName').value = ''; picked = null; this.removeAttribute('aria-invalid'); stats(); }); });
     $('epAdd').addEventListener('click', function () {
       var last = eps.filter(function (e) { return epOk(e, 'f'); }).pop();
       eps.push({ f: last ? Math.max(4, Math.round(last.f / 2)) : 20, a: 52 }); drawEps(); stats();
@@ -2481,7 +2541,16 @@ html.red .chart canvas{background:#050000}
       var inp = $('epl').querySelector('[data-i="' + (eps.length - 1) + '"][data-k="f"]'); inp.focus({ preventScroll: true }); inp.select(); inp.scrollIntoView({ block: 'center' });
     });
     $('scSave').addEventListener('click', function () {
-      var ap = reading($('scAp').value, true), fl = reading($('scFl').value);
+      var ap = reading($('scAp').value, true), fl = reading($('scFl').value), name = $('scName').value.trim();
+      if (inv === 'bino') {
+        var mg = reading($('bnMag').value), fov = reading($('bnFov').value);
+        var badB = !(ap > 20 && ap < 300) ? 'scAp' : !(mg >= 2 && mg <= 40) ? 'bnMag' : !(fov >= 0.5 && fov <= 15) ? 'bnFov' : null;
+        if (badB) { $(badB).setAttribute('aria-invalid', 'true'); $(badB).focus(); toast(badB === 'scAp' && ap >= 2 && ap <= 16 ? INCHES : badB === 'scAp' ? 'Check the aperture, like 50 for 10×50 binoculars' : badB === 'bnMag' ? 'Check the power, like 10 for 10×50 binoculars' : 'Check the field in degrees, like 6.5'); return; }
+        if (!name || BINOS.some(function (p) { return p.name === name && (p.ap !== ap || p.mag !== mg || p.fov !== fov); })) name = Math.round(mg * 10) / 10 + '×' + ap + ' binoculars';
+        S.scope = { kind: 'bino', name: name, ap: ap, mag: mg, fov: fov, set: true }; S.sky = skyv; save();
+        closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies');
+        return;
+      }
       if (!(ap > 20 && ap < 2000 && fl > 100 && fl < 20000)) { // the field to fix says so, and takes the focus
         var bad = $(ap > 20 && ap < 2000 ? 'scFl' : 'scAp'); bad.setAttribute('aria-invalid', 'true'); bad.focus();
         toast(ap >= 2 && ap <= 16 ? INCHES : 'Check the aperture and focal length'); return;
@@ -2496,14 +2565,13 @@ html.red .chart canvas{background:#050000}
         return;
       }
       // A name left empty, or a quick pick's or the example's with other numbers, gives way to one from the numbers.
-      var name = $('scName').value.trim();
       if (!name || PRESETS.concat(DEFAULT_SCOPE).some(function (p) { return p.name === name && (p.ap !== ap || p.fl !== fl); })) name = ap + ' mm, f/' + Math.round(fl / ap * 10) / 10;
       S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), barlow: bwv, view: vwv, finder: fdv, set: true }; S.sky = skyv; save();
       closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies'); // the chip hides its name on a phone
     });
-    drawEps(); drawBarlow(); drawViews(); drawFinders(); drawSky(); stats();
+    drawInst(); drawEps(); drawBarlow(); drawViews(); drawFinders(); drawSky(); stats();
   }
-  function renderScopeChip() { var n = S.scope.set ? (S.scope.name || S.scope.ap + ' mm') : 'Telescope'; $('scopeName').textContent = n; $('scopeBtn').setAttribute('aria-label', S.scope.set ? 'Telescope: ' + n : 'Your telescope'); }
+  function renderScopeChip() { var n = S.scope.set ? (S.scope.name || S.scope.ap + ' mm') : 'Telescope'; $('scopeName').textContent = n; $('scopeBtn').setAttribute('aria-label', S.scope.set ? (isBino() ? 'Binoculars: ' : 'Telescope: ') + n : 'Your telescope'); }
   $('scopeBtn').addEventListener('click', scopeSheet);
 
   // ---------- location ----------
