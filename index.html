@@ -685,8 +685,7 @@ html.red .chart canvas{background:#050000}
     M101: 'The Pinwheel Galaxy — big and faint; needs a dark sky.',
     M104: 'The Sombrero Galaxy — an edge-on spiral crossed by a dark lane.',
     M110: 'A faint companion galaxy of Andromeda.',
-    'NGC 869': 'One half of the Double Cluster — two rich star clusters side by side, spectacular at low power.',
-    'NGC 884': 'One half of the Double Cluster — two rich star clusters side by side, spectacular at low power.',
+    'NGC 869': 'Two rich star clusters side by side, h and χ Persei, spectacular at low power. Use your lowest power to fit both in the field.',
     'NGC 5139': 'Omega Centauri, the biggest and brightest globular cluster in the sky.',
     'NGC 104': '47 Tucanae, the second-brightest globular cluster, next to the Small Magellanic Cloud.',
     'NGC 3372': 'The Carina Nebula, larger and brighter than the Orion Nebula.',
@@ -725,7 +724,7 @@ html.red .chart canvas{background:#050000}
     'Star field': 'A rich patch of the Milky Way.'
   };
   var SHOWPIECE = { M40: -1, M42: 3, M31: 3, M45: 3, M13: 3, M57: 2.5, M27: 2.5, M8: 2.5, M17: 2, M51: 2, M81: 2, M82: 1.8, M44: 2, M35: 1.5, M11: 2, M22: 2, M3: 1.5, M5: 1.5, M92: 1, M15: 1.5, M2: 1, M1: 1.5, M33: 1.2, M101: 1, M104: 1.5, M97: 1, M64: 1, M20: 1.2, M16: 1.2, M6: 1.5, M7: 1.5, M4: 1.5, M37: 1.3, M36: 1, M38: 1, M46: 1, M47: 1, M24: 1, M10: 0.8, M12: 0.8, M83: 1.2, M87: 0.8, M65: 0.8, M66: 0.8, M63: 0.8, M78: 0.6,
-    'NGC 869': 2.5, 'NGC 884': 0, 'NGC 5139': 3, 'NGC 104': 3, 'NGC 3372': 3, 'PGC 17223': 2.5, 'NGC 292': 2, 'NGC 457': 1.5, 'NGC 7662': 1.2, 'NGC 6543': 1.2, 'NGC 7009': 1, 'NGC 3242': 1.2, 'NGC 253': 1.5, 'NGC 5128': 1.5, 'NGC 2392': 1, 'NGC 6826': 0.8, 'Cr 399': 1.2, 'NGC 7293': 0.8,
+    'NGC 869': 2.5, 'NGC 5139': 3, 'NGC 104': 3, 'NGC 3372': 3, 'PGC 17223': 2.5, 'NGC 292': 2, 'NGC 457': 1.5, 'NGC 7662': 1.2, 'NGC 6543': 1.2, 'NGC 7009': 1, 'NGC 3242': 1.2, 'NGC 253': 1.5, 'NGC 5128': 1.5, 'NGC 2392': 1, 'NGC 6826': 0.8, 'Cr 399': 1.2, 'NGC 7293': 0.8,
     albireo: 3, mizar: 2.5, epslyr: 2.5, almach: 2, castor: 1.5, corcaroli: 1, polaris: 1, rigel: 1, mesarthim: 1, izar: 1, '61cyg': 1, algieba: 1, acrux: 2 };
   function dsoKindGlyph(o) { return o.k === 'double' ? 'ds' : o.type === 'Planetary nebula' ? 'pn' : o.kind === 'galaxy' ? 'gx' : o.kind === 'nebula' ? 'nb' : 'cl'; }
 
@@ -1619,7 +1618,8 @@ html.red .chart canvas{background:#050000}
     var bright = TOO_BRIGHT && TFILTER !== 'planets' ? '<p class="lede">The sky stays too bright tonight for anything but the Moon and the brightest planets.</p>' : '';
     if (!shown.length) h += bright || '<p class="lede">Nothing of that kind is well placed on this night.</p>';
     else h += '<div class="list">' + shown.map(function (t) {
-      var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.id) + '</small>' : '';
+      // the catalogue number; the Double Cluster's row gives both of its numbers, as its card does
+      var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.parts ? t.o.cat : t.o.id) + '</small>' : '';
       return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + (id && ' ' + id) + (S.seen[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (S.seen[t.id] ? ', seen ' + esc(seenText(S.seen[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
@@ -2238,7 +2238,13 @@ html.red .chart canvas{background:#050000}
         function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
         var many = o.type === 'Globular cluster' ? 260 : 70;
         if (o.type === 'Globular cluster') { var gg = g.createRadialGradient(cx0, cy0, 0, cx0, cy0, a); gg.addColorStop(0, col('#E9E6DA', bright)); gg.addColorStop(1, col('#E9E6DA', 0)); g.fillStyle = gg; g.beginPath(); g.arc(cx0, cy0, a, 0, 2 * Math.PI); g.fill(); }
-        for (var s2 = 0; s2 < many; s2++) { var rr = a * Math.sqrt(rnd()) * (o.type === 'Globular cluster' ? rnd() + 0.2 : 1), th = rnd() * 2 * Math.PI; g.fillStyle = col(rnd() < 0.2 ? '#FFD9A6' : '#E6EBFF', 0.5 + rnd() * 0.5); g.beginPath(); g.arc(cx0 + rr * Math.cos(th), cy0 + rr * Math.sin(th), 0.6 + rnd() * 1.1, 0, 2 * Math.PI); g.fill(); }
+        // the Double Cluster is drawn as its two clusters, each where it sits in the field
+        var groups = (o.parts || []).map(function (q) { var pp = sky2px(vec(q[0], q[1])); return pp && [pp[0], pp[1], Math.max(3, q[2] / 2 * scale)]; }).filter(Boolean);
+        if (!groups.length) groups = [[cx0, cy0, a]];
+        c.__groups = groups; // tests read where the clusters went
+        groups.forEach(function (gq) {
+          for (var s2 = 0; s2 < many; s2++) { var rr = gq[2] * Math.sqrt(rnd()) * (o.type === 'Globular cluster' ? rnd() + 0.2 : 1), th = rnd() * 2 * Math.PI; g.fillStyle = col(rnd() < 0.2 ? '#FFD9A6' : '#E6EBFF', 0.5 + rnd() * 0.5); g.beginPath(); g.arc(gq[0] + rr * Math.cos(th), gq[1] + rr * Math.sin(th), 0.6 + rnd() * 1.1, 0, 2 * Math.PI); g.fill(); }
+        });
       } else {
         var cc = o.kind === 'galaxy' ? '#D8DEF0' : o.type === 'Planetary nebula' ? '#B7E8DD' : '#C9E0E0';
         var gr = g.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, col(cc, bright)); gr.addColorStop(o.kind === 'galaxy' ? 0.35 : 0.7, col(cc, bright * 0.45)); gr.addColorStop(1, col(cc, 0));

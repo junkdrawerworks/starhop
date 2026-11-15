@@ -2170,6 +2170,29 @@ check('Albireo’s companion is drawn up and to the left', async () => {
   } finally { await ctx.close(); }
 });
 
+// h and χ Persei were two rows, "Double Cluster (h Persei)" and its twin scored to the foot of the list, with their
+// halves only 0.2° apart on the map (dsos.bright.json has NGC 884 at RA 35.13° for 35.60°). It's one sight, so one row.
+check('The Double Cluster is one row with both its numbers, and its sketch shows its two clusters side by side', async () => {
+  const { dso } = JSON.parse(await readFile(join(root, 'data/dso.json'), 'utf8'));
+  assert.deepEqual(dso.filter(d => /NGC 8(69|84)/.test(d.cat)).map(d => d.id), ['NGC 869'], 'one entry in the data');
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  try {
+    const rows = await targetRows(page);
+    assert.deepEqual(rows.filter(r => /NGC 8(69|84)/.test(r.id)).map(r => r.id), ['NGC 869'], 'one row');
+    assert.equal(await page.$eval('#targetSec .row[data-id="NGC 869"] .nm', n => n.textContent), 'Double Cluster NGC 869 and NGC 884');
+    await openCard(page, 'NGC 869');
+    assert.equal(await text(page, '#sheet .hd h2 small'), 'Open cluster in Perseus · NGC 869 and NGC 884');
+    const groups = await page.waitForFunction(() => document.getElementById('eyepiece').__groups).then(h => h.jsonValue());
+    const w = await page.$eval('#eyepiece', c => c.getBoundingClientRect().width);
+    assert.equal(groups.length, 2, 'two clusters drawn');
+    const [h, chi] = groups;
+    assert.ok(chi[0] < h[0], 'χ Persei, to the east, is drawn to the left');
+    assert.ok(Math.abs(chi[1] - h[1]) < 0.1 * (h[0] - chi[0]), 'side by side, east and west');
+    assert.ok(Math.abs((h[0] + chi[0]) / 2 - w / 2) < 2, 'either side of the centre');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Taps an object on the sky map: a planet by name, or a star by its index in data/stars.json.
 const tapMap = async (page, k, id) => {
   // The map draws a moment after the page is ready, so wait for the object to be on it.

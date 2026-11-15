@@ -254,7 +254,6 @@ doubles.append({'id': 'M40', 'name': 'Winnecke 4', 'cat': 'WNC 4', 'type': 'ds',
 
 # Bright non-Messier showpieces, with their usual names.
 EXTRA = {
-    'NGC 869': ('Double Cluster (h Persei)', 'C14'), 'NGC 884': ('Double Cluster (χ Persei)', 'C14'),
     'NGC 5139': ('Omega Centauri', 'C80'), 'NGC 104': ('47 Tucanae', 'C106'), 'NGC 3372': ('Carina Nebula', 'C92'),
     'NGC 2264': ('Christmas Tree Cluster', 'C?'), 'NGC 2244': ('Rosette Cluster', 'C50'), 'PGC 17223': ('Large Magellanic Cloud', ''),
     'NGC 292': ('Small Magellanic Cloud', ''), 'IC 2602': ('Southern Pleiades', 'C102'), 'NGC 6231': ('Northern Jewel Box', 'C76'),
@@ -277,12 +276,36 @@ for f in json.load(open(D / 'dsos.bright.json'))['features']:
     if k in SHORT:
         dso[-1]['short'] = SHORT[k]
 
+pool = json.load(open(D / 'dsos.14.json'))['features']
+
+# The Double Cluster, h and χ Persei (NGC 869 and NGC 884), is one sight: two clusters side by side, about half a
+# degree apart, in one low-power field. So it's one entry, centred between them and sized to take in both, with its two
+# halves in 'parts' for the eyepiece sketch. It keeps NGC 869's id. dsos.bright.json puts NGC 884 at RA 35.13°, only
+# 0.2° from NGC 869; dsos.14.json has it at 35.596° (2h 22.4m, as NGC/IC sources give it), so both come from there.
+def unit(ra, dec):
+    a, d = math.radians(ra), math.radians(dec)
+    return [math.cos(d) * math.cos(a), math.cos(d) * math.sin(a), math.sin(d)]
+halves = []
+for k in ('NGC 869', 'NGC 884'):
+    f = next((f for f in pool if f['properties'].get('desig') == k), None)
+    if f is None:
+        sys.exit(f'Double Cluster: {k} not found')
+    lon, lat = f['geometry']['coordinates']
+    halves.append((ra_of(lon), lat, float(f['properties']['mag']), dims(f['properties']['dim'])[0]))
+(ra1, de1, m1, d1), (ra2, de2, m2, d2) = halves
+v = [a + b for a, b in zip(unit(ra1, de1), unit(ra2, de2))]
+cra, cde = math.degrees(math.atan2(v[1], v[0])) % 360, math.degrees(math.atan2(v[2], math.hypot(v[0], v[1])))
+gap = math.degrees(math.acos(sum(a * b for a, b in zip(unit(ra1, de1), unit(ra2, de2))))) * 60  # arcminutes
+dso.append({'id': 'NGC 869', 'cat': 'NGC 869 and NGC 884', 'name': 'Double Cluster', 'type': 'Open cluster', 'kind': 'cluster',
+            'mag': r(-2.5 * math.log10(10 ** (-0.4 * m1) + 10 ** (-0.4 * m2)), 1),
+            'dim': [r(gap + max(d1, d2), 1), r(max(d1, d2), 1)], 'ra': r(cra, 3), 'dec': r(cde, 3),
+            'parts': [[r(ra1, 3), r(de1, 3), d1], [r(ra2, 3), r(de2, 3), d2]]})
+
 # A few favourite NGC targets from the fuller catalog.
 MORE = {'NGC 6543': "Cat's Eye Nebula", 'NGC 7662': 'Blue Snowball', 'NGC 7009': 'Saturn Nebula', 'NGC 457': 'Owl Cluster',
         'NGC 253': 'Sculptor Galaxy', 'NGC 2392': 'Eskimo Nebula', 'NGC 3242': 'Ghost of Jupiter',
         'NGC 7293': 'Helix Nebula', 'NGC 6826': 'Blinking Planetary', 'NGC 7000': 'North America Nebula', 'NGC 752': '',
         'NGC 663': '', 'NGC 6633': '', 'NGC 2403': '', 'NGC 5128': 'Centaurus A', 'NGC 55': '', 'NGC 3628': 'Hamburger Galaxy'}
-pool = json.load(open(D / 'dsos.14.json'))['features']
 for f in pool:
     k = (f['properties'].get('desig') or f['id']).replace(' ', ' ')
     if k in MORE and k not in seen and k not in {d['cat'] for d in dso}:
