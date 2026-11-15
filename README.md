@@ -70,7 +70,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/astronomy.browser.min.js`: [Astronomy Engine](https://github.com/cosinekitty/astronomy) 2.1.19 (MIT), served from here.
 - `data/`: the stars, constellations, deep-sky objects, Milky Way and cities, built by `tools/build_data.py`. [data/SOURCES.md](data/SOURCES.md) has their licenses.
 - `fonts/`: Atkinson Hyperlegible, DM Mono and IM Fell English (SIL Open Font License), served from here so nothing loads from elsewhere.
-- `sw.js`: keeps the page, the library, the data files and the fonts for using offline.
+- `sw.js`: keeps the page, the library, the data files and the fonts for using offline, and opens from them when the network doesn't answer within a few seconds.
 - `carry.js`: brings your settings over from Starhop's old address, junkdrawer.works/starhop, the first time it opens here.
 - `manifest.webmanifest`, `icon.svg` and the `icon-*.png` icons let it install; `og.png` is the link preview.
 - `tools/`: `build_data.py` and `wgsn.tsv` for the data, `screenshots.mjs`, and `make-icons.mjs` with `icon-full-bleed.svg`.
