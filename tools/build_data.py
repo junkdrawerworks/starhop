@@ -279,7 +279,7 @@ for f in json.load(open(D / 'dsos.bright.json'))['features']:
 
 # A few favourite NGC targets from the fuller catalog.
 MORE = {'NGC 6543': "Cat's Eye Nebula", 'NGC 7662': 'Blue Snowball', 'NGC 7009': 'Saturn Nebula', 'NGC 457': 'Owl Cluster',
-        'NGC 253': 'Sculptor Galaxy', 'NGC 2392': 'Eskimo Nebula', 'NGC 3242': 'Ghost of Jupiter', 'NGC 4565': 'Needle Galaxy',
+        'NGC 253': 'Sculptor Galaxy', 'NGC 2392': 'Eskimo Nebula', 'NGC 3242': 'Ghost of Jupiter',
         'NGC 7293': 'Helix Nebula', 'NGC 6826': 'Blinking Planetary', 'NGC 7000': 'North America Nebula', 'NGC 752': '',
         'NGC 663': '', 'NGC 6633': '', 'NGC 2403': '', 'NGC 5128': 'Centaurus A', 'NGC 55': '', 'NGC 3628': 'Hamburger Galaxy'}
 pool = json.load(open(D / 'dsos.14.json'))['features']
@@ -302,7 +302,8 @@ for d in dso:
         d['type'], d['kind'] = 'Open cluster', 'cluster'
     d['name'] = d['name'].replace("'", '’')
 missing = set(MORE) - {d['cat'] for d in dso}
-print('  NGC extras not found:', sorted(missing))
+if missing:  # one asked for but not in dsos.14.json would otherwise be left out without a word
+    sys.exit(f'NGC extras not found: {sorted(missing)}')
 dump('dso.json', {'dso': dso, 'doubles': doubles})
 print(f'  {len(dso)} deep-sky objects, {len(doubles)} doubles')
 
