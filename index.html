@@ -1585,13 +1585,10 @@ html.red .chart canvas{background:#050000}
     var cap = Math.round(r.M) + '× with the ' + r.f + ' mm · field ' + (r.tf >= 1 ? r.tf.toFixed(1) + '°' : Math.round(fovMin) + '′');
     if (o.k === 'planet') {
       var pl = sc.planets.filter(function (x) { return x.id === o.id; })[0], dpx = Math.max(2.2, pl.diam / 60 * scale);
-      if (o.id === 'Saturn') {
-        // ring plane from Saturn's pole (RA 40.59°, Dec 83.54°)
-        var pole = vec(40.589, 83.537), pa = Math.atan2(dot(pole, e), dot(pole, nth)), tilt = Math.abs(pl.tilt || 0) * D2R;
-        g.save(); g.translate(cx0, cy0); g.rotate(-pa);
-        g.strokeStyle = col('#E7CF8D', 0.9); g.lineWidth = Math.max(1, dpx * 0.18); g.beginPath(); g.ellipse(0, 0, dpx * 1.13, Math.max(0.6, dpx * 1.13 * Math.sin(tilt)), 0, 0, 2 * Math.PI); g.stroke(); g.restore();
-      }
+      var ring = o.id === 'Saturn' ? saturnRing(pl, e, nth) : null;
+      if (ring) { c.__ring = ring.face; ringArc(g, cx0, cy0, ring, dpx * 1.13, dpx * 1.13 * Math.sin(ring.tilt), Math.max(1, dpx * 0.18), false); } // tests read which face shows
       g.fillStyle = col(pl.col, 1); g.beginPath(); g.arc(cx0, cy0, dpx / 2, 0, 2 * Math.PI); g.fill();
+      if (ring) ringArc(g, cx0, cy0, ring, dpx * 1.13, dpx * 1.13 * Math.sin(ring.tilt), Math.max(1, dpx * 0.18), true, dpx / 2);
       if (o.id === 'Jupiter') {
         // Jupiter's light takes 35 to 52 minutes to get here, so the moons are drawn where they were when it left
         var gv = A.GeoVector(A.Body.Jupiter, t, true), jd = Math.hypot(gv.x, gv.y, gv.z), jm = A.JupiterMoons(new Date(t.getTime() - jd / A.C_AUDAY * 864e5));
@@ -1650,18 +1647,33 @@ html.red .chart canvas{background:#050000}
     $('epCap').textContent = cap + '. Many telescopes flip or mirror this view.';
   }
 
+  // Saturn's ring plane, from its pole (RA 40.589°, Dec 83.537°; IAU, Archinal et al. 2018). B is Earth's latitude above
+  // the ring plane: positive shows the rings' north face, with the near arm in front of the southern half of the globe.
+  // Astronomy Engine's ring_tilt has the opposite sign (+6.28° on Nov 15 2026, when B from the pole is −6.27°).
+  function saturnRing(pl, e, nth) {
+    var pole = vec(40.589, 83.537), B = -(pl.tilt || 0);
+    return { pa: Math.atan2(dot(pole, e), dot(pole, nth)), tilt: Math.abs(B) * D2R, face: B < 0 ? 'south' : 'north', B: B };
+  }
+  // The back or front half of the ring, turned so the pole is up: the near arm is the lower half when the north face
+  // shows and the upper half when the south face does.
+  function ringArc(g, x, y, ring, rx, ry, lw, front, globe) {
+    var lower = front === ring.B >= 0;
+    g.save(); g.translate(x, y); g.rotate(-ring.pa);
+    g.beginPath(); g.ellipse(0, 0, rx, Math.max(0.6, ry), 0, lower ? 0 : Math.PI, lower ? Math.PI : 2 * Math.PI);
+    if (front) { g.save(); g.clip(new Path2D('M' + globe + ' 0A' + globe + ' ' + globe + ' 0 1 0 ' + (-globe) + ' 0A' + globe + ' ' + globe + ' 0 1 0 ' + globe + ' 0Z')); g.strokeStyle = col('#5A4826', 0.6); g.lineWidth = lw + Math.max(1, lw * 0.35); g.stroke(); g.restore(); } // a dark edge where the near arm crosses the globe, so it shows against it
+    g.strokeStyle = col('#E7CF8D', front ? 0.9 : 0.85); g.lineWidth = lw; g.stroke();
+    g.restore();
+  }
   // An enlarged sketch of the planet, since at true scale it is only a few pixels across.
   function closeUp(g, x, y, r, o, pl, e, nth) {
     g.save(); g.fillStyle = col('#0A0F1C', 0.95); g.strokeStyle = col('#2B3860', 1); g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); g.fill(); g.stroke();
     g.beginPath(); g.arc(x, y, r - 1, 0, 2 * Math.PI); g.clip();
     var pr = o.id === 'Saturn' ? r * 0.34 : r * 0.55;
     if (o.id === 'Saturn') {
-      var pole = vec(40.589, 83.537), pa = Math.atan2(dot(pole, e), dot(pole, nth)), tilt = Math.abs(pl.tilt || 0) * D2R, ry = Math.max(0.8, pr * 2.25 * Math.sin(tilt));
-      g.save(); g.translate(x, y); g.rotate(-pa);
-      g.strokeStyle = col('#E7CF8D', 0.85); g.lineWidth = pr * 0.32; g.beginPath(); g.ellipse(0, 0, pr * 1.95, ry * 0.87, 0, Math.PI, 2 * Math.PI); g.stroke();
-      g.fillStyle = col(pl.col, 1); g.beginPath(); g.arc(0, 0, pr, 0, 2 * Math.PI); g.fill();
-      g.strokeStyle = col('#E7CF8D', 0.9); g.beginPath(); g.ellipse(0, 0, pr * 1.95, ry * 0.87, 0, 0, Math.PI); g.stroke();
-      g.restore();
+      var ring = saturnRing(pl, e, nth), ry = Math.max(0.8, pr * 2.25 * Math.sin(ring.tilt)) * 0.87;
+      ringArc(g, x, y, ring, pr * 1.95, ry, pr * 0.32, false);
+      g.fillStyle = col(pl.col, 1); g.beginPath(); g.arc(x, y, pr, 0, 2 * Math.PI); g.fill();
+      ringArc(g, x, y, ring, pr * 1.95, ry, pr * 0.32, true, pr);
     } else if (o.id === 'Venus' || o.id === 'Mercury' || o.id === 'Mars') {
       var sun = scene(T.t).sun, sv = vec(sun.ra, sun.dec), ang = Math.atan2(-dot(sv, nth), -dot(sv, e));
       drawPhase(g, x, y, pr, pl.frac, ang, col(pl.col, 1), col('#1A1F2C', 1));

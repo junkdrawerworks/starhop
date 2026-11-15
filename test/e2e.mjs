@@ -663,6 +663,22 @@ check('the Moon icon is lit on the left from Sydney when waxing', async () => {
   } finally { await ctx.close(); }
 });
 
+// Earth crossed Saturn's ring plane in March 2025 and has seen the rings' south face since, so the near arm crosses the
+// northern half of the globe. Astronomy Engine 2.1.19's ring_tilt is +6.28° on Nov 15 2026, the opposite sign to the
+// ring-plane latitude B worked out from the IAU pole (RA 40.589°, Dec 83.537°; Archinal et al. 2018), −6.27°. In Oct
+// 2017 B was +27°, the north face.
+check('Saturn’s rings show their south face in 2026', async () => {
+  for (const [time, face] of [['2026-11-15T21:00:00-06:00', 'south'], ['2017-10-16T20:00:00-05:00', 'north']]) {
+    const { ctx, page, problems } = await open({ time });
+    try {
+      await openCard(page, 'Saturn');
+      await page.waitForFunction(() => document.getElementById('eyepiece').__ring, null, { timeout: 10000 }).catch(() => {});
+      assert.equal(await page.$eval('#eyepiece', c => c.__ring), face, `the face of Saturn's rings shown on ${time.slice(0, 10)}`);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
 const advice = page => page.$$eval('#sheet .card', cs => cs.find(c => c.querySelector('h3').textContent === 'In your telescope').querySelector('p').textContent);
 
 check('a card says an object is wider than the field only when it is', async () => {
