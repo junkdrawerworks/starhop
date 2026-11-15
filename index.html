@@ -888,7 +888,7 @@ html.red .chart canvas{background:#050000}
         if (!spots.length) spots.push([right, L.y + L.dy]); // no room either side: kept inside below
         // The target, a star-hop's star and the brightest stars can go a line up or down, then centred just above or
         // below the mark, then two lines up or down: a hop's star right beside the target has its ring and label on both
-        // sides. Off to one side, such a label can also move up to 12px further out to clear the target's ring.
+        // sides. Off to one side, the label of a mark under the target's ring can also move up to 12px further out to clear it.
         if (L.more) {
           var side = function (k) { var dy = L.dy + k * (px + 3); if (right + tw <= w - 2) spots.push([right, L.y + dy, 1]); if (left >= 2) spots.push([left, L.y + dy, -1]); };
           side(-1); side(1);
@@ -904,7 +904,8 @@ html.red .chart canvas{background:#050000}
         if (!clear(b)) {
           var dir = spots[j][2]; if (!dir) continue;
           var hit = keep.filter(function (q) { return overlap(b, q); }), sh = dir > 0 ? Math.max.apply(null, hit.map(function (q) { return q.x + q.w - b.x; })) + 0.5 : Math.min.apply(null, hit.map(function (q) { return q.x - b.x - b.w; })) - 0.5;
-          if (Math.abs(sh) > 12 || x0 + sh < pad + 1 || x0 + sh > w - pad - 1 - tw) continue;
+          var under = hit.every(function (q) { return L.x >= q.x && L.x <= q.x + q.w && L.y >= q.y && L.y <= q.y + q.h; }); // its mark is under the ring
+          if (!under || Math.abs(sh) > 12 || x0 + sh < pad + 1 || x0 + sh > w - pad - 1 - tw) continue;
           x0 += sh; b.x += sh; if (!clear(b)) continue;
         }
         g.fillStyle = L.color; g.fillText(L.t, x0, by);

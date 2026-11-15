@@ -1777,6 +1777,9 @@ check('the star a hop starts from is labelled even right beside the target', asy
       const f = await finderLabels(page), labels = f.labels.map(l => l.t);
       if (id === 'M43') assert.match(await hopCap(page), /Just beside Hatysa/);
       assert.ok(labels.includes(name), `${id}'s chart labels ${name} (it has ${labels.join(', ')})`);
+      // beside its own star, not across the target from it
+      const l = f.labels.find(x => x.t === name), gap = Math.hypot(Math.max(l.x - l.ax, 0, l.ax - l.x - l.w), Math.max(l.y - l.ay, 0, l.ay - l.y - l.h));
+      assert.ok(gap < 18, `${name}'s label is ${gap.toFixed(1)} px from its star`);
       assert.ok(labels.includes(id), `${id}'s chart still labels ${id}`);
       checkLabels(f.labels, f.w, f.h, f.keep, `${id}’s finder chart`);
       assert.deepEqual(problems, []);
