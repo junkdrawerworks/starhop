@@ -108,7 +108,9 @@ if len(variable) != len(VARIABLES):
 dump('stars.json', {'s': flat, 'n': labels, 'v': variable})
 
 # ---------- famous double stars, found by designation ----------
-def find(bayer=None, flam=None, con=None, proper=None):
+def find(bayer=None, flam=None, con=None, proper=None, hip=None):
+    if hip:  # where d3-celestial gives two stars the same letter (δ Cep, ι Cnc), the pair's brighter star by number
+        return hip if hip in names else None
     for hip, n in names.items():
         if con and n.get('c') != con:
             continue
@@ -140,6 +142,12 @@ DOUBLES = [
     ('61cyg', '61 Cygni', dict(flam='61', con='Cyg'), 32.0, 154, '5.4 + 6.1', 'Two orange dwarfs, among the nearest stars to the Sun.'),  # STF2758AB, 2025
     ('algieba', 'Algieba', dict(bayer='γ1', con='Leo'), 4.8, 127, '2.4 + 3.6', 'A close pair of golden stars.'),  # STF1424AB, 2026
     ('acrux', 'Acrux', dict(bayer='α1', con='Cru'), 3.5, 111, '1.3 + 1.6', 'The brightest star of the Southern Cross splits into two blue-white stars.'),  # DUN 252AB, 2024
+    # Southern pairs, added in November 2026
+    ('alphacen', 'Alpha Centauri', dict(bayer='α1', con='Cen'), 8.1, 5, '0.0 + 1.3', 'The nearest stars to the Sun after Proxima: a yellow star and an orange one that circle each other every 80 years.'),  # RHD 1AB, 2023
+    ('gammavel', 'Gamma Velorum', dict(bayer='γ2', con='Vel'), 41.2, 221, '1.8 + 4.1', 'A brilliant blue-white star with a companion well clear of it; low power shows two fainter ones too.'),  # DUN 65AB, 2017
+    ('acamar', 'Acamar', dict(bayer='θ1', con='Eri'), 8.2, 90, '3.2 + 4.1', 'Two white stars close together, near the end of Eridanus, the river.'),  # PZ 2AB, 2020
+    ('betatuc', 'Beta Tucanae', dict(bayer='β1', con='Tuc'), 27.1, 168, '4.3 + 4.5', 'Two matched blue-white stars, an easy split at the lowest power.'),  # LCL 119AC, 2021
+    ('peri', 'p Eridani', dict(bayer='p', con='Eri'), 11.3, 185, '5.8 + 5.9', 'Two matched orange stars, near neighbours of the Sun like 61 Cygni.'),  # DUN 5, 2024
 ]
 # Each of Epsilon Lyrae's stars is a close pair: STF2382AB 2.1" (5.15 + 6.10, 2025) and STF2383CD 2.4" (5.25 + 5.38, 2025).
 INNER = {'epslyr': [2.1, 2.4]}
@@ -330,6 +338,35 @@ for d in dso:
 missing = set(MORE) - {d['cat'] for d in dso}
 if missing:  # one asked for but not in dsos.14.json would otherwise be left out without a word
     sys.exit(f'NGC extras not found: {sorted(missing)}')
+
+# Showpieces for southern skies and classics for northern ones, added in November 2026. Positions and types are
+# d3-celestial's (dsos.14.json), each within 4' of NGC 2000.0's. Sizes and magnitudes are NGC 2000.0's (ed. R. W.
+# Sinnott, Sky Publishing 1988; VizieR VII/118, read November 2026): its largest dimension in arcminutes and its
+# integrated magnitude. NGC 2000.0 gives one dimension, so a galaxy keeps d3-celestial's ratio of its axes. Where
+# NGC 2000.0's magnitude is photographic (blue, which reads too faint by eye) or missing, d3-celestial's stands.
+# key: (name, NGC 2000.0 size, NGC 2000.0 magnitude or None)
+ADDED = {
+    'NGC 4755': ('Jewel Box', 10.0, 4.2), 'NGC 6752': ('', 20.4, 5.4), 'NGC 6397': ('', 25.7, 5.7), 'NGC 362': ('', 12.9, 6.6),
+    'NGC 2070': ('Tarantula Nebula', 40.0, 8.2), 'NGC 3766': ('Pearl Cluster', 12.0, 5.3), 'NGC 3918': ('Blue Planetary', 0.2, None),
+    'NGC 2808': ('', 13.8, 6.3), 'NGC 3293': ('Gem Cluster', 40.0, 4.7), 'NGC 2477': ('', 27.0, 5.8), 'NGC 3201': ('', 18.2, 6.8),
+    'NGC 4945': ('', 20.0, None), 'NGC 300': ('', 20.0, None), 'NGC 1365': ('Great Barred Spiral', 9.8, 9.5), 'NGC 6744': ('', 15.5, None),
+}
+# NGC 2000.0's 40' for the Gem Cluster takes in the nebula around it; the cluster itself is d3-celestial's 8'.
+SIZE = {'NGC 3293': 8.0}
+# The Gem Cluster is a cluster in faint nebula, like the Christmas Tree Cluster.
+CLUSTER = {'NGC 3293'}
+for k, (nm, size, mag) in ADDED.items():
+    f = next((f for f in pool if (f['properties'].get('desig') or f['id']).replace(' ', ' ') == k), None)
+    if f is None:
+        sys.exit(f'added object not found: {k}')
+    p = f['properties']
+    lon, lat = f['geometry']['coordinates']
+    d3dim = dims(p.get('dim'))
+    size = SIZE.get(k, size)
+    minor = size if KIND.get(p['type']) != 'galaxy' or not d3dim[0] else size * d3dim[1] / d3dim[0]
+    dso.append({'id': k, 'cat': k, 'name': nm or k, 'type': 'Open cluster' if k in CLUSTER else TYPE.get(p['type'], 'Deep-sky object'),
+                'kind': 'cluster' if k in CLUSTER else KIND.get(p['type'], 'cluster'), 'mag': mag if mag is not None else r(p['mag'], 1),
+                'dim': [r(size, 1), r(minor, 1)], 'ra': r(ra_of(lon), 3), 'dec': r(lat, 3)})
 dump('dso.json', {'dso': dso, 'doubles': doubles})
 print(f'  {len(dso)} deep-sky objects, {len(doubles)} doubles')
 

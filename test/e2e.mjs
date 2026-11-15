@@ -3319,6 +3319,36 @@ check('without JavaScript it says what it needs, and GitHub Pages serves it as i
   } finally { await ctx.close(); }
 });
 
+// A southern observer's list was the northern one with a few southern showpieces: no Jewel Box, no Alpha Centauri. Sydney,
+// May 15 2027. Alpha Centauri (Dec −60.8°) never clears Austin's horizon, so it's not on a list there.
+check('A southern autumn night lists the Jewel Box, Alpha Centauri and the great southern globulars', async () => {
+  const { dso, doubles } = JSON.parse(await readFile(join(root, 'data/dso.json'), 'utf8'));
+  const south = ['NGC 4755', 'NGC 6752', 'NGC 6397', 'NGC 362', 'NGC 2070', 'NGC 3766', 'NGC 3918', 'NGC 2808', 'NGC 3293', 'NGC 2477', 'NGC 3201', 'NGC 4945', 'NGC 300', 'NGC 1365', 'NGC 6744'];
+  for (const id of south) {
+    const d = dso.find(x => x.id === id);
+    assert.ok(d && d.mag > 0 && d.dim[0] > 0 && d.dim[1] > 0, `${id} is in the data with a magnitude and a size`);
+  }
+  assert.deepEqual(['alphacen', 'gammavel', 'acamar', 'betatuc', 'peri'].filter(id => !doubles.some(d => d.id === id)), [], 'the southern doubles are in the data');
+  const { ctx, page, problems } = await open({ loc: SYDNEY, time: '2027-05-15T21:00:00+10:00' });
+  try {
+    const ids = (await targetRows(page)).map(r => r.id);
+    assert.deepEqual(['NGC 4755', 'alphacen', 'NGC 6752', 'NGC 6397', 'NGC 3918', 'NGC 2808', 'gammavel'].filter(id => !ids.includes(id)), [], 'listed in Sydney');
+    await openCard(page, 'NGC 4755');
+    assert.match(await text(page, '#sheet .hd h2'), /^Jewel Box Open cluster in Crux/);
+    assert.match(await text(page, '#sheet'), /beside Mimosa/);
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'alphacen');
+    assert.match(await text(page, '#sheet'), /Separation 8\.1″/i);
+    assert.match(await text(page, '#sheet'), /Rigil Kentaurus is the naked-eye star itself \(mag 0\.0\)/, 'not “mag -0.0”');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  const a = await open({ time: '2027-05-15T21:00:00-05:00' });
+  try {
+    assert.equal((await targetRows(a.page)).some(r => r.id === 'alphacen'), false, 'not listed in Austin');
+    assert.deepEqual(a.problems, []);
+  } finally { await a.ctx.close(); }
+});
+
 const only = process.argv[2];
 let failed = 0, ran = 0;
 for (const [name, fn] of checks) {

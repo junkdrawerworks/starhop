@@ -25,6 +25,10 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 The visual magnitudes and sizes of the 110 Messier objects in `dso.json` come from the data table of the SEDS Messier Catalog by Hartmut Frommert and Christine Kronberg (http://www.messier.seds.org/data.html, last modified April 26, 2013), in place of d3-celestial's. Its materials may be freely used for non-profit, educational purposes when the SEDS Messier Catalog online database is acknowledged as the source (http://www.messier.seds.org/usage.html).
 
+## NGC 2000.0
+
+The sizes and magnitudes of the NGC objects added in November 2026 (the southern showpieces from the Jewel Box to NGC 6744, and the northern classics) come from NGC 2000.0, edited by Roger W. Sinnott (Sky Publishing and Cambridge University Press, 1988), as VizieR gives it (catalogue VII/118, https://cdsarc.cds.unistra.fr/viz-bin/cat/VII/118, read November 2026). Where its magnitude is photographic or missing, d3-celestial's stands; `tools/build_data.py` lists each exception. Their positions and types are d3-celestial's. This research has made use of the VizieR catalogue access tool, CDS, Strasbourg, France.
+
 ## Washington Double Star Catalog
 
 The separations, position angles and magnitudes of the double stars in `dso.json` are the latest measures in the Washington Double Star Catalog (WDS) summary, `wdsweb_summ2.txt`, as of November 2026 (Mason, Wycoff, Hartkopf, Douglass & Worley 2001, AJ 122, 3466; current version at http://www.astro.gsu.edu/wds/), except Almach's, which is explained in `tools/build_data.py`. This research has made use of the Washington Double Star Catalog maintained at the U.S. Naval Observatory.
