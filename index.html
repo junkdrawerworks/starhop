@@ -61,6 +61,9 @@ body{font:15px/1.45 var(--body);-webkit-font-smoothing:antialiased}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
 button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,canvas:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+/* inside the boxes that clip what lies outside them, the ring is drawn inside the button, and dark on a brass fill */
+.list>button:focus-visible,.seg button:focus-visible,.res button:focus-visible{outline-offset:-3px}
+.seg button.on:focus-visible{outline-color:var(--brass-ink)}
 a{color:var(--brass)}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

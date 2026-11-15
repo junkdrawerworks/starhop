@@ -1685,6 +1685,47 @@ check('The timeline is a slider the keyboard can move from end to end', async ()
   } finally { await ctx.close(); }
 });
 
+// The list, the direction buttons and the town results clip what lies outside them, so a focus ring drawn outside the
+// element showed as a stray line.
+check('A focused row’s ring lies inside the list', async () => {
+  const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  // where the ring's outer edge falls, and the box that clips it
+  const ring = sel => page.evaluate(s => {
+    const el = document.activeElement, cs = getComputedStyle(el), o = parseFloat(cs.outlineOffset) + parseFloat(cs.outlineWidth), r = el.getBoundingClientRect();
+    const box = el.closest(s), b = box.getBoundingClientRect(), bw = parseFloat(getComputedStyle(box).borderTopWidth);
+    return { visible: el.matches(':focus-visible') && cs.outlineStyle !== 'none', inside: r.left - o >= b.left + bw - 0.5 && r.right + o <= b.right - bw + 0.5 && r.top - o >= b.top + bw - 0.5 && r.bottom + o <= b.bottom - bw + 0.5, colour: cs.outlineColor, bg: cs.backgroundColor };
+  }, sel);
+  try {
+    for (const which of ['first', 'last']) {
+      await page.locator('#targetSec .row')[which]().focus();
+      const r = await ring('.list');
+      assert.ok(r.visible, 'the ' + which + ' row shows a focus ring');
+      assert.ok(r.inside, 'the ' + which + ' row’s ring lies inside the list');
+    }
+    await page.locator('#eventSec .ev').first().waitFor();
+    await page.locator('#eventSec .ev').first().focus();
+    assert.ok((await ring('.list')).inside, 'a Coming up row’s ring lies inside its list');
+    for (const d of ['up', '0', '270']) {
+      await page.locator(`#dirSeg button[data-d="${d}"]`).focus();
+      const r = await ring('.seg');
+      assert.ok(r.visible && r.inside, 'the ' + d + ' direction button’s ring lies inside the bar');
+    }
+    await page.locator('#dirSeg button[data-d="0"]').focus();
+    await page.keyboard.press('Enter');
+    const on = await ring('.seg');
+    assert.ok(on.visible && await page.$eval('#dirSeg button[data-d="0"]', b => b.classList.contains('on')), 'North is chosen and keeps its ring');
+    assert.notEqual(on.colour, on.bg, 'the chosen direction’s ring shows against its fill');
+    await page.click('#locBtn');
+    await page.waitForFunction(() => document.activeElement.id === 'lq'); // the sheet puts the focus in the search
+    await page.keyboard.type('San');
+    await page.locator('#lres button').first().waitFor();
+    await page.keyboard.press('Tab');
+    assert.ok(await page.evaluate(() => document.activeElement === document.querySelector('#lres button')), 'Tab goes from the search to its first result');
+    const res = await ring('.res');
+    assert.ok(res.visible && res.inside, 'a town result’s ring lies inside the results');
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026, by the USNO convention (PyEphem): Saturn rises 6:37 pm and sets 6:48 am, Jupiter rises 2:58 am, Mars 1:58 am.
 // Sunset is 7:01 pm and sunrise 7:32 am, and the card gives the times between them, so Saturn is up at dusk.
 check('planet rise and set times match the standard ones', async () => {
