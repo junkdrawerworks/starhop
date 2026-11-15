@@ -564,6 +564,61 @@ check('a finder chart for something low shows it at nightfall, not in the sunset
   } finally { await ctx.close(); }
 });
 
+// The finder chart's caption, and the star names in its star-hop ("from η Her to Rutilicus", "beside Ankaa, on the way to …").
+const hopCap = page => page.$eval('#finder', c => c.parentElement.querySelector('.cap').textContent);
+const hopStars = cap => { const m = /(?:from|beside) (.+?)(?: to |, on the way to )(.+?)(?: \(a little off the line\))?\./.exec(cap) || /° from (.+?) —/.exec(cap); return m ? m.slice(1).filter(Boolean) : []; };
+const CHICAGO = { name: 'Chicago, IL', lat: 41.85, lon: -87.65, tz: 'America/Chicago' };
+
+// Of the 411 stars a star-hop can start or end at, 148 have only a Bayer or Flamsteed label, and the chart labelled only
+// stars with a proper name, so M13's "from η Her" started at an unlabelled star.
+check('the stars a star-hop names are labelled on its chart', async () => {
+  for (const [loc, time, id, want] of [[CHICAGO, '2026-10-16T21:15:00-05:00', 'M13', ['η Her', 'Rutilicus']], [AUSTIN, '2026-10-13T21:00:00-05:00', 'albireo', ['γ Sge']]]) {
+    const { ctx, page, problems } = await open({ loc, time });
+    try {
+      await openCard(page, id);
+      await page.waitForFunction(() => document.getElementById('finder').__labels);
+      const cap = await hopCap(page), names = hopStars(cap), labels = (await finderLabels(page)).labels.map(l => l.t);
+      if (id === 'M13') assert.match(cap, /^Star-hop: About a third of the way from η Her to Rutilicus\./);
+      for (const n of want) assert.ok(names.includes(n), `${id}'s star-hop names ${n}: ${cap}`);
+      for (const n of names) assert.ok(labels.includes(n), `${id}'s chart labels ${n}, which its star-hop names (it has ${labels.join(', ')})`);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
+// The Pleiades' hop started "Just beside Electra", a Pleiad 0.48° from the cluster's centre, and Vega's hopped to the
+// fifth brightest star in the sky from Sheliak, at magnitude 3.5.
+check('a cluster’s star-hop doesn’t start inside the cluster, and Vega needs no hop', async () => {
+  let { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await openCard(page, 'M45');
+    const cap = await hopCap(page);
+    assert.match(cap, /^Star-hop: /);
+    assert.doesNotMatch(cap, /Alcyone|Atlas|Electra|Maia|Merope|Taygeta|Pleione|Celaeno|Asterope/, 'the Pleiades’ star-hop names a Pleiad');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  ({ ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' }));
+  try {
+    await tapMap(page, 'star', await starIndex('Vega'));
+    const cap = await hopCap(page);
+    assert.doesNotMatch(cap, /Star-hop/, 'Vega’s card has a star-hop');
+    assert.match(cap, /^One of the brightest stars in the sky/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// From Kamensk-Uralsky at 10 pm on Feb 1 2002, M3 is 10° up in the northeast and Arcturus is 2° below the horizon.
+check('a star-hop starts from stars that are up', async () => {
+  const { ctx, page, problems } = await open({ loc: { name: 'Kamensk-Uralsky, RU', lat: 56.42, lon: 61.94, tz: 'Asia/Yekaterinburg' }, time: '2002-02-01T22:00:00+05:00' });
+  try {
+    await openCard(page, 'M3');
+    const cap = await hopCap(page);
+    assert.match(cap, /^Star-hop: /);
+    assert.doesNotMatch(cap, /Arcturus/, 'M3’s star-hop starts from Arcturus, below the horizon');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 const advice = page => page.$$eval('#sheet .card', cs => cs.find(c => c.querySelector('h3').textContent === 'In your telescope').querySelector('p').textContent);
 
 check('a card says an object is wider than the field only when it is', async () => {
