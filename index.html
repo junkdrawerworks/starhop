@@ -55,7 +55,7 @@
 }
 html.red{
   --bg:#070000;--panel:#100101;--panel2:#150202;--raise:#1C0303;--line:#2A0606;--line2:#3B0909;
-  --ink:#E24A3C;--ink2:#B23A2F;--ink3:#7C2A22;
+  --ink:#E24A3C;--ink2:#D84A3D;--ink3:#D84A3D; /* two levels, both about 5:1: size and weight set the order, not dimness */
   --brass:#E24A3C;--brass-ink:#140000;--brass-soft:#2E0706;
   --teal:#C8453A;--rose:#C8453A;--blue:#C8453A;--good:#D84A3D;--fair:#C8453A;--hard:#FF5E4D;
 }
@@ -992,6 +992,18 @@ html.red .chart canvas{background:#050000}
     if (RED) { var l = 0.3 * r + 0.55 * g + 0.15 * b; r = Math.min(255, l * 1.05); g = l * 0.1; b = l * 0.07; }
     return 'rgba(' + Math.round(r) + ',' + Math.round(g) + ',' + Math.round(b) + ',' + (a == null ? 1 : a) + ')';
   }
+  // Words drawn on the map, the charts and the timeline. In night vision none is dimmer than the page's secondary text
+  // (--ink2, about 5:1 on the dark): pure red can't go past about 5.25:1, so dim levels would be too dim to read.
+  function relLum(c) { c = c.map(function (v) { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; } // WCAG 2.2's relative luminance
+  var INKS = {}; // every colour words were drawn in, for tests
+  function tcol(hex, a) {
+    var c = col(hex, a);
+    if (RED) {
+      var n = parseInt(hex.slice(1), 16), l = 0.3 * (n >> 16) + 0.55 * (n >> 8 & 255) + 0.15 * (n & 255), k = a == null ? 1 : a;
+      if (relLum([Math.min(255, l * 1.05) * k, l * 0.1 * k, l * 0.07 * k]) < relLum([216, 74, 61])) c = 'rgb(216,74,61)';
+    }
+    INKS[c] = 1; return c;
+  }
   var BVC = ['#A9BFFF', '#CAD8FF', '#F4F2FF', '#FFF1DB', '#FFDDA8', '#FFBE85'];
   function bvClass(bv) { return bv < -0.05 ? 0 : bv < 0.25 ? 1 : bv < 0.55 ? 2 : bv < 0.9 ? 3 : bv < 1.35 ? 4 : 5; }
   function skyColor(sunAlt) {
@@ -1097,7 +1109,7 @@ html.red .chart canvas{background:#050000}
     }
     // altitude grid
     if (S.layers.grid && !o.noGrid) {
-      g.strokeStyle = col('#7C8BB5', 0.22); g.lineWidth = 1; g.font = '500 10.5px "DM Mono", monospace'; g.fillStyle = col('#7C8BB5', 0.6);
+      g.strokeStyle = col('#7C8BB5', 0.22); g.lineWidth = 1; g.font = '500 10.5px "DM Mono", monospace'; g.fillStyle = tcol('#7C8BB5', 0.9);
       [15, 30, 45, 60, 75].forEach(function (alt) { g.beginPath(); var first = true, lab = null; for (var az = 0; az <= 360; az += 3) { var p = proj(P, horVec(alt, az)); if (!p) { first = true; continue; } if (first) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]); first = false; if (Math.abs(az - vw.az) < 2) lab = p; } g.stroke(); if (lab) g.fillText(alt + '°', lab[0] + 4, lab[1] - 3); });
       for (var az2 = 0; az2 < 360; az2 += 30) { g.beginPath(); var f2 = true; for (var al = 0; al <= 90; al += 3) { var p2 = proj(P, horVec(al, az2)); if (!p2) { f2 = true; continue; } if (f2) g.moveTo(p2[0], p2[1]); else g.lineTo(p2[0], p2[1]); f2 = false; } g.stroke(); }
     }
@@ -1141,7 +1153,7 @@ html.red .chart canvas{background:#050000}
         else { g.setLineDash([2, 2.5]); g.arc(p[0], p[1], rpx, 0, 2 * Math.PI); }
         g.stroke(); g.setLineDash([]);
         var dObj = { k: 'dso', id: d.id }; hits.push({ x: p[0], y: p[1], r: Math.max(rpx, 9), dr: Math.max(rpx, ry), pr: 2, obj: dObj });
-        if ((fovDeg < 110 || (sp >= 2.5 && w > 600)) && S.layers.names && !o.noLabels && (hv[2] >= 0 || isT) && v >= 0.35) label(dObj, d.id.indexOf('M') === 0 ? d.id : d.short || (d.name && d.name.length < 18 ? d.name : d.id), p[0], p[1], rpx, 3, 4, '400 11.5px "Atkinson Hyperlegible", sans-serif', col(c, 0.85 * Math.max(v, 0.6)), 5 - sp / 10 + (1 - v), isT ? 't' : isS ? 's' : '');
+        if ((fovDeg < 110 || (sp >= 2.5 && w > 600)) && S.layers.names && !o.noLabels && (hv[2] >= 0 || isT) && v >= 0.35) label(dObj, d.id.indexOf('M') === 0 ? d.id : d.short || (d.name && d.name.length < 18 ? d.name : d.id), p[0], p[1], rpx, 3, 4, '400 11.5px "Atkinson Hyperlegible", sans-serif', tcol(c, 0.85 * Math.max(v, 0.6)), 5 - sp / 10 + (1 - v), isT ? 't' : isS ? 's' : '');
       });
     }
     // stars, batched by colour
@@ -1167,11 +1179,11 @@ html.red .chart canvas{background:#050000}
       bright.forEach(function (b) {
         var onHop = hopStars.indexOf(b[0]) >= 0;
         // a star-hop's stars go before the target's own label, which has its ring to show where it is
-        if (onHop || (b[2] <= nl && (b[4] >= 0 || b[0] === tStar))) label(b[5], NAMES[b[0]][0] || NAMES[b[0]][1], b[1][0], b[1][1], b[3], 3, -2, '400 12px "Atkinson Hyperlegible", sans-serif', col('#C9CFDF', 0.8), onHop ? -0.5 : 3 + b[2] / 10, b[0] === tStar ? 't' : b[0] === sStar ? 's' : '', onHop || b[2] < 1.5);
+        if (onHop || (b[2] <= nl && (b[4] >= 0 || b[0] === tStar))) label(b[5], NAMES[b[0]][0] || NAMES[b[0]][1], b[1][0], b[1][1], b[3], 3, -2, '400 12px "Atkinson Hyperlegible", sans-serif', tcol('#C9CFDF', 0.8), onHop ? -0.5 : 3 + b[2] / 10, b[0] === tStar ? 't' : b[0] === sStar ? 's' : '', onHop || b[2] < 1.5);
       });
       // constellation names in the old atlas style
       if (!o.noCons) {
-        var cfont = 'italic 400 ' + (vw.fov > 120 ? 13 : 15) + 'px "IM Fell English", Georgia, serif', ccol = col('#DDB05A', RED ? 0.6 : 0.5);
+        var cfont = 'italic 400 ' + (vw.fov > 120 ? 13 : 15) + 'px "IM Fell English", Georgia, serif', ccol = tcol('#DDB05A', RED ? 0.6 : 0.5);
         CONS.forEach(function (c) { if (vw.fov > 140 && c.rk > 1) return; if (vw.fov > 90 && c.rk > 2) return; var hv = rot(sc.m, c.lvec); if (hv[2] < 0.05) return; var p = proj(P, hv); if (!p || p[0] < 30 || p[0] > w - 30 || p[1] < 20 || p[1] > h - 20) return; labs.push({ t: c.n.toUpperCase().split('').join(' '), x: p[0], y: p[1], center: true, font: cfont, color: ccol, pri: 7 }); });
       }
     }
@@ -1184,7 +1196,7 @@ html.red .chart canvas{background:#050000}
       g.fillStyle = col(pl.col, 1); g.beginPath(); g.arc(p[0], p[1], rad, 0, 2 * Math.PI); g.fill();
       g.strokeStyle = col(pl.col, 0.4); g.lineWidth = 1; g.beginPath(); g.arc(p[0], p[1], rad + 3, 0, 2 * Math.PI); g.stroke();
       var plT = o.target && o.target.id === pl.id, pObj = { k: 'planet', id: pl.id };
-      if (!o.noLabels && (pl.alt >= 0 || plT)) label(pObj, pl.id, p[0], p[1], rad, 5, 4, '700 12.5px "Atkinson Hyperlegible", sans-serif', col(pl.col, 0.95), 2 + pl.mag / 100, plT ? 't' : o.sel && o.sel.id === pl.id ? 's' : '');
+      if (!o.noLabels && (pl.alt >= 0 || plT)) label(pObj, pl.id, p[0], p[1], rad, 5, 4, '700 12.5px "Atkinson Hyperlegible", sans-serif', tcol(pl.col, 0.95), 2 + pl.mag / 100, plT ? 't' : o.sel && o.sel.id === pl.id ? 's' : '');
       hits.push({ x: p[0], y: p[1], r: rad + 10, dr: rad + 3, pr: 4, obj: pObj });
     });
     // the Moon, lit on the side facing the Sun
@@ -1196,7 +1208,7 @@ html.red .chart canvas{background:#050000}
         if (!sp2) { var far = proj(P, unit([mo.h[0] + (sc.sun.h[0] - mo.h[0]) * 0.02, mo.h[1] + (sc.sun.h[1] - mo.h[1]) * 0.02, mo.h[2] + (sc.sun.h[2] - mo.h[2]) * 0.02])); if (far) ang = Math.atan2(far[1] - mp[1], far[0] - mp[0]); }
         drawPhase(g, mp[0], mp[1], mr, mo.illum, ang, col('#F5EFDC', 1), col('#2A2F3F', 0.85));
         var moT = o.target && o.target.k === 'moon', mObj = { k: 'moon', id: 'Moon' };
-        if (!o.noLabels && (mo.alt >= 0 || moT)) label(mObj, 'Moon', mp[0], mp[1], mr, 5, 4, '700 12.5px "Atkinson Hyperlegible", sans-serif', col('#F5EFDC', 0.9), 1, moT ? 't' : o.sel && o.sel.k === 'moon' ? 's' : '');
+        if (!o.noLabels && (mo.alt >= 0 || moT)) label(mObj, 'Moon', mp[0], mp[1], mr, 5, 4, '700 12.5px "Atkinson Hyperlegible", sans-serif', tcol('#F5EFDC', 0.9), 1, moT ? 't' : o.sel && o.sel.k === 'moon' ? 's' : '');
         hits.push({ x: mp[0], y: mp[1], r: mr + 8, dr: mr, pr: 5, obj: mObj });
       }
     }
@@ -1229,7 +1241,7 @@ html.red .chart canvas{background:#050000}
           var cp = proj(P, horVec(alts[k], d8 * 45)); if (!cp || cp[0] < 8 || cp[0] > w - 8 || cp[1] < 8 || cp[1] > h - 6) continue;
           var cb = { t: DIRS_S[d8], x: cp[0] - cw / 2 - 1, y: cp[1] - 5, w: cw + 2, h: 11 };
           if ((o.reserve || []).concat(compass).some(function (q) { return overlap(cb, q); })) continue;
-          g.fillStyle = col(d8 % 2 ? '#8C7A4E' : '#DDB05A', 1); g.fillText(DIRS_S[d8], cp[0], cp[1] + 5);
+          g.fillStyle = tcol(d8 % 2 ? '#8C7A4E' : '#DDB05A', 1); g.fillText(DIRS_S[d8], cp[0], cp[1] + 5);
           keep.push(cb); compass.push(cb);
           return;
         }
@@ -1242,7 +1254,7 @@ html.red .chart canvas{background:#050000}
       var tv = objHor(o.target, sc), tp = tv && proj(P, tv);
       if (tp) {
         // a ring's deg is its diameter, so its edge, rg.deg / 2 from the centre, lands 2 tan(rg.deg / 4) s out
-        (o.rings || []).forEach(function (rg) { var rp = 2 * Math.tan(rg.deg / 4 * D2R) * P.s; if (!ring) ring = { x: tp[0], y: tp[1], r: rp }; g.strokeStyle = col('#DDB05A', rg.a || 0.5); g.lineWidth = 1.2; g.setLineDash(rg.dash ? [4, 4] : []); g.beginPath(); g.arc(tp[0], tp[1], rp, 0, 2 * Math.PI); g.stroke(); g.setLineDash([]); if (rg.label) { g.font = '400 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#DDB05A', 0.75); g.fillText(rg.label, tp[0] + rp * 0.72 + 3, tp[1] - rp * 0.72 - 3); } });
+        (o.rings || []).forEach(function (rg) { var rp = 2 * Math.tan(rg.deg / 4 * D2R) * P.s; if (!ring) ring = { x: tp[0], y: tp[1], r: rp }; g.strokeStyle = col('#DDB05A', rg.a || 0.5); g.lineWidth = 1.2; g.setLineDash(rg.dash ? [4, 4] : []); g.beginPath(); g.arc(tp[0], tp[1], rp, 0, 2 * Math.PI); g.stroke(); g.setLineDash([]); if (rg.label) { g.font = '400 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = tcol('#DDB05A', 0.75); g.fillText(rg.label, tp[0] + rp * 0.72 + 3, tp[1] - rp * 0.72 - 3); } });
         g.strokeStyle = col('#FFFFFF', 0.9); g.lineWidth = 1.6; g.beginPath(); g.arc(tp[0], tp[1], 11, 0, 2 * Math.PI); g.stroke();
         keep.push({ x: tp[0] - 12, y: tp[1] - 12, w: 24, h: 24 });
       }
@@ -1378,6 +1390,7 @@ html.red .chart canvas{background:#050000}
   var EAT_TAP = false; // a tap that closes the layers menu shouldn't also pick a star
   cv.__hits = function () { return HITS; }; // lets automated tests find tappable objects
   cv.__labels = function () { return LAST ? LAST.labels : []; }; // and see where the labels went
+  cv.__inks = function () { return Object.keys(INKS); }; // and the colours of the words on the map, the charts and the timeline
   var raf = 0; function redraw() { if (!raf) raf = requestAnimationFrame(function () { raf = 0; draw(); }); }
 
   (function gestures() {
@@ -1597,7 +1610,7 @@ html.red .chart canvas{background:#050000}
     for (var x = first; x < N.end.getTime(); x += 3600e3) {
       var tx = tlX(new Date(x), w), hr = parts(new Date(x), tz()).h, lab = (hr % 12 || 12) + (hr === 0 ? 'a' : hr === 12 ? 'p' : '');
       tg.fillStyle = col('#E9E3D1', 0.35); tg.fillRect(tx, top + bh - 5, 1, 5);
-      if (tx > 10 && tx < w - 10 && hr % every === 0) { tg.fillStyle = col('#A7AFC6', 0.9); tg.fillText(hr === 0 ? '12a' : lab, tx, 9); }
+      if (tx > 10 && tx < w - 10 && hr % every === 0) { tg.fillStyle = tcol('#A7AFC6', 0.9); tg.fillText(hr === 0 ? '12a' : lab, tx, 9); }
     }
     tg.textAlign = 'left';
     // now marker
@@ -2703,7 +2716,7 @@ html.red .chart canvas{background:#050000}
     c.__hop = hop && hop.hop ? { kind: hop.hop.kind, leg: hop.hop.kind === 'through' ? hop.hop.ab : hop.hop.da } : null; // and how long its first leg is
     // a plate behind the stamp, so lines and markers don't run through its words
     g.fillStyle = col('#04070F', 0.8); g.beginPath(); if (g.roundRect) g.roundRect(clearStrip.x + 2, clearStrip.y, clearStrip.w - 2, clearStrip.h - 2, 5); else g.rect(clearStrip.x + 2, clearStrip.y, clearStrip.w - 2, clearStrip.h - 2); g.fill();
-    g.font = '700 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#A7AFC6', 0.9); g.textAlign = 'left'; g.fillText(stamp, 8, f.h - 8);
+    g.font = '700 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = tcol('#A7AFC6', 0.9); g.textAlign = 'left'; g.fillText(stamp, 8, f.h - 8);
   }
   // A cluster, nebula or galaxy as the eyepiece sketch draws it at (x, y): a glow, or a cluster's stars, at its size,
   // as bright as its magnitude and faded by fade (fadeOf). A galaxy is drawn untilted, as its angle isn't known here.
@@ -2790,7 +2803,7 @@ html.red .chart canvas{background:#050000}
         });
         // Each moon's letter goes above it, or else below or beside it, so moons close together keep letters apart
         // and no letter covers the planet or another moon.
-        g.font = '700 10px "Atkinson Hyperlegible", sans-serif'; g.textAlign = 'center'; g.fillStyle = col('#A7AFC6', 0.9);
+        g.font = '700 10px "Atkinson Hyperlegible", sans-serif'; g.textAlign = 'center'; g.fillStyle = tcol('#A7AFC6', 0.9);
         seen.forEach(function (sm) {
           var tw = g.measureText(sm[0][1]).width, spots = [[0, -5], [0, 12], [-tw / 2 - 5, 4], [tw / 2 + 5, 4], [0, -15], [0, 22]];
           for (var j = 0; j < spots.length; j++) {
@@ -2832,14 +2845,14 @@ html.red .chart canvas{background:#050000}
       // outward, away from the target at the centre, unless that runs past the rim
       var tw = g.measureText(tg[0]).width, gap = Math.min(tg[3], 40) + 4, half = Math.sqrt(Math.max(0, R * R - (tg[2] - cy0) * (tg[2] - cy0))) - 4;
       var fitsR = tg[1] + gap + tw < cx0 + half, fitsL = tg[1] - gap - tw > cx0 - half, right = tg[1] >= cx0 ? fitsR || !fitsL : !fitsL && fitsR;
-      g.fillStyle = col('#A7AFC6', tg[4]); g.textAlign = right ? 'left' : 'right'; g.fillText(tg[0], tg[1] + (right ? gap : -gap), tg[2]);
+      g.fillStyle = tcol('#A7AFC6', tg[4]); g.textAlign = right ? 'left' : 'right'; g.fillText(tg[0], tg[1] + (right ? gap : -gap), tg[2]);
     });
     g.textAlign = 'left'; g.textBaseline = 'alphabetic';
     g.restore();
     g.strokeStyle = col('#2B3860', 1); g.lineWidth = 2; g.beginPath(); g.arc(cx0, cy0, R, 0, 2 * Math.PI); g.stroke();
     if (o.k === 'planet') closeUp(g, w - 50, f.h - 50, 42, o, sc.planets.filter(function (x) { return x.id === o.id; })[0], e, nth);
     // N and E just inside the rim, where north and east lie
-    g.font = '700 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#6F7896', 1); g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '700 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = tcol('#6F7896', 1); g.textAlign = 'center'; g.textBaseline = 'middle';
     var marks = c.__marks = {};
     [['N', nDir], ['E', eDir]].forEach(function (q) {
       // a planet's close-up sits at the lower right, under its own label: a mark that would land there comes in toward the centre
@@ -2890,7 +2903,7 @@ html.red .chart canvas{background:#050000}
       if (o.id === 'Jupiter') { g.save(); g.beginPath(); g.arc(x, y, pr, 0, 2 * Math.PI); g.clip(); poleUp(g, x, y, 268.057, 64.495, e, nth); g.fillStyle = col('#A0703F', 0.75); g.fillRect(-pr, -pr * 0.32, pr * 2, pr * 0.2); g.fillRect(-pr, pr * 0.14, pr * 2, pr * 0.2); g.restore(); g.restore(); }
     }
     g.restore();
-    g.font = '700 10px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = col('#6F7896', 1); g.textAlign = 'center'; g.fillText('Close-up', x, y - r - 5); g.textAlign = 'left';
+    g.font = '700 10px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = tcol('#6F7896', 1); g.textAlign = 'center'; g.fillText('Close-up', x, y - r - 5); g.textAlign = 'left';
   }
 
   // ---------- telescope settings ----------

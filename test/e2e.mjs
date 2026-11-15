@@ -3921,6 +3921,39 @@ check('small muted labels have 4.5:1 contrast on the page and its panels', async
   } finally { await ctx.close(); }
 });
 
+// In night vision the secondary text was 3.5:1 and the small capital labels 2.2:1, and the map's compass letters, the
+// timeline's hours and the finder chart's stamp 2.0 to 2.7:1, under the 4.5:1 WCAG 2.2 asks of small text (1.4.3).
+// Pure red on black reaches only about 5.25:1, so night vision has two levels of text, both about 5:1.
+const lumOf = rgb => { const c = rgb.map(v => v / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+const contrast = (a, b) => { const x = lumOf(a), y = lumOf(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const inkOn = (css, bg) => { const m = css.match(/[\d.]+/g).map(Number), a = m[3] == null ? 1 : m[3]; return contrast(m.slice(0, 3).map((v, i) => v * a + bg[i] * (1 - a)), bg); };
+check('In night vision the secondary text and the words on the map, charts and timeline have 4.5:1 contrast', async () => {
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, red: true, layers: { lines: true, names: true, dso: true, mw: true, grid: true } }), time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const css = await page.evaluate(() => { const s = getComputedStyle(document.documentElement); return Object.fromEntries(['--ink', '--ink2', '--ink3', '--bg', '--panel', '--panel2', '--raise'].map(k => [k, s.getPropertyValue(k).trim()])); });
+    const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    for (const fg of ['--ink', '--ink2', '--ink3']) for (const bg of ['--bg', '--panel', '--panel2', '--raise']) {
+      const r = contrast(hex(css[fg]), hex(css[bg]));
+      assert.ok(r >= 4.5, `${fg} on ${bg} is ${r.toFixed(2)}:1`);
+    }
+    await openCard(page, 'M31');
+    await page.waitForTimeout(300);
+    const inks = await page.$eval('#sky', c => c.__inks());
+    assert.ok(inks.length >= 1, 'words were drawn');
+    const night = [11, 1, 1]; // the map's sky on a dark night, in red
+    for (const c of inks) assert.ok(inkOn(c, night) >= 4.5, `words drawn in ${c} are ${inkOn(c, night).toFixed(2)}:1`);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // the normal look keeps its colours, and the altitude grid's labels are a little brighter
+  const n = await open({ save: JSON.stringify({ loc: AUSTIN, layers: { lines: true, names: true, dso: true, mw: true, grid: true } }), time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const inks = await n.page.$eval('#sky', c => c.__inks());
+    assert.ok(inks.includes('rgba(124,139,181,0.9)'), 'the grid’s labels are drawn at 0.9');
+    assert.ok(inkOn('rgba(124,139,181,0.9)', [6, 10, 20]) >= 4.5, 'and are 4.5:1 on the night sky');
+    assert.equal(await n.page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--ink2').trim()), '#A7AFC6', 'the secondary text is as it was');
+  } finally { await n.ctx.close(); }
+});
+
 // A data file that wouldn't load showed "Starhop couldn’t load its star catalog (Failed to fetch). Reload to try again."
 // with the map's and the timeline's buttons still there, doing nothing. Opened from a file, reloading never helps.
 check('When the star catalog won’t load, it says what to do and puts away the buttons that need it', async () => {
