@@ -2815,7 +2815,8 @@ html.red .chart canvas{background:#050000}
     if (!s.length) return '';
     var up = s.every(function (x) { return x.rising; }), down = s.every(function (x) { return !x.rising; });
     s.sort(function (a, b) { return b.lat - a.lat; });
-    return '<div class="card"><h3>On the terminator</h3><p>The Sun is ' + (up ? 'rising' : down ? 'setting' : 'low') + ' over these, north to south, and their shadows are long:</p><ul class="sights">' +
+    var one = s.length === 1; // near Full or New Moon there can be just one
+    return '<div class="card"><h3>On the terminator</h3><p>The Sun is ' + (up ? 'rising' : down ? 'setting' : 'low') + (one ? ' over this, and its shadows are long:' : ' over these, north to south, and their shadows are long:') + '</p><ul class="sights">' +
       s.map(function (x) { return '<li><b>' + esc(x.name.replace(/^the /, 'The ')) + '</b>, ' + esc(x.note) + '</li>'; }).join('') + '</ul></div>';
   }
   function openObject(o) {

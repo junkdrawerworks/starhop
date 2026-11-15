@@ -3253,6 +3253,14 @@ check('The Moon card names the sights on the terminator at the time shown', asyn
     assert.ok(s.includes('Posidonius') && s.includes('Fracastorius'), s.join(', '));
     assert.deepEqual(b.problems, []);
   } finally { await b.ctx.close(); }
+  // the evening before Full Moon the terminator is at the limb, and only Bailly is in its low Sun
+  const c = await open({ time: '2026-11-24T19:00:00-06:00' });
+  try {
+    await openCard(c.page, 'Moon');
+    assert.deepEqual(await sights(c.page), ['Bailly']);
+    assert.match(await text(c.page, '#sheet'), /The Sun is rising over this, and its shadows are long:/);
+    assert.deepEqual(c.problems, []);
+  } finally { await c.ctx.close(); }
 });
 
 // Meeus, Astronomical Algorithms (2nd ed., 1998), Example 53.b: at 0h TD on 12 April 1992 the Sun is overhead on the
