@@ -3383,6 +3383,9 @@ check('A dark winter night in Austin lists the Needle Galaxy, Kemble’s Cascade
     await openCard(page, 'Kemble 1');
     assert.match(await text(page, '#sheet .hd h2'), /^Kemble’s Cascade Asterism in Camelopard/);
     assert.match(await text(page, '#sheet'), /nearly 3° long, running down to the little cluster NGC 1502/);
+    assert.match(await text(page, '#sheet'), /a line of faint stars at the centre of the chart/);
+    assert.ok(await page.waitForFunction(() => document.getElementById('eyepiece').__chain).then(h => h.jsonValue()) >= 5, 'its stars are drawn in the eyepiece sketch');
+    assert.doesNotMatch(await text(page, '#epCap'), /aren’t drawn/);
     await page.click('#sheet [data-close]');
     await openCard(page, 'porrima');
     assert.match(await text(page, '#sheet'), /Separation 3\.2″/i);

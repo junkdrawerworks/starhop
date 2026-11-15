@@ -2135,7 +2135,7 @@ html.red .chart canvas{background:#050000}
     var eyeSees = o.k === 'dso' && o.mag != null && o.mag < eyeLim;
     var ct = chartTime(o, rs), bright = o.k === 'star' && o.mag < 1.5, hop = o.k === 'planet' || o.k === 'moon' || bright || eyeStar || !ct ? null : hopFor(o, ct.t);
     var eyeTxt = eyeStar ? ((NAMES[o.star] || [])[0] || o.name) + ' is the naked-eye star itself (mag ' + (Math.abs(own) < 0.05 ? 0 : own).toFixed(1) + '), at the centre of the chart. ' :
-      eyeSees ? 'Visible without a telescope from your sky: ' + (o.type === 'Globular cluster' ? 'a fuzzy star' : o.kind === 'cluster' ? 'a misty patch or a knot of faint stars' : 'a misty patch') + ' at the centre of the chart. ' : '';
+      eyeSees ? 'Visible without a telescope from your sky: ' + (o.type === 'Globular cluster' ? 'a fuzzy star' : o.type === 'Asterism' ? 'a line of faint stars' : o.kind === 'cluster' ? 'a misty patch or a knot of faint stars' : 'a misty patch') + ' at the centre of the chart. ' : '';
     // IM Fell has no Greek, so a Bayer letter (ξ Sco) is set upright in the body face, as in the line under it
     var h = '<div class="hd"><h2><span>' + esc(name).replace(/^[\u0370-\u03ff]/, '<span class="gk">$&</span>') + '</span><small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
       '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + nowTxt + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span>' + val(f[1], spokenArcs(esc(f[1]))) + '</div>'; }).join('') + '</div>' : '') + '</div>' +
@@ -2282,6 +2282,9 @@ html.red .chart canvas{background:#050000}
         g.save(); g.translate(cx0, cy0); g.rotate(-0.4); g.scale(a, b2); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 1, 0, 2 * Math.PI); g.fill(); g.restore();
       }
       cap += ' · a sketch, not a photo — expect it fainter';
+    } else if (o.stars) { // Kemble's Cascade: its stars, most fainter than the map's
+      o.stars.forEach(function (q) { var pp = sky2px(vec(q[0], q[1])); if (!pp) return; g.fillStyle = col('#E6EBFF', 1); g.beginPath(); g.arc(pp[0], pp[1], clamp(3.2 - q[2] * 0.35, 0.8, 3.5), 0, 2 * Math.PI); g.fill(); });
+      c.__chain = o.stars.length; // tests read that its stars were drawn
     } else if (o.k !== 'star') cap += ' · its faint stars aren’t drawn here';
     g.restore();
     g.strokeStyle = col('#2B3860', 1); g.lineWidth = 2; g.beginPath(); g.arc(cx0, cy0, R, 0, 2 * Math.PI); g.stroke();

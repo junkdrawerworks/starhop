@@ -401,26 +401,30 @@ dso.append({'id': 'Stock 2', 'cat': 'Stock 2', 'name': 'Stock 2', 'type': 'Open 
             'dim': [60.0, 60.0], 'ra': r((2 + 14 / 60 + 43 / 3600) * 15, 3), 'dec': r(59 + 29 / 60 + 6 / 3600, 3)})
 # Kemble's Cascade is an asterism, a line of stars with no catalogue entry in d3-celestial, the NGC or Dias et al. It runs
 # northwest from NGC 1502 to as far again beyond HD 24479 (HIP 18505), the 5th-magnitude star in its middle, so it's
-# placed on that star and is twice as long as NGC 1502 is from it, with a nominal 10' width. Its magnitude adds up the
-# Hipparcos stars within 0.25° of that line in d3-celestial's stars.8.json, leaving out NGC 1502's own.
-s8 = {f['id']: f for f in json.load(open(D / 'stars.8.json'))['features']}
+# placed on that star and is twice as long as NGC 1502 is from it, with a nominal 10' width. Its stars are the Hipparcos
+# stars brighter than magnitude 10 within 0.25° of that line in d3-celestial's stars.14.json, leaving out NGC 1502's own;
+# its magnitude adds them up, and the eyepiece sketch draws them, since most are fainter than the map's stars.
+s8 = {f['id']: f for f in json.load(open(D / 'stars.14.json'))['features']}
 n1502 = next(d for d in dso if d['id'] == 'NGC 1502')
 mid = s8[18505]['geometry']['coordinates']
 a_v, m_v = unit(n1502['ra'], n1502['dec']), unit(ra_of(mid[0]), mid[1])
 half = math.degrees(math.acos(sum(x * y for x, y in zip(a_v, m_v))))
 pole = [a_v[1] * m_v[2] - a_v[2] * m_v[1], a_v[2] * m_v[0] - a_v[0] * m_v[2], a_v[0] * m_v[1] - a_v[1] * m_v[0]]
 pn = math.sqrt(sum(x * x for x in pole))
-flux = 0
+flux, chain = 0, []
 for f in s8.values():
     lon, lat = f['geometry']['coordinates']
     v = unit(ra_of(lon), lat)
     off = abs(math.degrees(math.asin(sum(x * y for x, y in zip(v, pole)) / pn)))
     along = math.degrees(math.acos(max(-1, min(1, sum(x * y for x, y in zip(v, a_v))))))
     back = math.degrees(math.acos(max(-1, min(1, sum(x * y for x, y in zip(v, m_v))))))
-    if off < 0.25 and n1502['dim'][0] / 120 < along and back < half:  # past NGC 1502's edge, within the line's length
+    if off < 0.25 and n1502['dim'][0] / 120 < along and back < half and float(f['properties']['mag']) < 10:  # past NGC 1502's edge, within the line's length
         flux += 10 ** (-0.4 * float(f['properties']['mag']))
+        chain.append([r(ra_of(lon)), r(lat), r(f['properties']['mag'], 1)])
 dso.append({'id': 'Kemble 1', 'cat': 'Kemble 1', 'name': 'Kemble’s Cascade', 'type': 'Asterism', 'kind': 'cluster', 'mag': r(-2.5 * math.log10(flux), 1),
-            'dim': [r(2 * half * 60, 1), 10.0], 'ra': r(ra_of(mid[0]), 3), 'dec': r(mid[1], 3)})
+            'dim': [r(2 * half * 60, 1), 10.0], 'ra': r(ra_of(mid[0]), 3), 'dec': r(mid[1], 3), 'stars': sorted(chain)})
+if len(chain) < 5:
+    sys.exit(f"Kemble's Cascade: only {len(chain)} stars found")
 dump('dso.json', {'dso': dso, 'doubles': doubles})
 print(f'  {len(dso)} deep-sky objects, {len(doubles)} doubles')
 

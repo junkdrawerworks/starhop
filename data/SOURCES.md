@@ -39,7 +39,7 @@ Stock 2, which has no NGC or IC number, takes its position and size from the cat
 
 ## Kemble's Cascade
 
-Kemble's Cascade, an asterism with no entry in these catalogues, is measured from d3-celestial's own star catalog by `tools/build_data.py`: it's placed on HD 24479 (HIP 18505), the 5th-magnitude star in its middle, runs twice as far as NGC 1502 is from that star, and its magnitude adds up the catalog's stars along the line.
+Kemble's Cascade, an asterism with no entry in these catalogues, is measured from d3-celestial's own star catalog by `tools/build_data.py`: it's placed on HD 24479 (HIP 18505), the 5th-magnitude star in its middle, runs twice as far as NGC 1502 is from that star, and its magnitude adds up the catalog's stars along the line (`stars.14.json`, brighter than magnitude 10), which the eyepiece sketch draws.
 
 ## Washington Double Star Catalog
 
