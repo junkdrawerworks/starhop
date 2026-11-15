@@ -41,6 +41,7 @@
   - Mercury and Venus say how high they are at dusk or dawn, a planet at opposition how high it gets, and the Moon passing a planet is given for a time you can see it, when the Sun is down and the Moon up.
 - **Point at the sky** (phones, on the website). Tap **Point** and the map fills the screen and follows where the back of your phone points. **Stop**, or Back, returns to the page.
   - Phone compasses are rough, and a metal telescope nearby makes them worse. If the map doesn't match the sky, drag it onto a star you recognize; the phone remembers the correction. While one is in force it shows beside **Stop**, with **Reset** to clear it, since it suits only where you held the phone when you made it.
+  - Pick something first (**Show in the sky view** on its card, or a tap on the map) and Point says which way to turn: an arrow at the edge with how far up or down and left or right ("M33 · up 20° · left 35°"), then a ring and "There: M33" once it's within about 5° of the crosshair in the middle, where the card's star-hop takes over.
   - The screen stays on while you point.
   - Inside claude.ai the page can't read the phone's sensors, so pointing only works on the website.
 - **Use my location** in the location sheet, also on the website; elsewhere, search for a town or enter coordinates.

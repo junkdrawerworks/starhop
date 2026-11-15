@@ -1153,6 +1153,59 @@ check('the screen stays on while pointing, after switching apps too, and lets go
   } finally { await ctx.close(); }
 });
 
+// After Show in the sky view, Point gave no hint which way to turn to find the object: finding its part of the sky is
+// what Point is for. Austin at 9 pm on Nov 15: M31 is 77° up in the northeast.
+const face = (page, az, alt) => page.evaluate(([az, alt]) => { for (let i = 0; i < 30; i++) window.dispatchEvent(new DeviceOrientationEvent('deviceorientationabsolute', { alpha: (360 - az) % 360, beta: 90 + alt, gamma: 0, absolute: true })); }, [az, alt]);
+const guide = page => page.$eval('#sky', c => c.__point());
+check('Point says which way to turn to the object picked, and There once it is in the middle', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
+  try {
+    await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    await point(page);
+    await face(page, 200, 30);
+    await page.waitForTimeout(100);
+    assert.deepEqual(await guide(page), { there: false, text: '' }, 'with nothing picked, only the crosshair');
+    await page.click('#ptBtn');
+    await openCard(page, 'M31');
+    await page.click('#ctr');
+    await page.waitForTimeout(300);
+    for (let i = 1; i <= 20; i++) {
+      await point(page);
+      await face(page, 200, 30);
+      await page.waitForTimeout(80);
+      const off = await guide(page), w = await page.evaluate(() => innerWidth), h = await page.evaluate(() => innerHeight);
+      assert.match(off.text, /^M31 · up \d+° · left \d+°$/, 'facing south, it says to turn up and left, round ' + i);
+      assert.ok(off.arrow && (off.arrow.x <= 27 || off.arrow.x >= w - 27 || off.arrow.y <= 200 || off.arrow.y >= h - 71), 'with an arrow at the edge, round ' + i);
+      assert.ok(off.arrow.x < w / 2, 'on the left, round ' + i);
+      await face(page, 30, 75);
+      await page.waitForTimeout(80);
+      const at = await guide(page);
+      assert.equal(at.text, 'There: M31', 'facing it, it says There, round ' + i);
+      assert.ok(at.ring && Math.hypot(at.ring.x - w / 2, at.ring.y - h / 2) < 60, 'with a ring round it near the middle, round ' + i);
+      if (i === 1) { await until(page, '#say', /There: M31/); assert.equal(await text(page, '#say'), 'There: M31', 'and a screen reader hears it'); }
+      await page.click('#ptBtn');
+      assert.equal(await guide(page), null, 'Stop puts it away, round ' + i);
+    }
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // and stays red in night vision
+  const r = await open({ save: JSON.stringify({ loc: AUSTIN, red: true }), time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
+  try {
+    await r.ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    await openCard(r.page, 'M31');
+    await r.page.click('#ctr');
+    await point(r.page);
+    await r.page.evaluate(() => { document.getElementById('ptHint').hidden = true; });
+    for (const [az, alt] of [[200, 30], [30, 75]]) {
+      await face(r.page, az, alt);
+      await r.page.waitForTimeout(100);
+      assert.ok((await guide(r.page)).text, 'it says something facing ' + az);
+      assert.equal(await notRed(r.page, 'Point facing ' + az), '');
+    }
+    assert.deepEqual(r.problems, []);
+  } finally { await r.ctx.close(); }
+});
+
 // Point fills the screen like a card, and Back is the natural way out of it, but Back left Starhop (on Android, it
 // closed the installed app).
 check('Back ends Point and stays in Starhop', async () => {
