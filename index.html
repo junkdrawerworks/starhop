@@ -1179,9 +1179,9 @@ html.red .chart canvas{background:#050000}
       tg.fillStyle = col('#' + c.map(function (v) { return ('0' + Math.round(Math.min(255, v * (sm[i].sun > -18 ? 1.45 : 1.8))).toString(16)).slice(-2); }).join(''), 1);
       tg.fillRect(x0, top, x1 - x0 + 0.6, bh);
     }
-    // Moon up
+    // Moon up, each run of samples filled once so the band is even
     tg.fillStyle = col('#F5EFDC', 0.18 + 0.6 * N.moonIllum);
-    for (i = 0; i < sm.length - 1; i++) if (sm[i].moon > 0) { var mx0 = tlX(sm[i].t, w), mx1 = tlX(sm[i + 1].t, w); tg.fillRect(mx0, top + bh + 3, mx1 - mx0 + 0.6, 4); }
+    for (i = 0; i < sm.length - 1; i++) if (sm[i].moon > 0) { var j = i; while (j + 1 < sm.length - 1 && sm[j + 1].moon > 0) j++; var mx0 = tlX(sm[i].t, w), mx1 = tlX(sm[j + 1].t, w); tg.fillRect(mx0, top + bh + 3, mx1 - mx0, 4); i = j; }
     // hour ticks
     tg.font = '500 10.5px "DM Mono", monospace'; tg.textAlign = 'center';
     var p0 = parts(N.start, tz()), first = N.start.getTime() + ((60 - p0.mi) % 60) * 60e3 - p0.s * 1e3;

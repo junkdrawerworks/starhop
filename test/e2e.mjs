@@ -619,6 +619,19 @@ check('a star-hop starts from stars that are up', async () => {
   } finally { await ctx.close(); }
 });
 
+// Each 5-minute sample of the Moon band was filled on its own, overlapping the next by 0.6 px, so the overlaps doubled up
+// into stripes every few pixels.
+check('the Moon’s band on the timeline is one even bar', async () => {
+  const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const row = await page.$eval('#tlc', c => { const k = c.width / c.getBoundingClientRect().width, d = c.getContext('2d').getImageData(0, Math.round(43 * k), c.width, 1).data, v = []; for (let i = 0; i < d.length; i += 4) v.push(d[i] + d[i + 1] + d[i + 2]); return v; });
+    const lit = row.map((v, i) => [v, i]).filter(([v]) => v > 60), a = lit[0][1], b = lit[lit.length - 1][1];
+    assert.ok(b - a > 100, 'the Moon is up for a while at the start of the night');
+    const mid = row.slice(a + 4, b - 4);
+    assert.ok(Math.max(...mid) - Math.min(...mid) <= 3, `the band runs from ${Math.min(...mid)} to ${Math.max(...mid)}`);
+  } finally { await ctx.close(); }
+});
+
 const advice = page => page.$$eval('#sheet .card', cs => cs.find(c => c.querySelector('h3').textContent === 'In your telescope').querySelector('p').textContent);
 
 check('a card says an object is wider than the field only when it is', async () => {
