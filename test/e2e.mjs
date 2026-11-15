@@ -1755,21 +1755,26 @@ check('a finder chart for something low shows it at nightfall, not in the sunset
   } finally { await ctx.close(); }
 });
 
-// The finder chart's caption, and the star names in its star-hop ("from η Her to Tianji", "beside Ankaa, on the way to …").
+// The finder chart's caption, and the star names in its star-hop ("from η Her to Tianji", "1.3° from Antares, toward Fang",
+// "from Mirach through μ And", "about 6.7° from β Com").
 const hopCap = page => page.$eval('#finder', c => c.parentElement.querySelector('.cap').textContent);
-const hopStars = cap => { const m = /(?:from|beside) (.+?)(?: to |, on the way to )(.+?)(?: \(a little off the line\))?\./.exec(cap) || /° from (.+?) —/.exec(cap); return m ? m.slice(1).filter(Boolean) : []; };
+const hopStars = cap => {
+  const m = /From (.+?) through (.+?) and /.exec(cap) || /[\d.]+° from (.+?), toward (.+?)(?: \(a little off the line\))?\./.exec(cap) ||
+    /(?:a third of the way|halfway) from (.+?) to (.+?)(?: \(a little off the line\))?, [\d.]+° from /.exec(cap) || /About [\d.]+° from (.+?) —/.exec(cap);
+  return m ? m.slice(1).filter(Boolean) : [];
+};
 const CHICAGO = { name: 'Chicago, IL', lat: 41.85, lon: -87.65, tz: 'America/Chicago' };
 
 // Of the 411 stars a star-hop can start or end at, 148 have only a Bayer or Flamsteed label, and the chart labelled only
 // stars with a proper name, so M13's "from η Her" started at an unlabelled star.
 check('the stars a star-hop names are labelled on its chart', async () => {
-  for (const [loc, time, id, want] of [[CHICAGO, '2026-10-16T21:15:00-05:00', 'M13', ['η Her', 'Tianji']], [AUSTIN, '2026-10-13T21:00:00-05:00', 'M27', ['δ Sge']]]) {
+  for (const [loc, time, id, want] of [[CHICAGO, '2026-10-16T21:15:00-05:00', 'M13', ['η Her', 'Tianji']], [AUSTIN, '2026-10-13T21:00:00-05:00', 'M27', ['γ Sge', 'η Cyg']]]) {
     const { ctx, page, problems } = await open({ loc, time });
     try {
       await openCard(page, id);
       await page.waitForFunction(() => document.getElementById('finder').__labels);
       const cap = await hopCap(page), names = hopStars(cap), labels = (await finderLabels(page)).labels.map(l => l.t);
-      if (id === 'M13') assert.match(cap, /^Star-hop: About a third of the way from η Her to Tianji\./);
+      if (id === 'M13') assert.match(cap, /^Star-hop: About a third of the way from η Her to Tianji, 2\.5° from η Her\./);
       for (const n of want) assert.ok(names.includes(n), `${id}'s star-hop names ${n}: ${cap}`);
       for (const n of names) assert.ok(labels.includes(n), `${id}'s chart labels ${n}, which its star-hop names (it has ${labels.join(', ')})`);
       assert.deepEqual(problems, []);
@@ -1786,7 +1791,7 @@ check('the star a hop starts from is labelled even right beside the target', asy
       await openCard(page, id);
       await page.waitForFunction(() => document.getElementById('finder').__labels);
       const f = await finderLabels(page), labels = f.labels.map(l => l.t);
-      if (id === 'M43') assert.match(await hopCap(page), /Just beside Hatysa/);
+      if (id === 'M43') assert.match(await hopCap(page), /Star-hop: 0\.\d° from Hatysa, toward /);
       assert.ok(labels.includes(name), `${id}'s chart labels ${name} (it has ${labels.join(', ')})`);
       // beside its own star, not across the target from it
       const l = f.labels.find(x => x.t === name), gap = Math.hypot(Math.max(l.x - l.ax, 0, l.ax - l.x - l.w), Math.max(l.y - l.ay, 0, l.ay - l.y - l.h));
@@ -1858,6 +1863,73 @@ check('a star-hop starts from stars that are up', async () => {
     assert.match(cap, /^Star-hop: /);
     assert.doesNotMatch(cap, /Arcturus/, 'M3’s star-hop starts from Arcturus, below the horizon');
     assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// A hop could run 20° and more between two bright stars ("about halfway from Arcturus to Cor Caroli" for M3), far
+// beyond a finder's 5° field, and started only from stars of magnitude 3.8 or brighter, so the classic routes through
+// fainter stars, such as μ And for M31, were out of reach. Now a hop starts no more than 8° from its target, at a star
+// you can see from your sky, and can go through a second star and on.
+const designation = async name => { const n = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')).n; return (Object.values(n).find(v => v[0] === name || v[1] === name) || [])[1]; };
+check('Star-hops take the classic routes: the Ring between β and γ Lyrae, Andromeda through μ And, M13 between η and ζ Her', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T19:00:00-06:00' });
+  try {
+    for (const [id, want, re] of [['M57', ['β Lyr', 'γ Lyr'], /^Star-hop: 0\.8° from Sheliak, toward Sulafat\./], ['M31', ['β And', 'μ And'], /^Visible without a telescope from your sky: a misty patch at the centre of the chart\. Star-hop: From Mirach through μ And and about as far again, 3\.9° past μ And\./], ['M13', ['η Her', 'ζ Her'], /^Star-hop: About a third of the way from η Her to Tianji, 2\.5° from η Her\./]]) {
+      await openCard(page, id);
+      await page.waitForFunction(() => document.getElementById('finder').__labels);
+      const cap = await hopCap(page), stars = [];
+      for (const n of hopStars(cap)) stars.push(await designation(n));
+      assert.deepEqual(stars, want, `${id}: ${cap}`);
+      assert.match(cap, re);
+      await page.click('#sheet [data-close]');
+    }
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// The stars a hop can start from are named or lettered, brighter than magnitude 4.5 and than the faintest you see, and
+// outside the object itself (the Coma Star Cluster's own stars are no start for its hop).
+check('No star-hop’s first leg is longer than 8°, unless no star you can see is that close', async () => {
+  const { s, n } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')), dso = JSON.parse(await readFile(join(root, 'data/dso.json'), 'utf8'));
+  const R = Math.PI / 180, sep = (a, b, c, d) => Math.acos(Math.min(1, Math.sin(b * R) * Math.sin(d * R) + Math.cos(b * R) * Math.cos(d * R) * Math.cos((a - c) * R))) / R;
+  const closest = (o, lim) => Math.min(...Object.keys(n).filter(i => s[i * 4 + 2] < lim && i * 4 + 4 < s.length).map(i => sep(o.ra, o.dec, s[i * 4], s[i * 4 + 1])).filter(d => d > Math.max(0.3, Math.max(...(o.dim || [0])) / 120)));
+  const all = dso.dso.concat(dso.doubles);
+  for (const [sky, lim] of [['suburb', 4.5], ['city', 3.6]]) {
+    const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, sky }), time: '2026-11-15T21:00:00-06:00' });
+    try {
+      if (await page.$('#moreT')) await page.click('#moreT');
+      const ids = await page.$$eval('#targetSec .row[data-k="dso"], #targetSec .row[data-k="double"]', rs => rs.map(r => r.dataset.id));
+      assert.ok(ids.length > 40, `${sky}: ${ids.length} targets`);
+      let pairs = 0;
+      for (const id of ids) {
+        await openCard(page, id);
+        const hop = await page.waitForFunction(() => { const c = document.getElementById('finder'); return c.__labels && { h: c.__hop }; }).then(h => h.jsonValue());
+        const cap = await hopCap(page), o = all.find(x => x.id === id);
+        if (hop.h) {
+          if (hop.h.kind !== 'near') pairs++;
+          if (hop.h.leg > 8) assert.ok(hop.h.kind === 'near' && closest(o, lim) > 8, `${sky}: ${id}'s first leg is ${hop.h.leg.toFixed(1)}°: ${cap}`);
+          for (const nm of hopStars(cap)) { const i = Object.keys(n).find(k => n[k][0] === nm || n[k][1] === nm); assert.ok(s[i * 4 + 2] < lim, `${sky}: ${id}'s hop uses ${nm}, magnitude ${s[i * 4 + 2]}`); }
+        }
+        await page.click('#sheet [data-close]');
+      }
+      assert.ok(pairs > ids.length / 3, `${sky}: ${pairs} of ${ids.length} hops run between two stars`);
+      // a city sky draws the chart's fainter stars hollow, and says why
+      if (sky === 'city') {
+        await openCard(page, 'M13');
+        await page.waitForFunction(() => document.getElementById('finder').__labels);
+        assert.ok(await page.$eval('#finder', c => c.__hollow) > 20, 'hollow stars on M13’s chart');
+        assert.match(await hopCap(page), /Hollow dots are stars too faint to see by eye from your sky; a finder shows them\.$/);
+      }
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+  // a dark sky shows every star the chart draws, so none is hollow
+  const { ctx, page } = await open({ save: JSON.stringify({ loc: AUSTIN, sky: 'dark' }), time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await openCard(page, 'M31');
+    await page.waitForFunction(() => document.getElementById('finder').__labels);
+    assert.equal(await page.$eval('#finder', c => c.__hollow), 0);
+    assert.doesNotMatch(await hopCap(page), /Hollow/);
   } finally { await ctx.close(); }
 });
 
