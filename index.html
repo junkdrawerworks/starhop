@@ -1507,12 +1507,19 @@ html.red .chart canvas{background:#050000}
     var litRight = (phase < 180) !== !!(S.loc && S.loc.lat < 0);
     drawPhase(g, size / 2, size / 2, size / 2 - 1.5, frac, litRight ? 0 : Math.PI, col('#F5EFDC', 1), col('#252A3A', 1));
   }
-  var SHOWN_TONIGHT = null; // whether the panel last said Tonight or That night
+  // The panel's heading: Tonight, That night for a night gone by, Tomorrow night, the weekday for one later in the week
+  // ('Sat night'), and the date beyond that.
+  function nightHead(n, now) {
+    var c = currentNight(now), k = Math.round((Date.UTC(n.y, n.mo, n.d) - Date.UTC(c.y, c.mo, c.d)) / 864e5), noon = zoned(n.y, n.mo, n.d, 12, 0, tz());
+    return !k ? 'Tonight' : k < 0 ? 'That night' : k === 1 ? 'Tomorrow night' : k < 7 ? fmt(tz(), { weekday: 'short' }).format(noon) + ' night' : 'Night of ' + fmt(tz(), { month: 'short', day: 'numeric' }).format(noon);
+  }
+  var SHOWN_TONIGHT = null; // whether the panel last showed tonight
+  var SHOWN_HEAD = ''; // and the heading it gave
   var VERDICT = ''; // the night's verdict in plain words, said when the night is stepped
   // A fact's value: figures in DM Mono, words ('Not tonight', 'Easy') in the body face
   function val(v, html) { return '<b' + (/\d/.test(v) ? '' : ' class="w"') + '>' + (html || esc(v)) + '</b>'; }
   function renderTonight() {
-    var N = NIGHT, isTonight = SHOWN_TONIGHT = sameNight(N.n, currentNight(new Date()));
+    var N = NIGHT, isTonight = SHOWN_TONIGHT = sameNight(N.n, currentNight(new Date())), head = SHOWN_HEAD = nightHead(N.n, new Date());
     var noonName = tLong(N.noon);
     $('nightTitle').textContent = isTonight ? 'Tonight · ' + tDay(N.noon) : 'Night of ' + tDay(N.noon);
     [['prevN', -1, 'Previous night, '], ['nextN', 1, 'Next night, ']].forEach(function (b) { var n = addDays(N.n, b[1]); $(b[0]).setAttribute('aria-label', b[2] + tDay(zoned(n.y, n.mo, n.d, 12, 0, tz()))); });
@@ -1547,7 +1554,7 @@ html.red .chart canvas{background:#050000}
     }
     var mEv = N.moonNight.map(function (e) { return (e.up ? 'rises ' : 'sets ') + tTime(e.t); }).join(', '), mEvC = mEv.replace(/^./, function (c) { return c.toUpperCase(); });
     var moonTxt = !mEv ? (N.moonUpAtDusk ? 'Up all night' : 'Below the horizon all night') : N.moonUpAtDusk && N.sunset ? 'Up at dusk, ' + mEv : mEvC;
-    $('tonightSec').innerHTML = '<h2>' + (isTonight ? 'Tonight' : 'That night') + ' <small>' + esc(S.loc ? S.loc.name : '') + '</small></h2>' +
+    $('tonightSec').innerHTML = '<h2>' + head + ' <small>' + esc(S.loc ? S.loc.name : '') + '</small></h2>' +
       '<p class="lede">' + verdict + '</p>' +
       '<div class="facts">' +
       fact('Sunset', N.sunset, N.astD || N.nauD, 'Twilight until ', 'Twilight lasts all night') +
@@ -2437,6 +2444,7 @@ html.red .chart canvas{background:#050000}
       }
     }
     if (sameNight(NIGHT.n, currentNight(now)) !== SHOWN_TONIGHT) { renderTonight(); refreshRows(); }
+    else if (nightHead(NIGHT.n, now) !== SHOWN_HEAD) renderTonight(); // a day on, Sat night becomes Tomorrow night
     drawTimeline(); // the marker for now
     laterEvents(); // a new day
   }

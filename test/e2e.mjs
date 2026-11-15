@@ -263,7 +263,12 @@ check('a page opened in the afternoon follows the clock once night falls, and mo
   try {
     await page.click('#nextN');
     assert.equal(await text(page, '#nightTitle'), 'Night of Sun, Nov 15');
-    assert.equal(await page.$eval('#tonightSec h2', h => h.firstChild.textContent.trim()), 'That night');
+    assert.equal(await page.$eval('#tonightSec h2', h => h.firstChild.textContent.trim()), 'Tomorrow night');
+    await page.click('#prevN');
+    await page.click('#prevN');
+    assert.equal(await page.$eval('#tonightSec h2', h => h.firstChild.textContent.trim()), 'That night', 'a night gone by');
+    await page.click('#nextN');
+    await page.click('#nextN');
     await page.clock.fastForward('16:00:00');
     await until(page, '#nightTitle', /Tonight/);
     assert.equal(await text(page, '#nightTitle'), 'Tonight · Sun, Nov 15');
@@ -2807,7 +2812,7 @@ check('Changing place keeps the night being planned', async () => {
     assert.equal(await text(page, '#nightTitle'), 'Night of Sat, Nov 21', 'the night planned stays');
     await until(page, '#when', /^9:00 pm/);
     assert.equal(await text(page, '#when'), '9:00 pm Sat, Nov 21', 'at the same time of night, there');
-    assert.equal(await page.$eval('#tonightSec h2', h => h.textContent), 'That night Tucson, AZ');
+    assert.equal(await page.$eval('#tonightSec h2', h => h.textContent), 'Sat night Tucson, AZ');
     // from tonight, a new place shows its tonight, live
     await page.click('#nowBtn');
     await page.click('#locBtn');
