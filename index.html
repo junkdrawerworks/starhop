@@ -2149,7 +2149,7 @@ html.red .chart canvas{background:#050000}
     root.querySelectorAll('[data-del]').forEach(function (b) { b.addEventListener('click', function () { S.log.splice(+b.dataset.del, 1); UNDONE = null; reseen(); save(); renderTargets(); removed(); toast('Taken out of your log'); }); });
   }
   function logSheet(again) {
-    var list = sortedLog();
+    var list = sortedLog(), keep = again ? $('sheet').querySelector('.bd').scrollTop : 0; // taking one out keeps its place
     var h = '<div class="hd"><h2>Your log<small>' + (list.length ? plural(list.length, 'entry', 'entries') + ', newest first' : 'Nothing in it yet') + '</small></h2><button class="btn sec sm" type="button" data-close>Done</button></div><div class="bd">';
     if (!list.length) h += '<p class="lede">Mark what you see as seen on its card, and it’s kept here with the night and time, where you were and your telescope.</p>';
     else h += '<div class="btnrow"><button class="btn sec" type="button" id="logCopy">Copy as text</button><button class="btn sec" type="button" id="logCsv">Download CSV</button></div>' +
@@ -2159,7 +2159,7 @@ html.red .chart canvas{background:#050000}
         return '<details class="lge"><summary><b>' + esc(entryName(e)) + '</b><span>' + esc(seenText(e.night) + (e.t ? ' · ' + tTime(new Date(e.t), e.tz) : '')) + '</span></summary><div class="lgb">' + (entryWhere(e) ? '<p>' + esc(entryWhere(e)) + '</p>' : '') + logEditor(x) +
           '<button class="btn sec sm" type="button" data-del="' + x.i + '">Take out of your log</button></div></details>';
       }).join('') + '</div>';
-    openSheet(h + '</div>', null, again);
+    openSheet(h + '</div>', null, again).querySelector('.bd').scrollTop = keep;
     wireLog($('sheet'), function () { logSheet(true); });
     if ($('logCopy')) $('logCopy').addEventListener('click', function () { copyText(logText()); });
     if ($('logCsv')) $('logCsv').addEventListener('click', function () { download('starhop-log-' + nightKey(parts(new Date(), tz())) + '.csv', '﻿' + logCsv(), 'text/csv'); });

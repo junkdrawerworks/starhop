@@ -1341,6 +1341,26 @@ check('The log names deep-sky objects with their catalogue numbers, and M40 with
   } finally { await ctx.close(); }
 });
 
+// Taking an entry out of a long log drew the log again from the top, away from the entries around it.
+check('Taking an entry out of a long log keeps its place in the list', async () => {
+  const seen = {}; ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12'].forEach((id, i) => { seen[id] = '2026-10-' + String(10 + i); });
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, seen }), time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await page.click('#logBtn');
+    const rows = page.locator('#sheet .lge');
+    await rows.nth(9).locator('summary').click();
+    await rows.nth(9).locator('[data-del]').scrollIntoViewIfNeeded();
+    const was = await page.$eval('#sheet .bd', b => b.scrollTop);
+    assert.ok(was > 300, 'scrolled well down the log');
+    await rows.nth(9).locator('[data-del]').click();
+    assert.equal(await text(page, '#sheet .hd h2'), 'Your log 11 entries, newest first');
+    // as far down as it was, or as the list, shorter now, goes
+    const [top, max] = await page.$eval('#sheet .bd', b => [b.scrollTop, b.scrollHeight - b.clientHeight]);
+    assert.ok(top > 0 && top === Math.min(was, max), `the list stays where it was (${top} of ${max}, from ${was})`);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // The card moves on with the clock by drawing itself again, which would take a note box out from under someone typing.
 check('An open card waits while a note is typed, and moves on after', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T19:30:00-06:00' });
