@@ -53,7 +53,8 @@ const browser = await pw.chromium.launch();
 
 // Opens Starhop at phone size (or desktop) with a saved location, or a raw save, and the clock set to `time`.
 // Anything the page asks of another site is refused and listed in `outside`.
-async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, reducedMotion = 'no-preference' } = {}) {
+// `init` runs in the page before Starhop does.
+async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, reducedMotion = 'no-preference', init } = {}) {
   const ctx = await browser.newContext({
     viewport: phone ? { width: 390, height: 844 } : { width: 1280, height: 800 },
     deviceScaleFactor: phone ? 2 : 1, isMobile: phone, hasTouch: phone, locale: 'en-US',
@@ -65,6 +66,7 @@ async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, re
   if (value !== null) {
     await ctx.addInitScript(([k, v]) => { if (!sessionStorage.getItem('seeded')) { localStorage.setItem(k, v); sessionStorage.setItem('seeded', '1'); } }, ['starhop.v1', value]);
   }
+  if (init) await ctx.addInitScript(init);
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(e.message));
   // A refused request to another site shows up as a console error too; `outside` already has those.
@@ -211,6 +213,54 @@ check('a morning moves on to the coming night, and stays on it past noon', async
     await page.clock.fastForward('02:30');
     await page.waitForTimeout(300);
     assert.equal(await text(page, '#nightTitle'), 'Tonight · Wed, Oct 14', 'still tonight after noon');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// Austin, Nov 14 2026: sunset 5:35 pm, fully dark by 7:00 pm. Before the night starts the map shows nightfall, and
+// once it starts the page goes live; a page left open (or a phone app brought back) keeps up with the clock.
+check('a page opened in the afternoon follows the clock once night falls, and moves on the next day', async () => {
+  let { ctx, page, problems } = await open({ time: '2026-11-14T15:00:00-06:00' });
+  try {
+    assert.equal(await text(page, '#nightTitle'), 'Tonight · Sat, Nov 14');
+    assert.match(await text(page, '#when'), /^7:\d\d pm Sat, Nov 14$/, 'by day the map shows nightfall');
+    await page.clock.fastForward('07:00:00'); // 10 pm, and the 30-second clock ticks
+    await until(page, '#when', /Now/);
+    assert.equal(await text(page, '#when'), '10:00 pm Now · Sat, Nov 14', 'live once the night is on');
+    await page.clock.fastForward('16:00:00'); // 2 pm the next day
+    await until(page, '#nightTitle', /Nov 15/);
+    assert.equal(await text(page, '#nightTitle'), 'Tonight · Sun, Nov 15');
+    assert.match(await text(page, '#when'), /^7:\d\d pm Sun, Nov 15$/, 'and nightfall of the new night');
+    // a phone app brought back from the background catches up straight away, without waiting for the clock's tick
+    await page.clock.setSystemTime(new Date('2026-11-15T21:00:00-06:00'));
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await until(page, '#when', /Now/);
+    assert.equal(await text(page, '#when'), '9:00 pm Now · Sun, Nov 15', 'live when brought back');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // A time the person picks stays picked.
+  ({ ctx, page, problems } = await open({ time: '2026-11-14T15:00:00-06:00' }));
+  try {
+    const tl = await page.locator('#tlc').boundingBox();
+    await page.mouse.click(tl.x + tl.width * 0.8, tl.y + tl.height / 2);
+    await until(page, '#when', /am Sun, Nov 15$/);
+    const picked = await text(page, '#when');
+    assert.match(picked, /am Sun, Nov 15$/);
+    await page.clock.fastForward('07:00:00');
+    await page.waitForTimeout(300);
+    assert.equal(await text(page, '#when'), picked, 'a time picked on the timeline stays');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // Stepping to the next night, then the clock reaching it: it becomes tonight.
+  ({ ctx, page, problems } = await open({ time: '2026-11-14T22:00:00-06:00' }));
+  try {
+    await page.click('#nextN');
+    assert.equal(await text(page, '#nightTitle'), 'Night of Sun, Nov 15');
+    assert.equal(await page.$eval('#tonightSec h2', h => h.firstChild.textContent.trim()), 'That night');
+    await page.clock.fastForward('16:00:00');
+    await until(page, '#nightTitle', /Tonight/);
+    assert.equal(await text(page, '#nightTitle'), 'Tonight · Sun, Nov 15');
+    assert.equal(await page.$eval('#tonightSec h2', h => h.firstChild.textContent.trim()), 'Tonight');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });

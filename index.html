@@ -1000,7 +1000,9 @@ html.red .chart canvas{background:#050000}
   }
 
   // ---------- main map interaction ----------
-  var T = { live: true, t: new Date() };
+  // live: following the clock. auto: showing tonight's nightfall by day, which the page picked, not the person, so
+  // it goes live once the night starts.
+  var T = { live: true, auto: false, t: new Date() };
   var LAST = null;
   function draw() {
     if (!OBS || !NIGHT || !STARS) return;
@@ -1101,7 +1103,7 @@ html.red .chart canvas{background:#050000}
   document.querySelectorAll('#dirSeg button').forEach(function (b) { b.addEventListener('click', function () { stopPoint(); look(b.dataset.d); }); });
   $('zIn').addEventListener('click', function () { V.fov = clamp(V.fov / 1.4, 2, 200); redraw(); syncDir(); });
   $('zOut').addEventListener('click', function () { V.fov = clamp(V.fov * 1.4, 2, 200); redraw(); syncDir(); });
-  $('nowBtn').addEventListener('click', function () { T.live = true; T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true); else { redraw(); renderTonight(); if (SHEET_OBJ) openObject(SHEET_OBJ); } });
+  $('nowBtn').addEventListener('click', function () { T.live = true; T.auto = false; T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true); else { redraw(); renderTonight(); if (SHEET_OBJ) openObject(SHEET_OBJ); } });
   function center(o) {
     var sc = scene(T.t), h = objHor(o, sc); if (!h) return;
     var aa = altAz(h); V.az = aa.az; V.alt = clamp(aa.alt, 5, 90); V.fov = o.k === 'planet' || o.k === 'moon' ? 30 : o.k === 'double' ? 25 : 40; redraw(); syncDir();
@@ -1157,7 +1159,7 @@ html.red .chart canvas{background:#050000}
       setTimeout(function () { $('ptHint').hidden = true; }, 7000);
       window.addEventListener('deviceorientationabsolute', onOri, true); window.addEventListener('deviceorientation', onOri, true);
       V.fov = 70;
-      if (!T.live) { T.live = true; T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true, true); }
+      if (!T.live) { T.live = true; T.auto = false; T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true, true); }
       try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function (l) { PT.wl = l; }, function () { }); } catch (err) { }
       redraw();
       setTimeout(function () {
@@ -1219,14 +1221,14 @@ html.red .chart canvas{background:#050000}
   }
   (function tlDrag() {
     var on = false;
-    function set(e) { var r = tl.getBoundingClientRect(), f = clamp((e.clientX - r.left) / r.width, 0, 1), t = NIGHT.start.getTime() + f * (NIGHT.end - NIGHT.start); t = Math.round(t / 300e3) * 300e3; T.live = false; T.t = new Date(t); redraw(); }
+    function set(e) { var r = tl.getBoundingClientRect(), f = clamp((e.clientX - r.left) / r.width, 0, 1), t = NIGHT.start.getTime() + f * (NIGHT.end - NIGHT.start); t = Math.round(t / 300e3) * 300e3; T.live = T.auto = false; T.t = new Date(t); redraw(); }
     tl.addEventListener('pointerdown', function (e) { on = true; tl.setPointerCapture(e.pointerId); set(e); });
     tl.addEventListener('pointermove', function (e) { if (on) set(e); });
     tl.addEventListener('pointerup', function () { on = false; renderTonight(); if (SHEET_OBJ) openObject(SHEET_OBJ); });
     tl.addEventListener('pointercancel', function () { on = false; });
     tl.tabIndex = 0;
     var keyT = 0; // an open card catches up once the keys stop
-    tl.addEventListener('keydown', function (e) { var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return; e.preventDefault(); T.live = false; T.t = new Date(clamp(T.t.getTime() + d * 15 * 60e3, NIGHT.start.getTime(), NIGHT.end.getTime())); redraw(); clearTimeout(keyT); keyT = setTimeout(function () { if (SHEET_OBJ) openObject(SHEET_OBJ); }, 250); });
+    tl.addEventListener('keydown', function (e) { var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return; e.preventDefault(); T.live = T.auto = false; T.t = new Date(clamp(T.t.getTime() + d * 15 * 60e3, NIGHT.start.getTime(), NIGHT.end.getTime())); redraw(); clearTimeout(keyT); keyT = setTimeout(function () { if (SHEET_OBJ) openObject(SHEET_OBJ); }, 250); });
   })();
 
   // ---------- night navigation ----------
@@ -1235,9 +1237,10 @@ html.red .chart canvas{background:#050000}
   function setNight(n, keepLive, alwaysLive) {
     NDATE = n; NIGHT = computeNight(n); SCN = {};
     var now = new Date();
+    T.auto = !!(keepLive && !alwaysLive && (T.live || T.auto) && now < NIGHT.start);
     if (keepLive && (alwaysLive || (now >= NIGHT.start && now <= NIGHT.end))) { T.live = true; T.t = now; }
-    else if (keepLive && T.live && now < NIGHT.start) {
-      // daytime: show tonight once it's properly dark
+    else if (T.auto) {
+      // daytime: show tonight once it's properly dark, and go live when the night starts (see tick())
       T.live = false; T.t = new Date(Math.round(((NIGHT.astD || NIGHT.nauD || NIGHT.civD || NIGHT.start).getTime() + 15 * 60e3) / 300e3) * 300e3);
     } else {
       T.live = false;
@@ -1261,8 +1264,9 @@ html.red .chart canvas{background:#050000}
     var litRight = (phase < 180) !== !!(S.loc && S.loc.lat < 0);
     drawPhase(g, size / 2, size / 2, size / 2 - 1.5, frac, litRight ? 0 : Math.PI, col('#F5EFDC', 1), col('#252A3A', 1));
   }
+  var SHOWN_TONIGHT = null; // whether the panel last said Tonight or That night
   function renderTonight() {
-    var N = NIGHT, isTonight = sameNight(N.n, currentNight(new Date()));
+    var N = NIGHT, isTonight = SHOWN_TONIGHT = sameNight(N.n, currentNight(new Date()));
     var noonName = tLong(N.noon);
     $('nightTitle').textContent = isTonight ? 'Tonight · ' + tDay(N.noon) : 'Night of ' + tDay(N.noon);
     // keys under the timeline
@@ -1809,7 +1813,27 @@ html.red .chart canvas{background:#050000}
     syncDir();
   }).catch(function (e) { $('tonightSec').innerHTML = '<p class="lede">' + (LOADED ? 'Something went wrong drawing the sky' : 'Starhop couldn’t load its star catalog') + ' (' + esc(e && e.message || e) + '). Reload to try again.</p>'; });
   window.addEventListener('resize', function () { redraw(); });
-  setInterval(function () { if (T.live && NIGHT) { T.t = new Date(); var n = currentNight(T.t); if (!sameNight(n, NDATE)) setNight(n, true); else redraw(); } }, 30000);
+  // Keeping up with the clock, every 30 seconds and whenever the page comes back into view: a live map moves on, by day
+  // the next night's nightfall shows once this one is over, and the night goes live when it starts. A night the person
+  // picked stays, but becomes "Tonight" once the clock reaches it.
+  function tick() {
+    if (!NIGHT) return;
+    var now = new Date();
+    if (T.live || T.auto) {
+      var n = currentNight(now);
+      if (!sameNight(n, NDATE)) { setNight(n, true); return; }
+      if (T.auto && now >= NIGHT.start) { T.live = true; T.auto = false; T.t = now; redraw(); renderTonight(); if (SHEET_OBJ) openObject(SHEET_OBJ); return; }
+      if (T.live) { T.t = now; redraw(); }
+    }
+    if (sameNight(NIGHT.n, currentNight(now)) !== SHOWN_TONIGHT) renderTonight();
+    drawTimeline(); // the marker for now
+  }
+  setInterval(tick, 30000);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    tick();
+  });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) tick(); });
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
 })();
 </script>
