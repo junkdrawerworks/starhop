@@ -411,6 +411,27 @@ check('under the midnight sun the list holds only the Moon and planets', async (
   } finally { await ctx.close(); }
 });
 
+// A card said "Highest at first light" for a planet highest at the end of civil twilight, an hour after the Tonight
+// panel's "First light", which is astronomical dawn; and its last sample fell short of that, so Mercury's card gave
+// 11° where its row gave 13°. Astronomy Engine 2.1.19, Austin, Nov 16 2026: astronomical dawn 11:34Z (5:34 am), civil
+// dawn 12:32Z (6:32 am); Jupiter 67.1° then 73.2° (it transits at 6:42 am, 73.3°); Mercury 12.4° at civil dawn and
+// 12.8° at 6:34 am.
+check("a card gives the time a planet is highest, not 'first light', and the list's height", async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await openCard(page, 'Jupiter');
+    const jup = await cardRiseSet(page);
+    assert.doesNotMatch(jup, /first light/i, jup);
+    assert.match(jup, /Highest as it gets light, 6:32 am \(73°\)$/, jup);
+    await page.click('#sheet [data-close]');
+    const row = await page.$eval('#targetSec .row[data-id="Mercury"] .dt', d => d.textContent);
+    await openCard(page, 'Mercury');
+    const mer = await cardRiseSet(page), a = +mer.match(/Highest.*\((\d+)°\)/)[1], b = +row.match(/(\d+)° up/)[1];
+    assert.ok(Math.abs(a - b) <= 1, `the card's ${a}° and the row's ${b}°: ${mer} / ${row}`);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Hay River, Sep 19 1999: Uranus is highest at 10:52 pm, 12° up, with the Sun 20.3° down (Astronomy Engine); full
 // dark starts at 10:26 pm.
 check('a planet low in full darkness is low, not low in twilight', async () => {

@@ -1851,15 +1851,16 @@ html.red .chart canvas{background:#050000}
     var cr = all.filter(function (c) { return c.t > w0 && c.t < w1; }), gone = null;
     all.forEach(function (c) { if (c.t <= w0) gone = c.up ? null : c; });
     // The highest point is looked for from sunset, so an evening planet that only sinks gets the height it has when
-    // people first see it, not the lower one it has by the end of civil twilight.
+    // people first see it, not the lower one it has by the end of civil twilight. The last sample is the end of civil
+    // twilight itself, where a morning planet is highest, as the list's best time has it.
     var hi = null, d0 = (N.sunset || N.start).getTime(), d1 = (N.civM || N.end).getTime();
-    for (var x = d0; x <= d1; x += 10 * 60e3) { var a = altOf(obj, new Date(x)); if (!hi || a > hi.a) hi = { a: a, t: new Date(x) }; }
+    for (var x = d0; ; x += 10 * 60e3) { var tx = Math.min(x, d1), a = altOf(obj, new Date(tx)); if (!hi || a > hi.a) hi = { a: a, t: new Date(tx) }; if (tx >= d1) break; }
     var bits = [];
     if (a0 > 0) bits.push(cr.length ? 'Up at dusk' : 'Up all night');
     else if (gone && N.sunset) bits.push('Sets before sunset (' + tTime(gone.t) + ')');
     else if (!cr.length) bits.push('Below the horizon all night');
     cr.forEach(function (c) { bits.push((c.up ? 'Rises ' : 'Sets ') + tTime(c.t)); });
-    if (hi && hi.a > 0) bits.push((N.sunset && hi.t - d0 < 20 * 60e3 ? 'Highest at sunset' : d1 - hi.t < 20 * 60e3 ? 'Highest at first light' : 'Highest ' + tTime(hi.t)) + ' (' + Math.round(hi.a) + '°)');
+    if (hi && hi.a > 0) bits.push((N.sunset && hi.t - d0 < 20 * 60e3 ? 'Highest at sunset' : +hi.t === d1 && N.civM ? 'Highest as it gets light, ' + tTime(hi.t) : 'Highest ' + tTime(hi.t)) + ' (' + Math.round(hi.a) + '°)');
     return { text: bits.join(' · '), hi: hi };
   }
   function openObject(o) {

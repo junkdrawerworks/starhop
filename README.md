@@ -21,7 +21,7 @@
 - **Night timeline.** Sunset to sunrise, shaded through civil, nautical and astronomical twilight, with a band for when the Moon is up. Drag along it (or use the arrow keys) to see the sky at any hour, or step to other nights. Changing place keeps the night you're planning.
   - By day it shows tonight's sky once it's dark. Left open, it follows the clock from the start of the night and moves on to the next night in the morning.
 - **Tonight.** Sunset, when the sky is fully dark, sunrise, the Moon's phase and hours, and a verdict: a dark night for faint galaxies, or a moonlit one for planets, doubles and clusters.
-- **What to look at.** The Moon and planets, then the best-placed deep-sky objects and double stars, ranked for your telescope and your sky. Each shows when it's highest and where to look, and on tonight's list whether it's up now, rises later or has set.
+- **What to look at.** The Moon and planets, then the best-placed deep-sky objects and double stars, ranked for your telescope and your sky. Each shows the best time to look and where, and on tonight's list whether it's up now, rises later or has set.
   - On summer nights that never get properly dark, deep-sky objects and doubles are timed for when the Sun is at least 6° down; when it never gets that far, only the Moon and the brightest planets are listed.
 - **Object cards:**
   - **Where to look:** altitude in fists at arm's length, compass direction, and rise, set and highest times.
