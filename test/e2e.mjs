@@ -1792,6 +1792,34 @@ check('Stepping a night is announced', async () => {
   } finally { await ctx.close(); }
 });
 
+// The chosen direction, filter and sky were shown by colour alone, and a direction was read as a letter.
+check('The direction buttons say which is chosen', async () => {
+  const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  const pressed = name => page.getByRole('button', { name, exact: true, pressed: true }).count();
+  try {
+    for (const name of ['Up: the whole sky overhead', 'North', 'East', 'South', 'West']) assert.equal(await page.getByRole('button', { name, exact: true }).count(), 1, name + ' is a button by that name');
+    await page.getByRole('button', { name: 'West', exact: true }).click();
+    assert.equal(await pressed('West'), 1, 'West says it is chosen');
+    assert.equal(await page.locator('#dirSeg [aria-pressed="true"]').count(), 1, 'and no other direction does');
+    await page.getByRole('button', { name: 'Up: the whole sky overhead' }).click();
+    assert.equal(await pressed('Up: the whole sky overhead'), 1);
+    assert.equal(await page.$eval('#dirSeg [data-d="270"]', b => b.getAttribute('aria-pressed')), 'false');
+    assert.equal(await pressed('All'), 1, 'the filter in use says so');
+    await page.getByRole('button', { name: 'Clusters', exact: true }).click();
+    assert.deepEqual([await pressed('Clusters'), await pressed('All')], [1, 0]);
+    await page.getByRole('button', { name: 'All', exact: true }).click();
+    // a row reads its direction as a word, and its rating after a pause
+    const moon = await page.locator('#targetSec .row[data-id="Moon"]').ariaSnapshot();
+    assert.match(moon, /button "The Moon\s*Up now · Best \d+:\d\d pm · \d+° up ·\s*south, rated naked eye"/i, moon);
+    assert.equal(await page.$eval('#targetSec .row[data-id="Moon"] .dt', d => d.textContent.slice(-4)), 'up · S'.slice(-4), 'the row still shows the letter');
+    await page.click('#scopeBtn');
+    assert.equal(await page.locator('#skyOpts [aria-pressed="true"]').count(), 1, 'the sky in use says so');
+    await page.locator('#skyOpts button').last().click();
+    assert.equal(await page.$eval('#skyOpts button:last-child', b => b.getAttribute('aria-pressed')), 'true', 'and moves with a tap');
+    assert.equal(await page.locator('#skyOpts [aria-pressed="true"]').count(), 1);
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026, by the USNO convention (PyEphem): Saturn rises 6:37 pm and sets 6:48 am, Jupiter rises 2:58 am, Mars 1:58 am.
 // Sunset is 7:01 pm and sunrise 7:32 am, and the card gives the times between them, so Saturn is up at dusk.
 check('planet rise and set times match the standard ones', async () => {

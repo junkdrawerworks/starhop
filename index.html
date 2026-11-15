@@ -304,7 +304,7 @@ html.red .chart canvas{background:#050000}
         <div class="pthint" id="ptHint" hidden>Hold your phone up to the sky. If the map is off, drag it onto a star you know; Starhop remembers the correction.</div>
         <div class="overlay ov-b">
           <div class="pill ptfix" id="ptFix" hidden>Compass corrected <span id="ptFixN"></span> ·<button type="button" aria-label="Reset the compass correction">Reset</button></div>
-          <div class="seg" id="dirSeg" role="group" aria-label="Which way to look"><button type="button" data-d="up" title="The whole sky overhead">Up</button><button type="button" data-d="0">N</button><button type="button" data-d="90">E</button><button type="button" data-d="180">S</button><button type="button" data-d="270">W</button></div>
+          <div class="seg" id="dirSeg" role="group" aria-label="Which way to look"><button type="button" data-d="up" title="The whole sky overhead" aria-label="Up: the whole sky overhead">Up</button><button type="button" data-d="0" aria-label="North">N</button><button type="button" data-d="90" aria-label="East">E</button><button type="button" data-d="180" aria-label="South">S</button><button type="button" data-d="270" aria-label="West">W</button></div>
           <div class="zoom"><button class="pill" id="ptBtn" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M12 17.5h.01M4 8 2 6m18 2 2-2"/></svg><span id="ptTxt">Point</span></button><button class="pill" id="zOut" type="button" aria-label="Zoom out">−</button><button class="pill" id="zIn" type="button" aria-label="Zoom in">+</button></div>
         </div>
       </div>
@@ -1177,7 +1177,7 @@ html.red .chart canvas{background:#050000}
       else if (SEL) { SEL = null; redraw(); markRows(); }
     }
   })();
-  function syncDir() { document.querySelectorAll('#dirSeg button').forEach(function (b) { var d = b.dataset.d; b.classList.toggle('on', d === 'up' ? V.alt > 85 && V.fov > 150 : V.alt < 70 && Math.abs(((V.az - +d + 540) % 360) - 180) < 20); }); }
+  function syncDir() { document.querySelectorAll('#dirSeg button').forEach(function (b) { var d = b.dataset.d, on = d === 'up' ? V.alt > 85 && V.fov > 150 : V.alt < 70 && Math.abs(((V.az - +d + 540) % 360) - 180) < 20; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }); }
   function look(d) {
     var wide = W > H * 1.1;
     if (d === 'up') { V.alt = 90; V.fov = 188; V.az = S.loc && S.loc.lat < 0 ? 0 : 180; }
@@ -1455,13 +1455,12 @@ html.red .chart canvas{background:#050000}
     });
     var shown = TMORE ? list : list.slice(0, 14);
     var h = '<h2>What to look at <small>' + plural(list.length, 'target') + '</small></h2>' +
-      '<div class="filters">' + FILTERS.map(function (f) { return '<button class="chip' + (TFILTER === f[0] ? ' on' : '') + '" type="button" data-f="' + f[0] + '">' + f[1] + '</button>'; }).join('') + '</div>';
+      '<div class="filters">' + FILTERS.map(function (f) { return '<button class="chip' + (TFILTER === f[0] ? ' on' : '') + '" type="button" data-f="' + f[0] + '" aria-pressed="' + (TFILTER === f[0]) + '">' + f[1] + '</button>'; }).join('') + '</div>';
     var bright = TOO_BRIGHT && TFILTER !== 'planets' ? '<p class="lede">The sky stays too bright tonight for anything but the Moon and the brightest planets.</p>' : '';
     if (!shown.length) h += bright || '<p class="lede">Nothing of that kind is well placed on this night.</p>';
     else h += '<div class="list">' + shown.map(function (t) {
-      var when = rowWhen(t);
       var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.id) + '</small>' : '';
-      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen">✓ Seen ' + esc(seenText(S.seen[t.id])) + '</span>' : '') + '</span><span class="dt">' + esc(when) + '</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
+      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen"><span aria-hidden="true">✓ </span>Seen ' + esc(seenText(S.seen[t.id])) + '</span>' : '') + '</span><span class="dt">' + whenHtml(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? '' : ' ' + dirName(t.best.az)) + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
@@ -1487,7 +1486,9 @@ html.red .chart canvas{background:#050000}
     var state = up ? (T.live ? 'Up now' : '') : rise ? 'Rises ' + tTime(rise.t) : set ? 'Set ' + tTime(set.t) : '';
     return (state ? state + ' · ' : '') + when;
   }
-  function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) d.textContent = rowWhen(t); }); }
+  // The same with its last part, the short direction, hidden from screen readers, which are given its full name instead.
+  function whenHtml(t) { var w = rowWhen(t), d = dirName(t.best.az, true); return t.best.alt > 78 ? esc(w) : esc(w.slice(0, -d.length)) + '<span aria-hidden="true">' + d + '</span>'; }
+  function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) d.innerHTML = whenHtml(t); }); }
   function markRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { r.classList.toggle('sel', !!SEL && r.dataset.id === String(SEL.id)); }); }
   function select(o, open) { if (!o) return; SEL = o; redraw(); markRows(); if (open) openObject(o); }
 
@@ -1881,7 +1882,7 @@ html.red .chart canvas{background:#050000}
       rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + r.f + ' mm</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>' +
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
-      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB">' + (S.seen[o.id] ? '✓ Seen ' + esc(seenText(S.seen[o.id])) : 'Mark as seen') + '</button></div></div>';
+      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB">' + (S.seen[o.id] ? '<span aria-hidden="true">✓ </span>Seen ' + esc(seenText(S.seen[o.id])) : 'Mark as seen') + '</button></div></div>';
     openSheet(h, null, again).querySelector('.bd').scrollTop = keep;
     SHEET_OBJ = o; SHEET_AT = tTime(T.t);
     $('ctr').addEventListener('click', function () { closeSheet(); SEL = o; center(o); markRows(); if (window.innerWidth < 1000) window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); });
@@ -2075,7 +2076,7 @@ html.red .chart canvas{background:#050000}
       $('epl').querySelectorAll('input').forEach(function (inp) { inp.addEventListener('input', function () { var v = parseFloat(inp.value); if (v > 0) { eps[+inp.dataset.i][inp.dataset.k] = v; stats(); } }); });
       $('epl').querySelectorAll('[data-del]').forEach(function (b) { b.addEventListener('click', function () { eps.splice(+b.dataset.del, 1); drawEps(); stats(); }); });
     }
-    function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '"><b>' + s.name + '</b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
+    function drawSky() { $('skyOpts').innerHTML = SKIES.map(function (s) { return '<button class="opt' + (s.id === skyv ? ' on' : '') + '" type="button" data-s="' + s.id + '" aria-pressed="' + (s.id === skyv) + '"><b>' + s.name + '</b><small>' + s.sub + '</small></button>'; }).join(''); $('skyOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { skyv = b.dataset.s; drawSky(); stats(); }); }); }
     function stats() {
       var ap = parseFloat($('scAp').value), fl = parseFloat($('scFl').value);
       if (!(ap > 20 && fl > 100)) { $('scStats').innerHTML = '<p>' + (ap >= 2 && ap <= 16 ? INCHES + '.' : 'Enter the aperture and focal length.') + '</p>'; return; }
