@@ -1207,6 +1207,32 @@ check('The Up view on a phone shows N and S', async () => {
   }
 });
 
+// The rows' second line ended in an ellipsis on a phone, cutting off the height and direction to look, and a seen mark
+// on the name line cut off names.
+check('target rows show their whole line on a phone', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T20:30:00-06:00' });
+  try {
+    await page.click('#moreT');
+    const ids = await page.$$eval('#targetSec .row', r => r.map(x => x.dataset.id));
+    assert.ok(ids.length > 60, 'the whole list shows');
+    const lines = sel => page.$$eval(sel, d => d.map(e => Math.round(e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight))));
+    assert.ok(Math.max(...await lines('#targetSec .row .dt')) <= 2, 'a row’s second line takes two lines at most');
+    // every row seen, last year, for the longest line there can be
+    await page.evaluate(ids => { const s = JSON.parse(localStorage.getItem('starhop.v1')); s.seen = Object.fromEntries(ids.map(i => [i, '2025-11-10'])); localStorage.setItem('starhop.v1', JSON.stringify(s)); }, ids);
+    await page.reload(); await ready(page);
+    await page.click('#moreT');
+    const cut = await page.$$eval('#targetSec .row', rows => rows.flatMap(r => [...r.querySelectorAll('.dt, .nm span')].filter(e => e.scrollWidth > e.clientWidth + 1 || e.scrollHeight > e.clientHeight + 1).map(e => r.dataset.id + ': ' + e.textContent)));
+    assert.deepEqual(cut, [], 'no row is cut off');
+    const row = await page.$eval('#targetSec .row[data-id="Jupiter"]', r => ({ nm: r.querySelector('.nm').textContent, dt: r.querySelector('.dt').textContent, sr: r.querySelector('.sr').textContent }));
+    assert.equal(row.nm, 'Jupiter✓', 'a bare tick beside the name');
+    assert.match(row.dt, /^Rises 12:08 am · Best 6:\d\d am · \d+° up · [NESW]{1,2} · Seen Mon, Nov 10, 2025$/, 'and when it was seen at the end of the line');
+    assert.equal(row.sr, 'south, seen Mon, Nov 10, 2025, rated', 'which a screen reader hears after the direction');
+    assert.ok(Math.max(...await lines('#targetSec .row .dt')) <= 3, 'a line with the night it was seen takes three lines at most');
+    assert.equal(await page.$$eval('#targetSec .row', r => r.filter(x => x.querySelectorAll('button, a').length).length), 0, 'each row is one button');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // At 1 am the list led with the Moon and Albireo, both set hours before, and only opening each card said so.
 // Austin, Nov 15 2026: the Moon sets at 10:53 pm and Jupiter rises at 12:08 am.
 check('A row says tonight whether it is up now, rises later or has set', async () => {
@@ -1920,7 +1946,7 @@ check('A star seen at 1 am is dated by the night, with its year', async () => {
     assert.deepEqual(await seen(page), { M45: '2026-11-15' }, 'saved under the night it began');
     assert.equal(await text(page, '#seenB'), '✓ Seen Sun, Nov 15');
     await page.click('#sheet [data-close]');
-    assert.equal(await tag(page, 'M45'), '✓ Seen Sun, Nov 15', 'the list says so too');
+    assert.equal(await tag(page, 'M45'), 'Seen Sun, Nov 15', 'the list says so too');
     // a mark made while looking back at an earlier night goes under that night
     await page.click('#prevN');
     await openCard(page, 'M45');
@@ -1940,7 +1966,7 @@ check('A star seen at 1 am is dated by the night, with its year', async () => {
     await openCard(page, 'M31');
     assert.equal(await text(page, '#seenB'), '✓ Seen Sun, Nov 15, 2026', 'another year’s mark gives its year');
     await page.click('#sheet [data-close]');
-    assert.equal(await tag(page, 'M31'), '✓ Seen Sun, Nov 15, 2026');
+    assert.equal(await tag(page, 'M31'), 'Seen Sun, Nov 15, 2026');
     await openCard(page, 'M45');
     assert.equal(await text(page, '#seenB'), '✓ Seen Aug 2', 'a mark saved some other way shows as it is');
     await page.click('#sheet [data-close]');

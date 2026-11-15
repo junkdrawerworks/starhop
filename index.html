@@ -161,13 +161,15 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .row:last-child{border-bottom:0}
 .row:hover{background:var(--panel2)}
 .row.sel{background:var(--raise)}
-.row .nm{font-weight:700;display:flex;gap:6px;align-items:baseline;min-width:0}
-.row .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.row .nm small{font:500 11.5px var(--mono);color:var(--ink3);flex:none}
-.row .dt{display:block;font-size:13px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .nm{display:block;font-weight:700;min-width:0;overflow-wrap:anywhere}
+.row .nm small{font:500 11.5px var(--mono);color:var(--ink3);margin-left:6px;white-space:nowrap}
+.row .nm .tick{color:var(--good);font-size:12px;margin-left:6px}
+/* the second line wraps rather than lose where to look off its end, to a third for the night it was seen */
+.row .dt .nw{white-space:nowrap}
+.row .dt{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;font-size:13px;color:var(--ink2);text-wrap:pretty}
 .rate{font:700 11px var(--body);letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
 .rate.easy{color:var(--good)}.rate.fair{color:var(--fair)}.rate.hard{color:var(--hard)}.rate.eye{color:var(--brass)}
-.seen{color:var(--good);font-size:12px;margin-left:4px}
+.seen{color:var(--good);white-space:nowrap}
 .more{margin-top:8px;background:none;border:1px dashed var(--line2);border-radius:10px;color:var(--ink2);padding:9px;width:100%;font-weight:700;font-size:13px}
 .ev{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;padding:11px 12px;border:0;border-bottom:1px solid var(--line);background:none;width:100%;text-align:left;color:var(--ink)}
 .ev:last-child{border-bottom:0}
@@ -1512,7 +1514,7 @@ html.red .chart canvas{background:#050000}
     if (!shown.length) h += bright || '<p class="lede">Nothing of that kind is well placed on this night.</p>';
     else h += '<div class="list">' + shown.map(function (t) {
       var id = t.o && t.o.id !== t.name && (t.k === 'dso' || /^M\d/.test(t.o.id)) ? '<small>' + esc(t.o.id) + '</small>' : '';
-      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen"><span aria-hidden="true">✓ </span>Seen ' + esc(seenText(S.seen[t.id])) + '</span>' : '') + '</span><span class="dt">' + whenHtml(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
+      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="tick" title="You marked this as seen" aria-hidden="true">✓</span>' : '') + '</span><span class="dt">' + rowDt(t) + '</span>' + '<span class="sr">' + (t.best.alt > 78 ? 'overhead' : dirName(t.best.az)) + (S.seen[t.id] ? ', seen ' + esc(seenText(S.seen[t.id])) : '') + ', rated</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
@@ -1542,8 +1544,15 @@ html.red .chart canvas{background:#050000}
   // The same with its last part, the short direction or "overhead", hidden from screen readers: the row gives them the
   // direction's full name after it, and "rated" before the rating (the line is a block, so that text can't follow it
   // directly).
-  function whenHtml(t) { var w = rowWhen(t), d = t.best.alt > 78 ? 'overhead' : dirName(t.best.az, true); return esc(w.slice(0, -d.length)) + '<span aria-hidden="true">' + d + '</span>'; }
-  function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) d.innerHTML = whenHtml(t); }); }
+  // A time, or the height with the direction, is kept on one line when the line wraps.
+  function whenHtml(t) {
+    var w = rowWhen(t), d = t.best.alt > 78 ? 'overhead' : dirName(t.best.az, true), head = esc(w.slice(0, -d.length)), end = /\d+° up · $/.exec(head) || { index: head.length, 0: '' };
+    head = head.slice(0, end.index).replace(/\d+:\d\d [ap]m/g, '<span class="nw">$&</span>');
+    return head + '<span class="nw">' + end[0] + '<span aria-hidden="true">' + d + '</span></span>';
+  }
+  // and with the night it was seen, if it was, at the end; a screen reader hears that after the direction instead
+  function rowDt(t) { return whenHtml(t) + (S.seen[t.id] ? '<span aria-hidden="true"> · <span class="seen">Seen ' + esc(seenText(S.seen[t.id])) + '</span></span>' : ''); }
+  function refreshRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { var t = TARGETS.filter(function (x) { return String(x.id) === r.dataset.id; })[0], d = r.querySelector('.dt'); if (t && d) d.innerHTML = rowDt(t); }); }
   function markRows() { document.querySelectorAll('#targetSec .row').forEach(function (r) { r.classList.toggle('sel', !!SEL && r.dataset.id === String(SEL.id)); }); }
   function select(o, open) { if (!o) return; SEL = o; redraw(); markRows(); if (open) openObject(o); }
 
