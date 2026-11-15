@@ -130,7 +130,7 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .tlhd h2{margin:0;font:italic 400 19px/1.1 var(--disp);flex:1;min-width:0;text-wrap:balance}
 .navb{width:30px;height:30px;border-radius:50%;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);padding:0;display:inline-flex;align-items:center;justify-content:center}
 .navb svg{width:15px;height:15px}
-#tlc{display:block;width:100%;height:58px;touch-action:none;cursor:ew-resize;border-radius:8px}
+#tlc{display:block;width:100%;height:58px;touch-action:pan-y;cursor:ew-resize;border-radius:8px}
 .keys{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:12.5px;color:var(--ink2)}
 .keys span{white-space:nowrap}
 .keys b{font:500 12.5px var(--mono);color:var(--ink)}
@@ -1366,12 +1366,29 @@ html.red .chart canvas{background:#050000}
     tl.setAttribute('aria-valuetext', tTime(t) + ', ' + sky + ', Moon ' + (up ? 'up' : 'down'));
   }
   (function tlDrag() {
-    var on = false;
+    // A finger can be scrolling the page past the timeline rather than dragging along it, so a touch moves the time only
+    // once it has gone sideways a little, or as a tap lifts. If the browser takes the touch for a scroll after all, the
+    // time goes back to what it was. A mouse or pen sets it as it presses.
+    var on = false, wait = false, was = null, x0 = 0, y0 = 0;
     function set(e) { var r = tl.getBoundingClientRect(), f = clamp((e.clientX - r.left) / r.width, 0, 1), t = NIGHT.start.getTime() + f * (NIGHT.end - NIGHT.start); t = Math.round(t / 300e3) * 300e3; T.live = T.auto = false; T.t = new Date(t); redraw(); }
-    tl.addEventListener('pointerdown', function (e) { on = true; tl.setPointerCapture(e.pointerId); set(e); });
-    tl.addEventListener('pointermove', function (e) { if (on) set(e); });
-    tl.addEventListener('pointerup', function () { on = false; renderTonight(); refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ); });
-    tl.addEventListener('pointercancel', function () { on = false; });
+    tl.addEventListener('pointerdown', function (e) {
+      on = true; x0 = e.clientX; y0 = e.clientY; was = { t: T.t, live: T.live, auto: T.auto }; wait = e.pointerType === 'touch';
+      try { tl.setPointerCapture(e.pointerId); } catch (err) { }
+      if (!wait) set(e);
+    });
+    tl.addEventListener('pointermove', function (e) { if (!on) return; if (wait && Math.abs(e.clientX - x0) <= 6) return; wait = false; set(e); });
+    tl.addEventListener('pointerup', function (e) {
+      if (!on) return;
+      on = false;
+      if (wait) { wait = false; if (Math.abs(e.clientY - y0) > 10) return; set(e); } // a tap
+      renderTonight(); refreshRows(); if (SHEET_OBJ) openObject(SHEET_OBJ);
+    });
+    tl.addEventListener('pointercancel', function () {
+      if (!on) return;
+      on = false;
+      if (!wait) { T.t = was.live ? new Date() : was.t; T.live = was.live; T.auto = was.auto; redraw(); }
+      wait = false;
+    });
     tl.tabIndex = 0;
     var keyT = 0; // an open card catches up once the keys stop
     // arrows a quarter hour (five minutes with Shift), Page Up and Page Down an hour, Home and End to the night's ends

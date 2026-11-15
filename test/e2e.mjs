@@ -1138,6 +1138,56 @@ check('Swiping past the end of a card leaves the list where it was', async () =>
   } finally { await ctx.close(); }
 });
 
+// The timeline took every touch as a drag along it, so a swipe up from it to reach the list moved the time and turned
+// Now off instead.
+const tlBox = page => page.$eval('#tlc', c => { const r = c.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
+check('Scrolling the page from the timeline leaves the time alone', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const { swipe } = await touchOf(ctx, page);
+    const tl = await tlBox(page), when = await text(page, '#when');
+    assert.match(when, /Now/);
+    for (const f of [0.8, 0.2, 0.5]) {
+      await page.evaluate(() => scrollTo(0, 0));
+      await swipe(tl.x + tl.w * f, tl.y + tl.h / 2, tl.x + tl.w * f + 3, tl.y + tl.h / 2 - 300);
+      assert.ok(await page.evaluate(() => scrollY) > 100, 'a swipe up from the timeline scrolls the page');
+      assert.equal(await text(page, '#when'), when, 'and leaves the time as it was');
+      assert.ok(await page.$eval('#nowBtn', b => b.classList.contains('on')), 'with Now still on');
+    }
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+check('Dragging along the timeline still sets the time', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const { swipe, touch } = await touchOf(ctx, page);
+    const tl = await tlBox(page), mid = tl.y + tl.h / 2;
+    const time = async () => (await text(page, '#when')).match(/^\d+:\d\d [ap]m/)[0];
+    await swipe(tl.x + tl.w * 0.3, mid, tl.x + tl.w * 0.7, mid);
+    assert.equal(await page.evaluate(() => scrollY), 0, 'a drag along it doesn’t scroll the page');
+    assert.equal(await page.$eval('#nowBtn', b => b.classList.contains('on')), false, 'a drag along it leaves Now');
+    const dragged = await time();
+    // a short drag, just past a finger's wobble
+    await swipe(tl.x + tl.w * 0.7, mid, tl.x + tl.w * 0.7 - 14, mid, 4);
+    assert.notEqual(await time(), dragged, 'a short drag moves it too');
+    // a tap sets it where it lands
+    await touch('touchStart', tl.x + tl.w * 0.1, mid); await touch('touchEnd');
+    await page.waitForTimeout(200);
+    const tapped = await time();
+    assert.notEqual(tapped, dragged, 'a tap sets the time');
+    // a mouse drags as before, from the press
+    await page.mouse.move(tl.x + tl.w * 0.9, mid); await page.mouse.down();
+    await page.waitForTimeout(100);
+    assert.notEqual(await time(), tapped, 'a mouse sets the time as it presses');
+    await page.mouse.move(tl.x + tl.w * 0.5, mid, { steps: 4 }); await page.mouse.up();
+    await page.click('#nowBtn');
+    await page.waitForFunction(() => document.getElementById('nowBtn').classList.contains('on'), null, { timeout: 5000 }).catch(() => {});
+    assert.ok(await page.$eval('#nowBtn', b => b.classList.contains('on')), 'Now comes back');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // At 1 am the list led with the Moon and Albireo, both set hours before, and only opening each card said so.
 // Austin, Nov 15 2026: the Moon sets at 10:53 pm and Jupiter rises at 12:08 am.
 check('A row says tonight whether it is up now, rises later or has set', async () => {
