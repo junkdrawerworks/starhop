@@ -3223,6 +3223,50 @@ check('the Full Moon date says Full Moon', async () => {
   } finally { await ctx.close(); }
 });
 
+// 7 pm on 17 Nov 2026 in Austin, the Moon 56% lit: the Sun's colongitude (how far the morning terminator has moved
+// west of the Moon's middle) is 12.6°, so it is rising over Plato (9.4° W) and the Straight Wall (7.8° W). Before
+// dawn on the 28th, the Moon waning, it is setting over Posidonius (29.9° E) and Fracastorius (33.2° E).
+check('The Moon card names the sights on the terminator at the time shown', async () => {
+  const sights = page => page.$$eval('#sheet .sights li b', bs => bs.map(b => b.textContent));
+  const { ctx, page, problems } = await open({ time: '2026-11-17T19:00:00-06:00', phone: false });
+  try {
+    await openCard(page, 'Moon');
+    assert.match(await text(page, '#sheet'), /ON THE TERMINATOR The Sun is rising over these, north to south, and their shadows are long:/);
+    assert.deepEqual(await sights(page), ['Plato', 'Pico', 'The Straight Wall', 'Tycho', 'Clavius']);
+    assert.match(await text(page, '#sheet .sights'), /^Plato, a dark, flat-floored crater/);
+    // two hours on, at 9 pm, the terminator has moved a degree west: Pitatus has come into the low Sun, and the Sun is
+    // higher over the Straight Wall
+    await page.focus('#tlc');
+    for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowRight');
+    await page.waitForFunction(() => document.querySelector('#sheet .card h3').textContent === 'At 9:00 pm', null, { timeout: 5000 }).catch(() => {});
+    assert.deepEqual(await sights(page), ['Plato', 'Pico', 'Pitatus', 'Tycho', 'Clavius'], 'the card follows the time');
+    await page.click('#nextN'); await page.click('#nextN'); await page.click('#nextN');
+    await page.waitForFunction(() => /Nov 20/.test(document.querySelector('#nightTitle').textContent), null, { timeout: 5000 }).catch(() => {});
+    assert.ok(!(await sights(page)).includes('Plato'), 'three nights on, the terminator has moved past Plato');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  const b = await open({ time: '2026-11-28T05:00:00-06:00' });
+  try {
+    await openCard(b.page, 'Moon');
+    assert.match(await text(b.page, '#sheet'), /The Sun is setting over these/);
+    const s = await sights(b.page);
+    assert.ok(s.includes('Posidonius') && s.includes('Fracastorius'), s.join(', '));
+    assert.deepEqual(b.problems, []);
+  } finally { await b.ctx.close(); }
+});
+
+// Meeus, Astronomical Algorithms (2nd ed., 1998), Example 53.b: at 0h TD on 12 April 1992 the Sun is overhead on the
+// Moon at selenographic longitude 67.89° and latitude 1.46°, a colongitude of 22.11°.
+check('The Moon’s frame puts the Sun where Meeus does', async () => {
+  hooked = true;
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const s = await page.evaluate(() => window.__sunOnMoon('1992-04-12T00:00:00Z'));
+    assert.ok(Math.abs(s.lon - 67.89) < 0.05 && Math.abs(s.lat - 1.46) < 0.05 && Math.abs(s.colongitude - 22.11) < 0.05, JSON.stringify(s));
+    assert.deepEqual(problems, []);
+  } finally { hooked = false; await ctx.close(); }
+});
+
 check('the Moon card says the whole Moon fits only when it does', async () => {
   const c11 = { name: 'C11', ap: 280, fl: 2800, eps: [{ f: 25, a: 52 }, { f: 12, a: 52 }], set: true };
   let { ctx, page } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: c11 }), time: '2026-10-18T20:00:00-05:00' });
@@ -4307,6 +4351,12 @@ check('When the star catalog won’t load, it says what to do and puts away the 
 // to the end of it. For a place, a telescope and a sky it shows the night the clock is on, then opens the first three
 // targets, a double star, the last deep-sky object and any extra ({ k, id }), and returns what the page then says.
 const MODEL_HOOK = `
+  // where the Sun is overhead on the Moon at a time, by the Moon's frame the terminator card uses
+  window.__sunOnMoon = function (iso) {
+    var t = new Date(iso), f = moonFrame(t), mo = A.GeoVector(A.Body.Moon, t, true), su = A.GeoVector(A.Body.Sun, t, true), v = unit([su.x - mo.x, su.y - mo.y, su.z - mo.z]);
+    var lon = Math.atan2(dot(v, f.y), dot(v, f.x)) * R2D;
+    return { lon: lon, lat: Math.asin(dot(v, f.z)) * R2D, colongitude: norm360(90 - lon) };
+  };
   window.__model = function (c) {
     var out = { err: null, cards: [] };
     try {

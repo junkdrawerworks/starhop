@@ -267,6 +267,8 @@ html.red .sheetbg{background:rgba(4,0,0,.62)}
 .gloss[open] summary::after{transform:translateY(25%) rotate(225deg)}
 .gloss[open]{padding-bottom:12px}
 .gloss b{color:var(--ink)}
+.sights{margin:6px 0 0;padding-left:18px;color:var(--ink2);display:flex;flex-direction:column;gap:3px}
+.sights b{color:var(--ink)}
 .big{font:italic 400 20px/1.25 var(--disp);color:var(--ink)}
 .big .num{font:500 .95em var(--body);white-space:nowrap}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px 14px;margin-top:8px}
@@ -791,6 +793,50 @@ html.red .chart canvas{background:#050000}
     if (ang < 6 || ang > 354 || illum <= 0.02) return 'New Moon';
     if (ang < 84) return 'Waxing crescent'; if (ang < 96) return 'First quarter'; if (ang < 174) return 'Waxing gibbous';
     if (ang < 186) return 'Full Moon'; if (ang < 264) return 'Waning gibbous'; if (ang < 276) return 'Last quarter'; return 'Waning crescent';
+  }
+
+  // ---------- the Moon's terminator ----------
+  // Sights from the Lunar 100 (Charles A. Wood, Sky & Telescope, April 2004) that a small telescope shows, with the
+  // latitude and longitude (east positive) the list gives, as Wikipedia's table of it has them, and a few words on each.
+  // Plato and Langrenus stand for the list's Plato craterlets and Langrenus rays, which are on and around them.
+  var LUNAR = [
+    ['Plato', 51.6, -9.4, 'a dark, flat-floored crater'], ['the Alpine Valley', 49.0, 3.0, 'a straight cleft through the Alps'],
+    ['Pico', 45.7, -8.9, 'a lone mountain on the plain'], ['Sinus Iridum', 45.0, -32.0, 'the Bay of Rainbows, a half-ring of mountains'],
+    ['Lacus Mortis', 45.0, 27.2, 'a small lava plain with a rille'], ['Posidonius', 31.8, 29.9, 'a wide crater with rilles on its floor'],
+    ['Archimedes', 29.7, -4.0, 'a flat-floored crater'], ['Schröter’s Valley', 26.2, -50.8, 'a winding valley'],
+    ['Aristarchus', 23.7, -47.4, 'the brightest crater'], ['the Apennines', 18.9, -3.7, 'the grandest mountain range'],
+    ['Mare Crisium', 18.0, 59.0, 'a walled dark plain'], ['Proclus', 16.1, 46.8, 'a small bright crater with rays'],
+    ['Copernicus', 9.7, -20.1, 'a great terraced crater'], ['the Hyginus Rille', 7.4, 7.8, 'a cleft with a crater in its bend'],
+    ['Taruntius', 5.6, 46.5, 'a crater with a ring inside its wall'], ['Messier and Messier A', -1.9, 47.6, 'two small craters with twin rays'],
+    ['Hipparchus', -5.5, 4.8, 'a worn old crater'], ['Grimaldi', -5.5, -68.3, 'a dark-floored basin near the edge'],
+    ['Langrenus', -8.9, 60.9, 'a big crater with central peaks'], ['Theophilus, Cyrillus and Catharina', -13.2, 24.0, 'a chain of three big craters'],
+    ['Alphonsus', -13.7, -3.2, 'a crater with dark spots on its floor'], ['Gassendi', -17.6, -40.1, 'a crater with a cracked floor'],
+    ['Fracastorius', -21.5, 33.2, 'a crater whose seaward wall has gone'], ['Mersenius', -21.5, -49.2, 'a crater with a domed floor'],
+    ['the Straight Wall', -21.8, -7.8, 'a cliff 110 km long'], ['the Altai Scarp', -24.3, 22.6, 'a long curving cliff'],
+    ['Petavius', -25.1, 60.4, 'a crater with a cleft across its floor'], ['Regiomontanus', -28.0, -0.6, 'a crater with a peak off-centre'],
+    ['Pitatus', -29.8, -13.5, 'a crater on the shore of a sea'], ['Maurolycus', -42.0, 14.0, 'a big crater among many'],
+    ['the Rheita Valley', -42.5, 51.5, 'a valley made of craters in a row'], ['Tycho', -43.4, -11.1, 'a crater with a central peak, where the rays start'],
+    ['Schickard', -44.3, -55.3, 'a huge, flat crater'], ['Wargentin', -49.6, -60.2, 'a crater filled to its brim'],
+    ['Schiller', -51.9, -39.0, 'a long, footprint-shaped crater'], ['Clavius', -58.8, -14.1, 'a huge crater with an arc of craters inside'],
+    ['Bailly', -66.5, -69.1, 'the biggest crater on the near side']
+  ];
+  // The Moon's own frame, from Astronomy Engine's model of its spin (the IAU's): x toward its prime meridian, which
+  // faces the Earth on average, y east and z north. With it, where a sight is on the Moon gives the Sun's height there.
+  function moonFrame(t) {
+    var ax = A.RotationAxis(A.Body.Moon, t), a = ax.ra * 15 * D2R, d = ax.dec * D2R, w = ax.spin * D2R;
+    var z = [Math.cos(d) * Math.cos(a), Math.cos(d) * Math.sin(a), Math.sin(d)], q = [-Math.sin(a), Math.cos(a), 0], r = cross(z, q);
+    return { x: [0, 1, 2].map(function (i) { return q[i] * Math.cos(w) + r[i] * Math.sin(w); }), y: [0, 1, 2].map(function (i) { return r[i] * Math.cos(w) - q[i] * Math.sin(w); }), z: z };
+  }
+  // The sights near the terminator at t: lit, with the Sun low (up to 12° high, or up to 20° to make three), and on the
+  // side facing the Earth, lowest Sun first, up to five; and whether the Sun is rising or setting over them.
+  function moonSights(t) {
+    var f = moonFrame(t), mo = A.GeoVector(A.Body.Moon, t, true), su = A.GeoVector(A.Body.Sun, t, true);
+    var sun = unit([su.x - mo.x, su.y - mo.y, su.z - mo.z]), earth = unit([-mo.x, -mo.y, -mo.z]), sl = Math.atan2(dot(sun, f.y), dot(sun, f.x)) * R2D;
+    var out = LUNAR.map(function (l) {
+      var c = Math.cos(l[1] * D2R), v = [0, 1, 2].map(function (i) { return c * Math.cos(l[2] * D2R) * f.x[i] + c * Math.sin(l[2] * D2R) * f.y[i] + Math.sin(l[1] * D2R) * f.z[i]; });
+      return { name: l[0], note: l[3], lat: l[1], h: Math.asin(clamp(dot(v, sun), -1, 1)) * R2D, seen: dot(v, earth) > Math.cos(80 * D2R), rising: norm360(sl - l[2]) < 180 };
+    }).filter(function (x) { return x.seen && x.h > 0 && x.h <= 20; }).sort(function (a, b) { return a.h - b.h; });
+    return out.filter(function (x, i) { return i < 3 || x.h <= 12; }).slice(0, 5);
   }
 
   // ---------- targets for tonight ----------
@@ -2762,6 +2808,15 @@ html.red .chart canvas{background:#050000}
     '<p><b>A fist</b> held at arm’s length covers about 10° of sky.</p>' +
     '<p><b>Greek letters</b> name a constellation’s stars, roughly brightest first: δ And is Delta Andromedae, a star in Andromeda.</p>' +
     '<p><b>Split</b> means seeing a double star as two stars.</p></details>';
+  // On the Moon's card, what the terminator is crossing at the time shown, north to south.
+  function terminatorCard(t) {
+    var s = moonSights(t);
+    if (!s.length) return '';
+    var up = s.every(function (x) { return x.rising; }), down = s.every(function (x) { return !x.rising; });
+    s.sort(function (a, b) { return b.lat - a.lat; });
+    return '<div class="card"><h3>On the terminator</h3><p>The Sun is ' + (up ? 'rising' : down ? 'setting' : 'low') + ' over these, north to south, and their shadows are long:</p><ul class="sights">' +
+      s.map(function (x) { return '<li><b>' + esc(x.name.replace(/^the /, 'The ')) + '</b>, ' + esc(x.note) + '</li>'; }).join('') + '</ul></div>';
+  }
   function openObject(o) {
     var again = !$('sheet').hidden && SHEET_OBJ === o, keep = again ? $('sheet').querySelector('.bd').scrollTop : 0; // a redraw keeps its place
     var gloss = again && $('gloss') && $('gloss').open; // and keeps what the numbers mean open, if it was
@@ -2836,7 +2891,7 @@ html.red .chart canvas{background:#050000}
       '<div class="card"><h3>In your telescope</h3><p>' + esc(adv.txt) + '</p><div class="epsw"><table class="eps"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th><th></th></tr></thead><tbody>' +
       rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + epCell(r) + '</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>') +
-      (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
+      (o.k === 'moon' ? terminatorCard(T.t) : '') + (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
       '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button>' + (o.k === 'moon' ? '' : '<button class="btn sec" type="button" id="seenB"' + (cur ? ' aria-label="Seen ' + esc(seenText(night)) + '">✓ Seen ' + esc(seenText(night)) : '>Mark as seen' + (mine.length ? ' again' : '')) + '</button>') +
       (ptok ? '<button class="btn sec" type="button" id="planB">' + (inPlan ? '✓ In your plan' : 'Add to plan') + '</button>' : '') + '</div>' +
       (mine.length ? '<div class="card logc"><h3>In your log</h3>' + (cur ? '<p>Seen ' + (cur.e.t ? 'at ' + esc(tTime(new Date(cur.e.t), cur.e.tz)) + ' · ' : '') + esc(entryWhere(cur.e)) + '</p>' + logEditor(cur) : '') +
