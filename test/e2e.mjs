@@ -1820,6 +1820,80 @@ check('The direction buttons say which is chosen', async () => {
   } finally { await ctx.close(); }
 });
 
+// On a phone a card covers the page, so the page behind it is inert while it is open; on a desktop it sits beside a
+// map that still works, so it isn't modal there. Inert left on by mistake would leave the page unusable, so every way
+// of closing a card is tried over and over.
+check('Tab stays inside an open card on a phone', async () => {
+  let { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  const state = () => page.evaluate(() => ({ inert: document.getElementById('app').inert, open: !document.getElementById('sheet').hidden, modal: document.querySelector('#sheet .sheet')?.getAttribute('aria-modal') ?? null, at: document.activeElement.dataset.id || document.activeElement.id || document.activeElement.tagName }));
+  const closed = () => page.waitForFunction(() => document.getElementById('sheet').hidden && document.activeElement !== document.body, null, { timeout: 5000 }).catch(() => {});
+  try {
+    const row = page.locator('#targetSec .row[data-id="M45"]');
+    await row.focus();
+    await page.keyboard.press('Enter');
+    let s = await state();
+    assert.deepEqual([s.open, s.inert, s.modal], [true, true, 'true'], 'the card is modal on a phone and the page behind it inert');
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press('Tab');
+      assert.ok(await page.evaluate(() => !document.getElementById('app').contains(document.activeElement)), 'Tab ' + (i + 1) + ' stays out of the page behind the card');
+    }
+    await page.click('#sheet [data-close]');
+    await closed();
+    s = await state();
+    assert.deepEqual([s.open, s.inert, s.at], [false, false, 'M45'], 'Done clears it and hands the focus back');
+    const ways = ['Done', 'Escape', 'Back', 'the backdrop', 'Show in the sky view'];
+    for (let i = 0; i < 50; i++) {
+      const how = ways[i % ways.length];
+      await row.scrollIntoViewIfNeeded();
+      await row.focus();
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(() => !document.getElementById('sheet').hidden);
+      assert.equal((await state()).inert, true, 'cycle ' + i + ': inert while open');
+      if (how === 'Done') await page.click('#sheet [data-close]');
+      else if (how === 'Escape') await page.keyboard.press('Escape');
+      else if (how === 'Back') await page.evaluate(() => history.back());
+      else if (how === 'the backdrop') await page.mouse.click(195, 20);
+      else await page.click('#ctr');
+      await closed();
+      s = await state();
+      assert.deepEqual([s.open, s.inert], [false, false], 'cycle ' + i + ': closing with ' + how + ' clears inert');
+      if (how !== 'Show in the sky view') assert.equal(s.at, 'M45', 'cycle ' + i + ': closing with ' + how + ' hands the focus back to the row');
+    }
+    await page.click('#locBtn');
+    assert.equal((await state()).inert, true, 'the location sheet is modal too');
+    await page.fill('#lq', 'Tucson');
+    await page.locator('#lres button').first().click();
+    await closed();
+    assert.equal((await state()).inert, false, 'choosing a place clears it');
+    await page.click('#scopeBtn');
+    await page.click('#scSave');
+    await closed();
+    assert.equal((await state()).inert, false, 'so does saving the telescope');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  ({ ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false }));
+  try {
+    await openCard(page, 'M45');
+    let s = await state();
+    assert.deepEqual([s.inert, s.modal], [false, null], 'on a desktop the card is a side panel, not modal');
+    await page.click('#scopeBtn'); // a sheet that takes the card's place
+    await page.setViewportSize({ width: 600, height: 800 });
+    await page.waitForFunction(() => document.getElementById('app').inert, null, { timeout: 5000 }).catch(() => {});
+    s = await state();
+    assert.deepEqual([s.open, s.inert, s.modal], [true, true, 'true'], 'narrowed to a phone’s layout, it becomes modal');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.waitForFunction(() => !document.getElementById('app').inert, null, { timeout: 5000 }).catch(() => {});
+    s = await state();
+    assert.deepEqual([s.inert, s.modal], [false, null], 'and widened again, a side panel');
+    await page.setViewportSize({ width: 600, height: 800 });
+    await page.waitForFunction(() => document.getElementById('app').inert, null, { timeout: 5000 }).catch(() => {});
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await closed();
+    assert.equal((await state()).inert, false, 'closing it at either width clears inert');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026, by the USNO convention (PyEphem): Saturn rises 6:37 pm and sets 6:48 am, Jupiter rises 2:58 am, Mars 1:58 am.
 // Sunset is 7:01 pm and sunrise 7:32 am, and the card gives the times between them, so Saturn is up at dusk.
 check('planet rise and set times match the standard ones', async () => {

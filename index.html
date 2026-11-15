@@ -1728,7 +1728,8 @@ html.red .chart canvas{background:#050000}
     var s = $('sheet'), ae = document.activeElement, inside = !s.hidden && s.contains(ae), fid = inside ? ae.id : '';
     if (s.hidden) pushSheet();
     if (!again && !inside) SHEET_FROM = ae && ae !== document.body ? { el: ae, id: ae.id, row: ae.classList.contains('row') ? ae.dataset.id : null } : null;
-    SHEET_OBJ = null; s.innerHTML = '<div class="sheetbg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" tabindex="-1">' + html + '</div></div>'; s.hidden = false;
+    SHEET_OBJ = null; s.innerHTML = '<div class="sheetbg"><div class="sheet" role="dialog" aria-labelledby="sheetTitle" tabindex="-1">' + html + '</div></div>'; s.hidden = false;
+    sheetModal();
     var sh = s.querySelector('.sheet'), h2 = sh.querySelector('.hd h2'); if (h2) h2.id = 'sheetTitle';
     s.querySelector('.sheetbg').addEventListener('click', function (e) { if (e.target === e.currentTarget) closeSheet(); });
     s._onClose = onClose; var f = s.querySelector('[data-close]'); if (f) f.addEventListener('click', closeSheet);
@@ -1737,7 +1738,7 @@ html.red .chart canvas{background:#050000}
   }
   function closeSheet(byBack) { // byBack is true when Back closed it and the entry is already gone (a click passes an event)
     var s = $('sheet'), from = SHEET_FROM; if (s.hidden) return;
-    s.hidden = true; s.innerHTML = ''; SHEET_OBJ = null; SHEET_FROM = null; if (s._onClose) s._onClose();
+    s.hidden = true; s.innerHTML = ''; SHEET_OBJ = null; SHEET_FROM = null; sheetModal(); if (s._onClose) s._onClose();
     HIST.later = HIST.later.filter(function (k) { return k !== 'sheet'; });
     if (byBack !== true) histBack(HIST.cur);
     HIST.cur = '';
@@ -1749,6 +1750,16 @@ html.red .chart canvas{background:#050000}
     }, 0);
   }
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+  // On a phone a sheet covers the page, so the page behind it is made inert while it is open: Tab stays in the sheet
+  // and screen readers leave the rest alone. From 1000 px wide it sits beside the map, which still works, so it is a
+  // side panel there, not modal. Whether it is modal follows the width while a sheet is open.
+  var WIDE = window.matchMedia ? matchMedia('(min-width: 1000px)') : { matches: false };
+  function sheetModal() {
+    var sh = $('sheet').hidden ? null : $('sheet').querySelector('.sheet'), modal = !!sh && !WIDE.matches;
+    $('app').inert = modal;
+    if (sh) { if (modal) sh.setAttribute('aria-modal', 'true'); else sh.removeAttribute('aria-modal'); }
+  }
+  if (WIDE.addEventListener) WIDE.addEventListener('change', sheetModal); else if (WIDE.addListener) WIDE.addListener(sheetModal);
 
   // ---------- object card ----------
   var BEST_TYPE = { planet: 'Planet', moon: 'Our Moon', star: 'Star', double: 'Double star' };
