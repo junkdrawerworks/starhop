@@ -162,11 +162,12 @@ html.red .pthint{background:rgba(16,1,1,.88)}
 .rate.easy{color:var(--good)}.rate.fair{color:var(--fair)}.rate.hard{color:var(--hard)}.rate.eye{color:var(--brass)}
 .seen{color:var(--good);font-size:12px;margin-left:4px}
 .more{margin-top:8px;background:none;border:1px dashed var(--line2);border-radius:10px;color:var(--ink2);padding:9px;width:100%;font-weight:700;font-size:13px}
-.ev{display:grid;grid-template-columns:58px minmax(0,1fr);gap:12px;padding:11px 12px;border-bottom:1px solid var(--line)}
+.ev{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;padding:11px 12px;border-bottom:1px solid var(--line)}
 .ev:last-child{border-bottom:0}
 .ev .d{text-align:center;border-right:1px solid var(--line);padding-right:10px}
 .ev .d b{display:block;font:500 20px/1 var(--mono)}
 .ev .d span{display:block;font:700 10.5px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-top:3px}
+.ev .d small{display:block;font:400 10.5px var(--mono);color:var(--ink2);margin-top:5px;white-space:nowrap}
 .ev h3{margin:0;font-size:15px}
 .ev p{margin:2px 0 0;font-size:13px;color:var(--ink2)}
 .credits{font-size:12px;color:var(--ink3);line-height:1.5;border-top:1px solid var(--line);padding-top:14px}
@@ -1300,7 +1301,7 @@ html.red .chart canvas{background:#050000}
     }
     computeTargets(); renderTonight(); renderTargets(); redraw();
     if (SHEET_OBJ) openObject(SHEET_OBJ);
-    setTimeout(renderEvents, 30);
+    laterEvents();
   }
   $('prevN').addEventListener('click', function () { setNight(addDays(NDATE, -1)); });
   $('nextN').addEventListener('click', function () { setNight(addDays(NDATE, 1)); });
@@ -1385,57 +1386,188 @@ html.red .chart canvas{background:#050000}
   function select(o, open) { if (!o) return; SEL = o; redraw(); markRows(); if (open) openObject(o); }
 
   // ---------- events ----------
+  // The showers worth a night out, from the IMO's 2026 Meteor Shower Calendar (IMO INFO(3-25), ed. J. Rendtel), Table 5:
+  // name, the solar longitude λ⊙ at the peak, the ZHR, and the radiant's RA and Dec in degrees. The Calendar gives every
+  // λ⊙ for the equinox 2000.0. (The Southern Delta Aquariids peak at 128°, not 125°, and the Draconids' ZHR is 5.)
   var SHOWERS = [
-    ['Quadrantids', 283.15, 80, 230, 49, 'best before dawn'], ['Lyrids', 32.32, 18, 271, 34, 'best before dawn'], ['Eta Aquariids', 45.5, 50, 338, -1, 'best before dawn, especially from the south'],
-    ['Southern Delta Aquariids', 125, 25, 340, -16, 'best after midnight'], ['Perseids', 140.0, 100, 48, 58, 'best after midnight'], ['Draconids', 195.4, 10, 262, 54, 'best in the evening'],
-    ['Orionids', 208, 20, 95, 16, 'best after midnight'], ['Leonids', 235.27, 15, 152, 22, 'best before dawn'], ['Geminids', 262.2, 150, 112, 33, 'good all night, best around 2 am'], ['Ursids', 270.7, 10, 217, 76, 'best before dawn']
+    ['Quadrantids', 283.15, 80, 230, 49], ['Lyrids', 32.32, 18, 271, 34], ['Eta Aquariids', 45.5, 50, 338, -1],
+    ['Southern Delta Aquariids', 128, 25, 340, -16], ['Perseids', 140.0, 100, 48, 58], ['Draconids', 195.4, 5, 262, 54],
+    ['Orionids', 208, 20, 95, 16], ['Leonids', 235.27, 15, 152, 22], ['Geminids', 262.2, 150, 112, 33], ['Ursids', 270.7, 10, 217, 76]
   ];
   var BRIGHT = ['Venus', 'Mars', 'Jupiter', 'Saturn'];
+  var SUN = { k: 'body', b: A.Body.Sun }, MOON = { k: 'body', b: A.Body.Moon };
+  function ordinal(d) { return d + (d % 100 > 10 && d % 100 < 14 ? 'th' : ['th', 'st', 'nd', 'rd'][d % 10] || 'th'); }
+  // "2 am" or "midnight": the nearest whole hour
+  function hourWord(t) { var h = fmt(tz(), { hour: 'numeric' }).format(new Date(t.getTime() + 30 * 60e3)).replace(' AM', ' am').replace(' PM', ' pm'); return h === '12 am' ? 'midnight' : h; }
+  // Every `step` minutes of a night, from noon to noon, with the Sun's altitude.
+  function nightSteps(n, step) {
+    var noon = zoned(n.y, n.mo, n.d, 12, 0, tz()), out = [];
+    for (var x = 0; x <= 24 * 60; x += step) { var t = new Date(noon.getTime() + x * 60e3); out.push({ t: t, sun: altOf(SUN, t) }); }
+    return out;
+  }
+
+  // A meteor shower as seen from here, on the night its peak falls in, or null when its radiant isn't up in the dark.
+  function showerEvent(s, pk) {
+    // The ZHR assumes the radiant overhead; the rate falls with its altitude, and it's at most 90° − |latitude − Dec|.
+    var top = 90 - Math.abs(OBS.latitude - s[4]);
+    if (top < 10) return null;
+    var n = nightOf(pk), rv = vec(s[3], s[4]), steps = nightSteps(n, 15), twi = false;
+    var night = steps.filter(function (p) { return p.sun < -0.8; });
+    var dark = steps.filter(function (p) { return p.sun < -12; });
+    if (!dark.length) { dark = steps.filter(function (p) { return p.sun < -6; }); twi = true; }
+    dark.forEach(function (p) { p.rad = altOf({ v: rv }, p.t); });
+    var watch = dark.filter(function (p) { return p.rad > 10; });
+    if (!watch.length) return null;
+    var day = parts(pk, tz()), when;
+    if (pk < night[0].t) when = 'Peaks in daylight on the ' + ordinal(day.d) + ', so watch that night.';
+    else if (pk > night[night.length - 1].t) when = 'Peaks in daylight on the morning of the ' + ordinal(day.d) + ', so watch the night before.';
+    else when = day.h >= 17 ? 'Peaks in the evening.' : day.h >= 12 ? 'Peaks in the afternoon, after dark.' : 'Peaks before dawn on the ' + ordinal(day.d) + '.';
+    var hi = watch.reduce(function (a, b) { return b.rad > a.rad ? b : a; }), k = dark.indexOf(hi), best;
+    if (k === dark.length - 1) best = 'best before dawn';
+    else if (!k) best = 'best in the evening';
+    else { // the radiant's highest, between the samples either side
+      var a0 = dark[k - 1].rad, a2 = dark[k + 1].rad, c = a0 - 2 * hi.rad + a2;
+      best = 'best around ' + hourWord(new Date(hi.t.getTime() + (c ? (a0 - a2) / (2 * c) : 0) * 15 * 60e3));
+    }
+    // The Moon over those hours, while the radiant is up and the sky dark.
+    watch.forEach(function (p) { p.moon = altOf(MOON, p.t) > 0; });
+    var ill = A.Illumination(A.Body.Moon, hi.t).phase_fraction, pct = Math.round(ill * 100) + '% lit Moon', first = watch[0], last = watch[watch.length - 1];
+    var up = watch.filter(function (p) { return p.moon; }).length / watch.length, moon;
+    if (ill < 0.1) moon = 'No Moon to spoil it.';
+    else if (!up) {
+      // down while the radiant is up: say so if it set earlier in the dark
+      var gone = A.SearchRiseSet(A.Body.Moon, OBS, -1, dark[0].t, 1), gt = gone && gone.date < first.t ? gone.date : null;
+      moon = !gt ? 'No Moon to spoil it.' : parts(gt, tz()).h < 12 ? 'The Moon is down by ' + tTime(gt) + ', so the hours before dawn are dark.' : 'The Moon sets at ' + tTime(gt) + ', leaving the rest of the night dark.';
+    } else if (first.moon && !last.moon) {
+      var set = A.SearchRiseSet(A.Body.Moon, OBS, -1, first.t, 1), st = set ? set.date : last.t;
+      moon = parts(st, tz()).h < 12 ? 'The Moon is down by ' + tTime(st) + ', so the hours before dawn are dark.' : 'The Moon sets at ' + tTime(st) + ', leaving the rest of the night dark.';
+    } else if (!first.moon && last.moon) {
+      var rise = A.SearchRiseSet(A.Body.Moon, OBS, +1, first.t, 1);
+      moon = 'Watch before the ' + pct + ' rises at ' + tTime(rise ? rise.date : last.t) + '.';
+    } else moon = up < 0.5 ? 'The Moon is down for most of it.' : ill < 0.4 ? 'A ' + pct + ' will hide only the faintest.' : 'A ' + pct + ' will wash out the fainter ones.';
+    return { t: zoned(n.y, n.mo, n.d, 21, 0, tz()), title: s[0] + ' meteor shower peaks', k: 'meteor',
+      text: when + ' Up to ' + s[2] + ' meteors an hour under dark skies, ' + best + '.' + (top < 25 ? ' Its radiant stays low from here, so expect far fewer.' : '') + (twi ? ' The sky stays in twilight all night here, so only the brightest will show.' : '') + ' ' + moon };
+  }
+
+  // A planet at opposition, with how high it gets from here that night, or null when it doesn't get up.
+  function oppositionEvent(p, t) {
+    var b = { k: 'body', b: A.Body[p] }, win = nightSteps(nightOf(t), 30).filter(function (s) { return s.sun < -0.8; });
+    win.forEach(function (s) { s.a = altOf(b, s.t); });
+    if (!win.length) return null; // the Sun doesn't set
+    var hi = win.reduce(function (x, y) { return y.a > x.a ? y : x; });
+    if (hi.a < 2) return null;
+    var il = A.Illumination(A.Body[p], t), d = 2 * Math.atan(PLANETS.filter(function (x) { return x.id === p; })[0].km / 2 / (il.geo_dist * AU_KM)) * ARCSEC;
+    var where = win.every(function (s) { return s.a > 0; }) ? ' and up all night.' : hi.a < 10 ? ', but it only gets ' + Math.round(hi.a) + '° up from here.' : ', highest around ' + hourWord(hi.t) + ' (' + Math.round(hi.a) + '° up).';
+    return { t: t, title: p + ' at opposition', text: 'Closest and brightest for the year (mag ' + il.mag.toFixed(1) + ', ' + d.toFixed(1) + '″ across)' + where, k: 'planet' };
+  }
+
+  // Mercury or Venus at greatest elongation, with how high it is at civil dusk or dawn from here that day.
+  function elongationEvent(p, e) {
+    var eve = e.visibility === 'evening', d = parts(e.time.date, tz()), from = zoned(d.y, d.mo, d.d, eve ? 12 : 0, 0, tz());
+    var tw = A.SearchAltitude(A.Body.Sun, OBS, eve ? -1 : +1, from, 1, -6);
+    if (!tw || tw.date - from > 86400e3) return null;
+    var alt = Math.round(altOf({ k: 'body', b: A.Body[p] }, tw.date)), at = (eve ? ' at dusk' : ' at dawn') + ' from here';
+    if (alt < 1) return null;
+    return { t: e.time.date, title: p + ' at greatest elongation', k: 'planet',
+      text: 'Farthest from the Sun (' + Math.round(e.elongation) + '°) in the ' + (eve ? 'evening sky after sunset' : 'morning sky before sunrise') + (alt < 5 ? ', but only ' + alt + '° up' + at + ' — a hard catch.' : ', and ' + alt + '° up' + at + '.') };
+  }
+
+  // The Moon passing a bright planet, as seen from here and when it can be seen: at the closest if the Sun is at least
+  // 6° down and the Moon 10° up then, or else at the nearest such time that day. Null when there's none, or they're
+  // more than 6° apart by then.
+  function pairEvent(p, t0) {
+    function apart(t) { var m = A.Equator(A.Body.Moon, t, OBS, true, true), q = A.Equator(A.Body[p], t, OBS, true, true); return sep(vec(m.ra * 15, m.dec), vec(q.ra * 15, q.dec)); }
+    function seen(t) { return altOf(SUN, t) < -6 && altOf(MOON, t) > 10; }
+    var close = null, x, t;
+    for (x = -12; x <= 12; x++) { t = new Date(t0.getTime() + x * 30 * 60e3); var a = apart(t); if (!close || a < close.d) close = { t: t, d: a }; }
+    var c0 = close.t.getTime();
+    for (x = -5; x <= 5; x++) { t = new Date(c0 + x * 5 * 60e3); a = apart(t); if (a < close.d) close = { t: t, d: a }; }
+    var look = seen(close.t) ? close : null;
+    if (!look) { // the nearest time it can be seen that day, every 15 minutes out from the closest
+      var day = parts(close.t, tz()), from = zoned(day.y, day.mo, day.d, 0, 0, tz()), to = zoned(day.y, day.mo, day.d + 1, 0, 0, tz());
+      for (x = 1; !look && x < 96; x++) [-1, 1].forEach(function (sg) { var u = new Date(close.t.getTime() + sg * x * 15 * 60e3); if (!look && u >= from && u < to && seen(u)) look = { t: u }; });
+      if (!look) return null;
+      look.d = apart(look.t);
+    }
+    if (look.d > 6) return null;
+    var deg = 'about ' + Math.max(1, Math.round(look.d)) + '° apart — a pretty pairing to the naked eye' + (look.d < 1.2 ? ' and in binoculars' : '') + '.';
+    return { t: look.t, at: true, title: 'Moon near ' + p, k: 'pair',
+      text: look === close ? deg.replace(/^./, 'A') : 'Look ' + (parts(look.t, tz()).h >= 12 ? 'after dusk' : 'before dawn') + ' on the ' + ordinal(parts(look.t, tz()).d) + ', ' + deg };
+  }
+
+  // Coming up depends only on the place and today's date, and takes a moment on a slow phone, so it's worked out once
+  // for each, after the sky has drawn, and kept while the night shown changes.
+  var EV_KEY = '';
+  function evKey() { var p = parts(new Date(), tz()); return S.loc ? [S.loc.lat, S.loc.lon, tz(), p.y, p.mo, p.d].join() : ''; }
+  function laterEvents() { if (evKey() !== EV_KEY) requestAnimationFrame(function () { setTimeout(renderEvents, 0); }); }
   function renderEvents() {
-    var now = new Date(), ev = [], q, i;
-    try {
-      q = A.SearchMoonQuarter(now);
-      for (i = 0; i < 4; i++) { ev.push({ t: q.time.date, title: ['New Moon', 'First quarter Moon', 'Full Moon', 'Last quarter Moon'][q.quarter], text: ['Darkest skies of the month — best for galaxies and nebulae.', 'Craters and mountains along the terminator look sharpest this week.', 'The Moon rises at sunset and lights the sky all night.', 'Rises after midnight; evenings are dark again.'][q.quarter], k: 'moon' }); q = A.NextMoonQuarter(q); }
-      SHOWERS.forEach(function (s) {
-        var pk = A.SearchSunLongitude(s[1], new Date(now.getTime() - 86400e3), 370); if (!pk || pk.date - now > 150 * 86400e3) return;
-        var ill = A.Illumination(A.Body.Moon, pk.date).phase_fraction;
-        ev.push({ t: pk.date, title: s[0] + ' meteor shower peaks', text: 'Up to ' + s[2] + ' meteors an hour under dark skies, ' + s[5] + '. ' + (ill < 0.3 ? 'The Moon is only ' + Math.round(ill * 100) + '% lit — a good year.' : 'A ' + Math.round(ill * 100) + '% lit Moon will wash out the fainter ones.'), k: 'meteor' });
+    var key = evKey();
+    if (key === EV_KEY || !OBS) return;
+    EV_KEY = key;
+    var now = new Date(), ev = [], steps = [];
+    function add(e) { if (e) ev.push(e); }
+    // Each part runs as its own task, so a tap in the meantime isn't kept waiting.
+    steps.push(function () {
+      var q = A.SearchMoonQuarter(now);
+      for (var i = 0; i < 4; i++) { ev.push({ t: q.time.date, at: true, title: ['New Moon', 'First quarter Moon', 'Full Moon', 'Last quarter Moon'][q.quarter], text: ['Darkest skies of the month — best for galaxies and nebulae.', 'Craters and mountains along the terminator look sharpest this week.', 'The Moon rises at sunset and lights the sky all night.', 'Rises after midnight; evenings are dark again.'][q.quarter], k: 'moon' }); q = A.NextMoonQuarter(q); }
+    });
+    // Astronomy Engine measures the Sun's longitude from the equinox of date, which precession has carried ahead of
+    // 2000's by 5028.796195″ a Julian century (IERS Conventions 2010, eq. 5.39), about 0.38° (9 hours) by 2026.
+    // The search looks only as far as the list does: asked for a year, it finds next year's peak when today is a few
+    // days before this year's.
+    var T = (now - Date.UTC(2000, 0, 1, 12)) / (36525 * 86400e3);
+    SHOWERS.forEach(function (s) {
+      steps.push(function () {
+        var pk = A.SearchSunLongitude(norm360(s[1] + 5028.796195 / 3600 * T), new Date(now.getTime() - 86400e3), 160);
+        if (pk && pk.date - now <= 150 * 86400e3) add(showerEvent(s, pk.date));
       });
+    });
+    steps.push(function () {
       ['Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'].forEach(function (p) {
-        var t = A.SearchRelativeLongitude(A.Body[p], 0, now); if (t.date - now > 200 * 86400e3) return;
-        var il = A.Illumination(A.Body[p], t.date), d = 2 * Math.atan(PLANETS.filter(function (x) { return x.id === p; })[0].km / 2 / (il.geo_dist * AU_KM)) * ARCSEC;
-        ev.push({ t: t.date, title: p + ' at opposition', text: 'Closest and brightest for the year (mag ' + il.mag.toFixed(1) + ', ' + d.toFixed(1) + '″ across) and up all night.', k: 'planet' });
+        var t = A.SearchRelativeLongitude(A.Body[p], 0, now);
+        if (t.date - now <= 200 * 86400e3) add(oppositionEvent(p, t.date));
       });
       ['Mercury', 'Venus'].forEach(function (p) {
-        var e = A.SearchMaxElongation(A.Body[p], now); if (e.time.date - now > (p === 'Venus' ? 300 : 120) * 86400e3) return;
-        ev.push({ t: e.time.date, title: p + ' at greatest elongation', text: 'Farthest from the Sun (' + Math.round(e.elongation) + '°) in the ' + (e.visibility === 'evening' ? 'evening sky after sunset' : 'morning sky before sunrise') + '.', k: 'planet' });
+        var x = A.SearchMaxElongation(A.Body[p], now);
+        if (x.time.date - now <= (p === 'Venus' ? 300 : 120) * 86400e3) add(elongationEvent(p, x));
       });
-      // Moon passing bright planets (geocentric, good to a degree)
-      BRIGHT.forEach(function (p) {
-        var prev = null, prev2 = null;
-        for (var h = 0; h < 30 * 24; h += 3) {
-          var t = new Date(now.getTime() + h * 3600e3), d = A.AngleBetween(A.GeoVector(A.Body.Moon, t, true), A.GeoVector(A.Body[p], t, true));
-          if (prev2 && prev && prev.d < prev2.d && prev.d < d && prev.d < 5) {
-            var el = A.AngleFromSun(A.Body[p], prev.t);
-            if (el > 25) ev.push({ t: prev.t, title: 'Moon near ' + p, text: 'About ' + Math.max(1, Math.round(prev.d)) + '° apart — a pretty pairing to the naked eye' + (prev.d < 1.2 ? ' and in binoculars' : '') + '.', k: 'pair' });
-          }
-          prev2 = prev; prev = { t: t, d: d };
-        }
+    });
+    steps.push(function () {
+      // The closest approaches seen from Earth's centre, every 6 hours for a month; pairEvent finds each as seen from
+      // here. The planets move slowly enough to take once a day and draw a straight line between.
+      function gv(b, t) { var v = A.GeoVector(b, t, true); return [v.x, v.y, v.z]; }
+      var pv = BRIGHT.map(function (p) { var out = []; for (var k = 0; k <= 30; k++) out.push(gv(A.Body[p], new Date(now.getTime() + k * 86400e3))); return out; });
+      var d = BRIGHT.map(function () { return []; }), ts = [];
+      for (var h = 0; h < 30 * 24; h += 6) {
+        var t = new Date(now.getTime() + h * 3600e3), m = unit(gv(A.Body.Moon, t)), k = Math.floor(h / 24), f = h / 24 - k;
+        ts.push(t);
+        pv.forEach(function (v, i) { d[i].push(sep(m, unit([0, 1, 2].map(function (c) { return v[k][c] + (v[k + 1][c] - v[k][c]) * f; })))); });
+      }
+      BRIGHT.forEach(function (p, i) {
+        for (var j = 1; j < ts.length - 1; j++) if (d[i][j] < d[i][j - 1] && d[i][j] <= d[i][j + 1] && d[i][j] < 7) (function (t) { steps.push(function () { add(pairEvent(p, t)); }); })(ts[j]);
       });
+    });
+    steps.push(function () {
       var le = A.SearchLunarEclipse(now);
       if (le && le.peak.date - now < 2 * 365 * 86400e3) {
         var sc = scene(le.peak.date), vis = sc.moon.alt > 0;
-        ev.push({ t: le.peak.date, title: (le.kind === 'total' ? 'Total' : le.kind === 'partial' ? 'Partial' : 'Penumbral') + ' lunar eclipse', text: vis ? 'Visible from ' + (S.loc ? S.loc.name : 'here') + ' — the Moon is ' + Math.round(sc.moon.alt) + '° up at mid-eclipse (' + tTime(le.peak.date) + ').' : 'The Moon is below your horizon at mid-eclipse, so you won’t see much of this one.', k: 'eclipse' });
+        ev.push({ t: le.peak.date, at: true, title: (le.kind === 'total' ? 'Total' : le.kind === 'partial' ? 'Partial' : 'Penumbral') + ' lunar eclipse', text: vis ? 'Visible from ' + (S.loc ? S.loc.name : 'here') + ' — the Moon is ' + Math.round(sc.moon.alt) + '° up at mid-eclipse (' + tTime(le.peak.date) + ').' : 'The Moon is below your horizon at mid-eclipse, so you won’t see much of this one.', k: 'eclipse' });
       }
+    });
+    steps.push(function () {
       var se = A.SearchLocalSolarEclipse(now, OBS);
-      if (se && se.peak.time.date - now < 3 * 365 * 86400e3) ev.push({ t: se.peak.time.date, title: (se.kind === 'total' ? 'Total' : se.kind === 'annular' ? 'Annular' : 'Partial') + ' solar eclipse', text: 'Seen from ' + (S.loc ? S.loc.name : 'here') + ', ' + Math.round(se.obscuration * 100) + '% of the Sun is covered at ' + tTime(se.peak.time.date) + '. Never look at the Sun without certified eclipse glasses or a solar filter.', k: 'eclipse' });
-    } catch (e) { }
-    ev.sort(function (a, b) { return a.t - b.t; });
-    ev = ev.filter(function (e) { return e.t > now - 12 * 3600e3; }).slice(0, 10);
-    $('eventSec').innerHTML = '<h2>Coming up</h2><div class="list">' + ev.map(function (e) {
-      var p = parts(e.t, tz());
-      return '<div class="ev"><div class="d"><b>' + p.d + '</b><span>' + esc(fmt(tz(), { month: 'short' }).format(e.t)) + '</span></div><div><h3>' + esc(e.title) + '</h3><p>' + esc(e.text) + '</p></div></div>';
-    }).join('') + '</div>';
+      if (se && se.peak.time.date - now < 3 * 365 * 86400e3) ev.push({ t: se.peak.time.date, at: true, title: (se.kind === 'total' ? 'Total' : se.kind === 'annular' ? 'Annular' : 'Partial') + ' solar eclipse', text: 'Seen from ' + (S.loc ? S.loc.name : 'here') + ', ' + Math.round(se.obscuration * 100) + '% of the Sun is covered at ' + tTime(se.peak.time.date) + '. Never look at the Sun without certified eclipse glasses or a solar filter.', k: 'eclipse' });
+    });
+    (function next() {
+      if (EV_KEY !== key) return; // the place or the day changed meanwhile, and a new list is on its way
+      if (steps.length) { try { steps.shift()(); } catch (e) { } setTimeout(next, 0); return; } // one part failing leaves the rest
+      ev.sort(function (a, b) { return a.t - b.t; });
+      ev = ev.filter(function (e) { return e.t > now - 12 * 3600e3; }).slice(0, 10);
+      $('eventSec').innerHTML = '<h2>Coming up</h2><div class="list">' + ev.map(function (e) {
+        var p = parts(e.t, tz());
+        return '<div class="ev"><div class="d"><b>' + p.d + '</b><span>' + esc(fmt(tz(), { month: 'short' }).format(e.t)) + '</span>' + (e.at ? '<small>' + esc(tTime(e.t)) + '</small>' : '') + '</div><div><h3>' + esc(e.title) + '</h3><p>' + esc(e.text) + '</p></div></div>';
+      }).join('') + '</div>';
+    })();
   }
 
   // ---------- sheets ----------
@@ -1887,6 +2019,7 @@ html.red .chart canvas{background:#050000}
     }
     if (sameNight(NIGHT.n, currentNight(now)) !== SHOWN_TONIGHT) renderTonight();
     drawTimeline(); // the marker for now
+    laterEvents(); // a new day
   }
   setInterval(tick, 30000);
   document.addEventListener('visibilitychange', function () {

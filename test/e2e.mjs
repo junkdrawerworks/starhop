@@ -1261,6 +1261,87 @@ check('Show in the sky view jumps straight up when motion is reduced', async () 
   } finally { await ctx.close(); }
 });
 
+// Coming up is worked out once the sky is drawn. Each row: its date and month as shown, the time under them if any,
+// the title and the text.
+const events = async page => {
+  await page.waitForFunction(() => document.querySelectorAll('#eventSec .ev').length > 0, null, { timeout: 30000 });
+  return page.$$eval('#eventSec .ev', rows => rows.map(r => ({
+    d: +r.querySelector('.d b').textContent, mon: r.querySelector('.d span').textContent, at: r.querySelector('.d small')?.textContent || '',
+    title: r.querySelector('h3').textContent, text: r.querySelector('p').textContent,
+  })));
+};
+const SYDNEY = { name: 'Sydney, AU', lat: -33.87, lon: 151.21, tz: 'Australia/Sydney' };
+
+// Astronomy Engine's SearchSunLongitude, asked to look a year ahead, finds next year's crossing when it starts within a
+// few days of this year's, so a shower dropped out of the list in the days before its peak. The IMO's 2026 Meteor
+// Shower Calendar (Table 5 and section 6) has the Leonids peaking at 23h45m UT on 17 Nov: 5:45 pm in Austin.
+check('lists the Leonids two days before they peak', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const leo = (await events(page)).find(e => e.title === 'Leonids meteor shower peaks');
+    assert.ok(leo, 'the Leonids are listed');
+    assert.equal(`${leo.d} ${leo.mon}`, '17 Nov', 'on the night they peak');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// The Ursids' radiant is at Dec +76° and the Perseids' at +58° (IMO 2026 Calendar, Table 5): from Sydney, at −33.9°,
+// they never rise, though Austin sees both.
+check('from Sydney Coming up leaves out showers whose radiant never rises', async () => {
+  for (const [time, shower] of [['2026-12-18T21:00:00', 'Ursids'], ['2027-08-10T21:00:00', 'Perseids']]) {
+    for (const loc of [AUSTIN, SYDNEY]) {
+      const { ctx, page, problems } = await open({ loc, time: time + (loc === AUSTIN ? (shower === 'Ursids' ? '-06:00' : '-05:00') : (shower === 'Ursids' ? '+11:00' : '+10:00')) });
+      try {
+        const listed = (await events(page)).some(e => e.title.startsWith(shower));
+        assert.equal(listed, loc === AUSTIN, `${loc.name} ${listed ? 'lists' : 'leaves out'} the ${shower}`);
+        assert.deepEqual(problems, []);
+      } finally { await ctx.close(); }
+    }
+  }
+});
+
+// From Austin the Moon is closest to Mars at 11:30 am on 30 Nov 2026, with the Sun 37° up (Astronomy Engine), so it's
+// offered for when it can be seen: with a time when the Sun is at least 6° down (5:55 pm to 6:45 am there in late
+// November and early December), or not at all.
+check('a Moon–planet pairing is offered only when you can see it', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const pairs = (await events(page)).filter(e => e.title.startsWith('Moon near'));
+    assert.ok(pairs.length, 'some pairings are listed');
+    for (const e of pairs) {
+      assert.match(e.at, /^\d+:\d\d (am|pm)$/, `${e.title} on ${e.d} ${e.mon} says when`);
+      const m = afterNoon(e.at);
+      assert.ok(m >= 5 * 60 + 55 && m <= 18 * 60 + 45, `${e.title} on ${e.d} ${e.mon} is at ${e.at}, in daylight`);
+    }
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+check('coming up lists the next moon phases and a meteor shower, in order', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const ev = await events(page), MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    // The IMO 2026 Calendar's Table 4 gives 17 Nov, 24 Nov, 1 Dec and 9 Dec in UT; the new Moon is at 00:52 UT on the
+    // 9th (Astronomy Engine), 6:52 pm on the 8th in Austin.
+    assert.deepEqual(ev.filter(e => / Moon$/.test(e.title)).map(e => `${e.title} ${e.d} ${e.mon}`),
+      ['First quarter Moon 17 Nov', 'Full Moon 24 Nov', 'Last quarter Moon 1 Dec', 'New Moon 8 Dec']);
+    assert.ok(ev.some(e => /meteor shower peaks$/.test(e.title)), 'a meteor shower is listed');
+    let last = -1;
+    for (const e of ev) {
+      const k = (MON.indexOf(e.mon) + (e.mon === 'Jan' || e.mon === 'Feb' ? 12 : 0)) * 31 + e.d;
+      assert.ok(k >= last, `${e.title} on ${e.d} ${e.mon} is out of order`);
+      last = k;
+    }
+    // It depends only on the place and the day, so it isn't worked out again for another night.
+    await page.$eval('#eventSec .list', l => { l.kept = true; });
+    await page.click('#nextN');
+    await page.click('#prevN');
+    await page.waitForTimeout(300);
+    assert.ok(await page.$eval('#eventSec .list', l => l.kept), 'stepping to another night and back keeps the list');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // The muted labels (--ink3) are 10.5 to 12 px, so they need 4.5:1 on every surface they sit on.
 check('small muted labels have 4.5:1 contrast on the page and its panels', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00' });

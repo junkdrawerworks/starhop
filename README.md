@@ -28,7 +28,9 @@
   - **Finder chart:** a naked-eye view around the target, a 5° finderscope circle, and a star-hop, e.g. "about a third of the way from η Her to Rutilicus" for M13.
   - **Your telescope:** magnification and field for each eyepiece, which one to use, and a sketch of the eyepiece view.
   - **Planets:** Jupiter's four moons in their positions for that time, Saturn's rings at their current tilt, and the phases of Venus and Mercury.
-- **Coming up.** Moon phases, meteor shower peaks (with how much the Moon interferes), planet oppositions and elongations, the Moon passing bright planets, and eclipses seen from your location.
+- **Coming up.** Moon phases, meteor shower peaks, planet oppositions and elongations, the Moon passing bright planets, and eclipses, as seen from your location.
+  - A shower is listed for the night it peaks, with the hours its radiant is up and whether the Moon is in the way then. Showers whose radiant never gets well above your horizon are left out.
+  - Mercury and Venus say how high they are at dusk or dawn, a planet at opposition how high it gets, and the Moon passing a planet is given for a time you can see it, when the Sun is down and the Moon up.
 - **Point at the sky** (phones, on the website). Tap **Point** and the map fills the screen and follows where the back of your phone points.
   - Phone compasses are rough, and a metal telescope nearby makes them worse. If the map doesn't match the sky, drag it onto a star you recognize; the phone remembers the correction.
   - The screen stays on while you point.
