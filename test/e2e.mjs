@@ -760,6 +760,41 @@ check('Back ends Point and stays in Starhop', async () => {
   } finally { await ctx.close(); }
 });
 
+// A drag while pointing corrects the compass and is kept for good, though the error depends on where the phone is
+// held: nothing said a correction was in force, and only dragging back by eye undid it.
+check('A remembered compass correction can be reset', async () => {
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, ptOff: [-25.3, 4.1] }), time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
+  // where the W on the horizon sits across the map, from the middle (0) to the edges (±0.5); the phone faces west
+  const west = () => page.$eval('#sky', c => { const w = c.__labels().find(l => l.t === 'W'); return w ? (w.x + w.w / 2) / c.getBoundingClientRect().width - 0.5 : null; });
+  const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).ptOff);
+  try {
+    await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    await point(page);
+    await page.waitForTimeout(100);
+    assert.ok(await page.isVisible('#ptFix'), 'the correction shows while pointing');
+    assert.equal(await text(page, '#ptFix'), 'Compass corrected 25° · Reset');
+    assert.ok(await west() > 0.1, 'the map is turned by the correction');
+    await page.click('#ptFix button');
+    await page.waitForTimeout(100);
+    assert.equal(await saved(), undefined, 'Reset forgets the correction');
+    assert.ok(Math.abs(await west()) < 0.02, 'and the map faces where the phone does');
+    assert.equal(await page.isVisible('#ptFix'), false, 'with nothing to show');
+    // a drag puts one back, and it is remembered
+    const box = await page.locator('#sky').boundingBox();
+    await page.mouse.move(box.x + 200, box.y + 300);
+    await page.mouse.down();
+    for (let x = 200; x >= 120; x -= 10) await page.mouse.move(box.x + x, box.y + 300);
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+    assert.ok(Array.isArray(await saved()), 'a drag is remembered');
+    assert.match(await text(page, '#ptFix'), /^Compass corrected \d+° · Reset$/);
+    await page.click('#ptBtn');
+    assert.equal(await page.isVisible('#ptFix'), false, 'Stop hides it');
+    assert.match(await page.$eval('#ptHint', h => h.textContent), /remember/, 'the hint says a drag is remembered');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Austin, Nov 15 2026: sunrise is 7:02 am, so the night that is ending runs until 7:52 am.
 check('pointing stays on the live sky when the night rolls over', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T07:30:00-06:00', init: fakeWakeLock });

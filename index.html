@@ -118,6 +118,8 @@ html.red.pointing .skybox{background:#050000}
 .pointing #dirSeg{display:none}
 .pthint{position:absolute;left:50%;top:calc(58px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:rgba(9,14,28,.86);border:1px solid var(--line2);border-radius:10px;padding:7px 12px;font-size:13px;color:var(--ink2);text-align:center;max-width:min(320px,86vw);pointer-events:none}
 html.red .pthint{background:rgba(16,1,1,.88)}
+.ptfix{padding-right:0}
+.ptfix button{height:28px;padding:0 11px 0 6px;background:none;border:0;color:var(--brass);font:inherit;text-decoration:underline;text-underline-offset:3px}
 
 /* timeline */
 .tl{padding:10px 16px 12px;border-top:1px solid var(--line);background:var(--panel)}
@@ -289,8 +291,9 @@ html.red .chart canvas{background:#050000}
         <div class="overlay ov-tr"><button class="pill" id="layBtn" type="button" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>Show</button></div>
         <div class="layers" id="layers" hidden></div>
         <div class="banner" id="banner" hidden></div>
-        <div class="pthint" id="ptHint" hidden>Hold your phone up to the sky. If the map is off, drag it onto a star you know.</div>
+        <div class="pthint" id="ptHint" hidden>Hold your phone up to the sky. If the map is off, drag it onto a star you know; Starhop remembers the correction.</div>
         <div class="overlay ov-b">
+          <div class="pill ptfix" id="ptFix" hidden>Compass corrected <span id="ptFixN"></span> ·<button type="button" aria-label="Reset the compass correction">Reset</button></div>
           <div class="seg" id="dirSeg" role="group" aria-label="Which way to look"><button type="button" data-d="up" title="The whole sky overhead">Up</button><button type="button" data-d="0">N</button><button type="button" data-d="90">E</button><button type="button" data-d="180">S</button><button type="button" data-d="270">W</button></div>
           <div class="zoom"><button class="pill" id="ptBtn" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M12 17.5h.01M4 8 2 6m18 2 2-2"/></svg><span id="ptTxt">Point</span></button><button class="pill" id="zOut" type="button" aria-label="Zoom out">−</button><button class="pill" id="zIn" type="button" aria-label="Zoom in">+</button></div>
         </div>
@@ -1063,7 +1066,7 @@ html.red .chart canvas{background:#050000}
     $('nowBtn').classList.toggle('on', live);
     if (NIGHT.midnightSun) { b.hidden = false; b.innerHTML = '<b>The Sun doesn’t set tonight</b>'; } // no night to drag along
     else if (sc.sun.alt > -4) { b.hidden = false; b.innerHTML = '<b>' + (sc.sun.alt > 0 ? 'The Sun is up' : 'Twilight') + '</b>' + (sc.sun.alt > 0 ? 'Drag along the night below to see tonight’s sky.' : 'Only the brightest stars and planets show yet.'); } else b.hidden = true;
-    ['when', 'nowBtn', 'banner', 'layBtn', 'dirSeg', 'ptBtn', 'zOut', 'zIn'].forEach(function (id) { var e = $(id).getBoundingClientRect(); if (e.width) keep.push({ x: e.left - r.left - 2, y: e.top - r.top - 2, w: e.width + 4, h: e.height + 4 }); });
+    ['when', 'nowBtn', 'banner', 'layBtn', 'dirSeg', 'ptFix', 'ptBtn', 'zOut', 'zIn'].forEach(function (id) { var e = $(id).getBoundingClientRect(); if (e.width) keep.push({ x: e.left - r.left - 2, y: e.top - r.top - 2, w: e.width + 4, h: e.height + 4 }); });
     var res = render(cx, W, H, V, T.t, { sel: SEL, reserve: keep });
     HITS = res.hits; LAST = res;
     drawTimeline();
@@ -1108,7 +1111,7 @@ html.red .chart canvas{background:#050000}
       if (one && !wasMoved && e.type === 'pointerup' && !EAT_TAP) tap(e);
       EAT_TAP = false;
       start = { v: Object.assign({}, V), pts: JSON.parse(JSON.stringify(pts)), dAz: PT.dAz, dAlt: PT.dAlt };
-      if (PT.on && wasMoved && PT.nudged) { S.ptOff = [PT.dAz, PT.dAlt]; save(); }
+      if (PT.on && wasMoved && PT.nudged) { S.ptOff = [PT.dAz, PT.dAlt]; save(); ptFix(); }
       syncDir();
     }
     cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
@@ -1202,6 +1205,7 @@ html.red .chart canvas{background:#050000}
       if (PT.on) return;
       PT.on = true; PT.got = false; PT.v = null; PT.abs = false; PT.nudged = false;
       pushPoint(); // Back ends it
+      ptFix();
       document.documentElement.classList.add('pointing'); $('app').classList.add('pointing');
       $('ptTxt').textContent = 'Stop'; $('ptBtn').classList.add('on'); $('ptHint').hidden = false;
       var run = ++PT.run; // the timers below belong to this session, not to one started after it
@@ -1230,7 +1234,7 @@ html.red .chart canvas{background:#050000}
     HIST.pt = '';
     window.removeEventListener('deviceorientationabsolute', onOri, true); window.removeEventListener('deviceorientation', onOri, true);
     document.documentElement.classList.remove('pointing'); $('app').classList.remove('pointing');
-    $('ptTxt').textContent = 'Point'; $('ptBtn').classList.remove('on'); $('ptHint').hidden = true;
+    $('ptTxt').textContent = 'Point'; $('ptBtn').classList.remove('on'); $('ptHint').hidden = true; ptFix();
     if (PT.wl && PT.wl.release) { try { PT.wl.release(); } catch (err) { } }
     PT.wl = null;
     redraw(); syncDir();
@@ -1249,6 +1253,12 @@ html.red .chart canvas{background:#050000}
     } catch (err) { PT.wl = null; }
   }
   $('ptBtn').addEventListener('click', function () { if (PT.on) stopPoint(); else startPoint(); });
+  // A correction in force shows beside Stop, since it suits only where the phone was held when it was made.
+  function ptFix() {
+    var n = Math.round(Math.max(Math.abs(norm360(PT.dAz + 180) - 180), Math.abs(PT.dAlt)));
+    $('ptFixN').textContent = n + '°'; $('ptFix').hidden = !PT.on || !n;
+  }
+  $('ptFix').querySelector('button').addEventListener('click', function () { PT.dAz = PT.dAlt = 0; delete S.ptOff; save(); applyPoint(); ptFix(); });
 
   // ---------- the timeline ----------
   var tl = $('tlc'), tg = tl.getContext('2d');
