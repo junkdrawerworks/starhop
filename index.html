@@ -1483,7 +1483,8 @@ html.red .chart canvas{background:#050000}
     }
     var up = t.cross.up, set = null, rise = null;
     t.cross.at.forEach(function (c) { if (c.t <= T.t) { up = c.up; if (!c.up) set = c; } else if (c.up && !rise) rise = c; });
-    var state = up ? (T.live ? 'Up now' : '') : rise ? 'Rises ' + tTime(rise.t) : set ? 'Set ' + tTime(set.t) : '';
+    // Down, it rises later only if its best is still to come; past its best, it's when it set that counts.
+    var state = up ? (T.live ? 'Up now' : '') : rise && rise.t <= b.t ? 'Rises ' + tTime(rise.t) : set ? 'Set ' + tTime(set.t) : '';
     return (state ? state + ' · ' : '') + when;
   }
   // The same with its last part, the short direction or "overhead", hidden from screen readers: the row gives them the

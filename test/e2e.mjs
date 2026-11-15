@@ -993,6 +993,25 @@ check('A row says tonight whether it is up now, rises later or has set', async (
   } finally { await ctx.close(); }
 });
 
+// At 11:30 pm M13 had had its best at dusk and set, yet its row led with the next morning's rise: "Rises 5:46 am · Best
+// 6:29 pm". A rise comes first only when the best is still to come.
+check('a target past its best says when it set, not when it rises again', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T23:30:00-06:00' });
+  try {
+    await page.click('#moreT');
+    assert.match(await page.$eval('#targetSec .row[data-id="M13"] .dt', d => d.textContent), /^Set \d+:\d\d pm · Best 6:\d\d pm/);
+    // minutes from noon, so the morning's hours come after the evening's
+    const m = s => { const [, h, mi, ap] = s.match(/(\d+):(\d\d) ([ap]m)/); return (+h % 12) * 60 + +mi + (ap === 'am' ? 720 : 0); };
+    const now = m('11:30 pm'), lines = await page.$$eval('#targetSec .row .dt', ds => ds.map(d => d.textContent));
+    assert.ok(lines.length > 30);
+    for (const l of lines) {
+      const r = l.match(/^Rises (\S+ [ap]m) · Best (\S+ [ap]m)/);
+      if (r) assert.ok(m(r[2]) >= now && m(r[1]) <= m(r[2]), l);
+    }
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check("typed coordinates take a decimal comma and a real minus sign, and refuse what they can't read", async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00' });
   try {
