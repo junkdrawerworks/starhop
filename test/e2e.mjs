@@ -1894,6 +1894,38 @@ check('Tab stays inside an open card on a phone', async () => {
   } finally { await ctx.close(); }
 });
 
+// Each eyepiece row showed the same "mm" and "Apparent field" and a "Remove" for every eyepiece.
+check('The telescope sheet’s fields say which eyepiece they belong to', async () => {
+  const { ctx, page } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: DOB8 }), time: '2026-11-15T21:00:00-06:00', phone: false });
+  const box = name => page.getByRole('textbox', { name, exact: true });
+  try {
+    await page.click('#scopeBtn');
+    assert.equal(await page.getByRole('combobox', { name: 'Quick pick' }).count(), 1, 'the quick pick has a name');
+    assert.equal(await box('Eyepiece 1 focal length (mm)').inputValue(), '25');
+    assert.equal(await box('Eyepiece 1 apparent field (°)').inputValue(), '52');
+    assert.equal(await box('Eyepiece 2 focal length (mm)').inputValue(), '6');
+    assert.equal(await page.getByRole('button', { name: 'Remove the 6 mm eyepiece' }).count(), 1, 'Remove says which eyepiece');
+    await box('Eyepiece 2 focal length (mm)').fill('9');
+    assert.equal(await page.getByRole('button', { name: 'Remove the 9 mm eyepiece' }).count(), 1, 'and keeps up with a new focal length');
+    await page.click('#epAdd');
+    assert.equal(await box('Eyepiece 3 focal length (mm)').count(), 1, 'a new eyepiece is numbered');
+    await page.getByRole('button', { name: 'Remove the 25 mm eyepiece' }).click();
+    assert.equal(await box('Eyepiece 1 focal length (mm)').inputValue(), '9', 'removing one numbers the rest again');
+    // a Save that can't be made marks the field to fix and puts the focus on it
+    await page.fill('#scFl', '');
+    await page.click('#scSave');
+    assert.ok(await sheetOpen(page), 'the sheet stays open');
+    assert.equal(await page.$eval('#scFl', i => i.getAttribute('aria-invalid')), 'true', 'the focal length is marked');
+    assert.equal(await page.$eval('#scAp', i => i.getAttribute('aria-invalid')), null, 'the aperture isn’t');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'scFl', 'and has the focus');
+    assert.equal(await text(page, '#toast'), 'Check the aperture and focal length', 'the message still shows');
+    await page.keyboard.type('1200');
+    assert.equal(await page.$eval('#scFl', i => i.getAttribute('aria-invalid')), null, 'typing a value clears the mark');
+    await page.click('#scSave');
+    assert.equal(await sheetOpen(page), false, 'and Save works');
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026, by the USNO convention (PyEphem): Saturn rises 6:37 pm and sets 6:48 am, Jupiter rises 2:58 am, Mars 1:58 am.
 // Sunset is 7:01 pm and sunrise 7:32 am, and the card gives the times between them, so Saturn is up at dusk.
 check('planet rise and set times match the standard ones', async () => {
