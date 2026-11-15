@@ -1286,6 +1286,52 @@ check('a double star is rated, advised and sketched by the same power, the one y
   }
 });
 
+// The sketch showed only the suggested eyepiece, so changing eyepiece at the scope, the card couldn't show what the new
+// one would show.
+check('Tapping an eyepiece row shows its view', async () => {
+  let { ctx, page, problems } = await open({ time: '2026-11-15T19:30:00-06:00' });
+  const cap = () => page.$eval('#epCap', c => c.textContent);
+  const row = mm => page.locator('#sheet .eps tbody tr', { hasText: mm + ' mm' });
+  try {
+    await openCard(page, 'M45');
+    await page.waitForFunction(() => document.getElementById('epCap').textContent);
+    assert.match(await cap(), /^26× with the 25 mm/);
+    assert.ok((await row(10).boundingBox()).height >= 44, 'a row is big enough to tap');
+    await row(10).click();
+    assert.match(await cap(), /^65× with the 10 mm/, 'a tap shows that eyepiece');
+    assert.equal(await row(10).getAttribute('aria-pressed'), 'true');
+    assert.equal(await row(25).getAttribute('aria-pressed'), 'false');
+    assert.match(await row(25).innerText(), /Suggested/, 'the suggestion stays where it was');
+    await page.clock.runFor('02:00'); // the card is redrawn for the new minute
+    await page.waitForFunction(() => document.querySelector('#sheet .card h3').textContent === 'At 7:32 pm', null, { timeout: 5000 }).catch(() => {});
+    assert.equal(await page.$eval('#sheet .card h3', h => h.textContent), 'At 7:32 pm');
+    await page.waitForTimeout(100);
+    assert.match(await cap(), /^65× with the 10 mm/, 'the choice outlasts the redraw');
+    await row(25).focus();
+    await page.keyboard.press('Enter');
+    assert.match(await cap(), /^26× with the 25 mm/, 'Enter picks a row too');
+    await row(10).click();
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'M45');
+    await page.waitForFunction(() => document.getElementById('epCap').textContent);
+    assert.match(await cap(), /^26× with the 25 mm/, 'a card opened again starts from the suggestion');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // a double star splits or not with the eyepiece picked
+  ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, scope: DOB8 }), time: '2026-06-15T22:00:00-05:00' }));
+  try {
+    await page.click('#targetSec .filters [data-f="double"]');
+    await openCard(page, 'izar');
+    await page.waitForFunction(() => document.getElementById('epCap').textContent);
+    assert.doesNotMatch(await cap(), /not split/);
+    await row(25).click();
+    assert.match(await cap(), /^48× with the 25 mm.*not split at this power/);
+    await row(6).click();
+    assert.doesNotMatch(await cap(), /not split/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Separate lit blobs within r px of the eyepiece view's centre.
 const blobsNearCentre = (page, r) => page.$eval('#eyepiece', (c, r) => {
   const k = c.width / c.getBoundingClientRect().width, R = Math.round(r * k), x0 = Math.round(c.width / 2) - R, y0 = Math.round(c.height / 2) - R, n = 2 * R;

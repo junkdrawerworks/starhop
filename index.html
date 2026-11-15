@@ -222,7 +222,12 @@ html.red .chart canvas{background:#050000}
 .eps{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:4px}
 .eps th{text-align:left;font:700 10.5px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);padding:4px 6px;border-bottom:1px solid var(--line)}
 .eps td{padding:6px;border-bottom:1px solid var(--line);font-family:var(--mono);font-variant-numeric:tabular-nums}
-.eps tr.pick td{color:var(--brass)}
+.eps tbody tr{height:44px;cursor:pointer}
+.eps tbody tr:hover{background:var(--panel2)}
+.eps tbody tr:active{background:var(--raise)}
+.eps tbody tr:focus-visible{outline:2px solid var(--brass);outline-offset:-2px}
+.eps tr.on{background:var(--raise)}
+.eps tr.on td{color:var(--brass)}
 .eps td:last-child{font-family:var(--body);color:var(--ink2)}
 .epsw{overflow-x:auto}
 .fld{display:flex;flex-direction:column;gap:5px;min-width:0}
@@ -1610,6 +1615,7 @@ html.red .chart canvas{background:#050000}
   var SHEET_OBJ = null; // the object whose card is open, if the sheet is one
   var SHEET_FROM = null; // what had the focus when the sheet opened, to hand it back
   var SHEET_AT = ''; // the time an open card was drawn for, as it shows it
+  var EPS = { o: null, i: -1 }; // the eyepiece a tap picked on the open card, kept while it is redrawn
   // Back closes an open sheet, or ends Point, rather than leaving Starhop; on Android the installed app has nothing
   // else. A sheet that opens, and Point when it starts, each add one history entry, and Back takes off the top one: a
   // card opened while pointing closes first, then Point ends. Done, the backdrop, Escape and Stop go back over the
@@ -1768,6 +1774,8 @@ html.red .chart canvas{background:#050000}
     }
     var nowTxt = aa ? (aa.alt > 0 ? Math.round(aa.alt) + '° up in the ' + dirName(aa.az) + ' — ' + fists(aa.alt) + '.' : 'Below the horizon right now.') : '';
     var rows = epRows(o, sc), adv = adviceFor(o, sc, rows), st = scopeStats();
+    if (!again || EPS.o !== o || EPS.i >= rows.length) EPS = { o: o, i: -1 };
+    var shown = EPS.i >= 0 ? EPS.i : adv.pick; // the eyepiece the sketch shows
     // the brightest stars need no hop, nor do the Moon and planets
     var ct = chartTime(o, rs), bright = o.k === 'star' && o.mag < 1.5, hop = o.k === 'planet' || o.k === 'moon' || bright || !ct ? null : hopFor(o, ct.t);
     var h = '<div class="hd"><h2>' + esc(name) + '<small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
@@ -1775,7 +1783,7 @@ html.red .chart canvas{background:#050000}
       '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart"></canvas><div class="cap">' + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + 'The dashed circle is a typical finderscope field (5°).</div></div>' +
       '<div class="chart"><canvas id="eyepiece" aria-label="Simulated eyepiece view"></canvas><div class="cap" id="epCap"></div></div></div>' +
       '<div class="card"><h3>In your telescope</h3><p>' + esc(adv.txt) + '</p><div class="epsw"><table class="eps"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th><th></th></tr></thead><tbody>' +
-      rows.map(function (r, i) { return '<tr' + (i === adv.pick ? ' class="pick"' : '') + '><td>' + r.f + ' mm</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
+      rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + r.f + ' mm</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>' +
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
       '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB">' + (S.seen[o.id] ? '✓ Seen ' + esc(seenText(S.seen[o.id])) : 'Mark as seen') + '</button></div></div>';
@@ -1784,7 +1792,17 @@ html.red .chart canvas{background:#050000}
     $('ctr').addEventListener('click', function () { closeSheet(); SEL = o; center(o); markRows(); if (window.innerWidth < 1000) window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); });
     // dated by the night: tonight's, which a mark at 1 am still belongs to, or the night being planned
     $('seenB').addEventListener('click', function () { var now = new Date(); if (S.seen[o.id]) delete S.seen[o.id]; else S.seen[o.id] = nightKey(sameNight(NDATE, currentNight(now)) ? nightOf(now) : NDATE); save(); openObject(o); renderTargets(); });
-    requestAnimationFrame(function () { drawFinder(o, hop, ct); drawEyepiece(o, rows, adv.pick); if (keep && SHEET_OBJ === o) $('sheet').querySelector('.bd').scrollTop = keep; });
+    // a tap or Enter on an eyepiece shows its view
+    $('sheet').querySelectorAll('.eps tbody tr').forEach(function (tr) {
+      function pick() {
+        EPS = { o: o, i: +tr.dataset.i };
+        $('sheet').querySelectorAll('.eps tbody tr').forEach(function (t) { var on = t === tr; t.classList.toggle('on', on); t.setAttribute('aria-pressed', String(on)); });
+        drawEyepiece(o, rows, EPS.i);
+      }
+      tr.addEventListener('click', pick);
+      tr.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+    });
+    requestAnimationFrame(function () { drawFinder(o, hop, ct); drawEyepiece(o, rows, shown); if (keep && SHEET_OBJ === o) $('sheet').querySelector('.bd').scrollTop = keep; });
   }
   // The time the finder chart shows, and where the target is then. Low now, so the chart shows it at its highest
   // instead, but not before nightfall: the card counts that height from sunset, and a naked-eye view in the sunset glow
