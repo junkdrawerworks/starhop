@@ -1030,7 +1030,9 @@ check('Searching Fort Worth, St Louis or Saint Paul finds the town', async () =>
   try {
     await page.click('#locBtn');
     for (const [typed, found] of [['Fort Worth', 'Ft. Worth'], ['ft worth', 'Ft. Worth'], ['St Louis', 'St. Louis'], ['Saint Louis', 'St. Louis'], ['Saint Paul', 'St. Paul'],
-      ['Mount Hagen', 'Mt. Hagen'], ['St. Paul', 'St. Paul'], ['Winston Salem', 'Winston-Salem'], ['Tucs', 'Tucson']]) {
+      ['Mount Hagen', 'Mt. Hagen'], ['St. Paul', 'St. Paul'], ['Winston Salem', 'Winston-Salem'], ['Tucs', 'Tucson'],
+      // half typed, before the space that makes it an abbreviation: "Fort" still finds the Fort and Ft. towns
+      ['Fort', 'Fort Collins'], ['Fort', 'Ft. Worth'], ['Saint', 'St. Louis'], ['Mount', 'Mount Isa'], ['Mount', 'Mt. Hagen']]) {
       await page.fill('#lq', typed);
       await page.waitForFunction(f => [...document.querySelectorAll('#lres button')].some(b => b.textContent.startsWith(f)), found, { timeout: 5000 })
         .catch(() => assert.fail(`"${typed}" doesn't find ${found}`));
