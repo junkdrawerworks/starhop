@@ -904,6 +904,7 @@ check('Nothing sits under the notch on a phone turned sideways', async () => {
     await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
     const cdp = await ctx.newCDPSession(page);
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { top: 0, left: 47, right: 47, bottom: 21 } });
+    await page.evaluate(() => dispatchEvent(new Event('resize'))); // as turning a phone does
     await page.waitForTimeout(300);
     const outside = sels => page.evaluate(sels => sels.flatMap(sel => [...document.querySelectorAll(sel)].filter(e => e.offsetParent || getComputedStyle(e).position === 'fixed').map(e => [sel, e.getBoundingClientRect()]).filter(([, r]) => r.width && (r.left < 47 || r.right > innerWidth - 47)).map(([sel, r]) => `${sel} at ${Math.round(r.left)}–${Math.round(r.right)}`)), sels);
     assert.deepEqual(await outside(['.brand', '#locBtn', '#scopeBtn', '#when', '#nowBtn', '#layBtn', '#dirSeg', '#zIn', '#prevN', '#nextN', '#nightTitle', '#keys span', '#tonightSec h2', '.fact', '.filters .chip', '#targetSec .row', '.more', '.ev', '.credits']), [], 'all of it keeps clear of the sides');
@@ -1001,6 +1002,26 @@ check('The page fits a phone zoomed to 200%', async () => {
       assert.deepEqual(problems, []);
     } finally { await ctx.close(); }
   }
+});
+
+// The map measures its buttons again only when something that moves them changes, so each of those is tried here.
+check('Labels keep off the map’s buttons as the time, the banner and Point change them', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
+  try {
+    await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    const tl = await page.locator('#tlc').boundingBox();
+    const fresh = async where => { await page.waitForTimeout(120); const m = await mapLabels(page); checkLabels(m.labels, m.w, m.h, m.keep, where); };
+    await page.click('#dirSeg button[data-d="270"]');
+    for (const f of [0.02, 0.3, 0.55, 0.97, 0.12]) { await page.mouse.click(tl.x + tl.width * f, tl.y + tl.height / 2); await fresh(`at ${await text(page, '#when')}${await page.$eval('#banner', b => b.hidden ? '' : ', with the banner')}`); }
+    await page.click('#nowBtn'); await fresh('back to now');
+    await page.setViewportSize({ width: 360, height: 740 }); await fresh('on a narrower screen');
+    await point(page); await fresh('in Point');
+    const c = await page.$eval('#sky', c => { const r = c.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+    await page.mouse.move(c[0], c[1]); await page.mouse.down(); await page.mouse.move(c[0] + 80, c[1] + 20, { steps: 8 }); await page.mouse.up();
+    await fresh('with a compass correction');
+    await page.click('#ptBtn'); await fresh('after Point');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
 });
 
 check('pointing stays on the live sky when the night rolls over', async () => {

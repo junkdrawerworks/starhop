@@ -16,6 +16,14 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>Starhop</title>
 <link rel="preload" href="fonts/atkinson-hyperlegible-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/dm-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/dm-mono-500-latin.woff2" as="font" type="font/woff2" crossorigin>
+<!-- the star catalog downloads alongside the astronomy library rather than after it -->
+<link rel="preload" href="data/stars.json" as="fetch" crossorigin>
+<link rel="preload" href="data/constellations.json" as="fetch" crossorigin>
+<link rel="preload" href="data/dso.json" as="fetch" crossorigin>
+<link rel="preload" href="data/milkyway.json" as="fetch" crossorigin>
+<link rel="preload" href="data/tzcity.json" as="fetch" crossorigin>
 <!-- Night vision from the first frame, before the star catalog arrives; the app's own start does the rest. -->
 <script>try { if (JSON.parse(localStorage.getItem('starhop.v1') || 'null').red === true) { document.documentElement.classList.add('red'); document.querySelector('meta[name=theme-color]').content = '#070000'; } } catch (e) { }</script>
 <style>
@@ -1136,17 +1144,26 @@ html.red .chart canvas{background:#050000}
     W = r.width; H = r.height; DPR = dpr;
     cx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // the time, the banner and the buttons over the map, which labels keep clear of
-    var live = T.live, keep = [], sc = scene(T.t), b = $('banner');
-    $('when').innerHTML = esc(tTime(T.t)) + '<small>' + esc(live ? 'Now · ' : '') + esc(tDay(T.t)) + '</small>';
+    // Each frame of a drag only writes what has changed over the map, and measures the buttons again only when
+    // something that moves them has, so the browser needn't lay the page out again every frame.
+    var live = T.live, sc = scene(T.t), b = $('banner');
+    html($('when'), esc(tTime(T.t)) + '<small>' + esc(live ? 'Now · ' : '') + esc(tDay(T.t)) + '</small>');
     tlValue();
     $('nowBtn').classList.toggle('on', live);
-    if (NIGHT.midnightSun) { b.hidden = false; b.innerHTML = '<b>The Sun doesn’t set tonight</b>'; } // no night to drag along
-    else if (sc.sun.alt > -4) { b.hidden = false; b.innerHTML = '<b>' + (sc.sun.alt > 0 ? 'The Sun is up' : 'Twilight') + '</b>' + (sc.sun.alt > 0 ? 'Drag along the night below to see tonight’s sky.' : 'Only the brightest stars and planets show yet.'); } else b.hidden = true;
-    ['when', 'nowBtn', 'banner', 'layBtn', 'dirSeg', 'ptFix', 'ptBtn', 'zOut', 'zIn'].forEach(function (id) { var e = $(id).getBoundingClientRect(); if (e.width) keep.push({ x: e.left - r.left - 2, y: e.top - r.top - 2, w: e.width + 4, h: e.height + 4 }); });
-    var res = render(cx, W, H, V, T.t, { sel: SEL, reserve: keep });
+    if (NIGHT.midnightSun) { b.hidden = false; html(b, '<b>The Sun doesn’t set tonight</b>'); } // no night to drag along
+    else if (sc.sun.alt > -4) { b.hidden = false; html(b, '<b>' + (sc.sun.alt > 0 ? 'The Sun is up' : 'Twilight') + '</b>' + (sc.sun.alt > 0 ? 'Drag along the night below to see tonight’s sky.' : 'Only the brightest stars and planets show yet.')); } else b.hidden = true;
+    var k = [LAYOUT, W, H, $('when')._h, b.hidden, b._h, PT.on, $('ptFix').hidden, $('ptFixN').textContent, $('ptTxt').textContent].join('|');
+    if (k !== KEEP.k) {
+      KEEP = { k: k, rects: [] };
+      ['when', 'nowBtn', 'banner', 'layBtn', 'dirSeg', 'ptFix', 'ptBtn', 'zOut', 'zIn'].forEach(function (id) { var e = $(id).getBoundingClientRect(); if (e.width) KEEP.rects.push({ x: e.left - r.left - 2, y: e.top - r.top - 2, w: e.width + 4, h: e.height + 4 }); });
+    }
+    var res = render(cx, W, H, V, T.t, { sel: SEL, reserve: KEEP.rects.slice() });
     HITS = res.hits; LAST = res;
-    drawTimeline();
+    if (T.t.getTime() !== TLK.t || NIGHT !== TLK.n || RED !== TLK.red || LAYOUT !== TLK.g) drawTimeline(); // the map moved, not the time
   }
+  var KEEP = { k: '' }, LAYOUT = 0; // the buttons over the map, measured; LAYOUT counts resizes and font loads, which move them
+  function html(el, h) { if (el._h !== h) { el._h = h; el.innerHTML = h; } }
+  function attr(el, k, v) { v = String(v); if (el.getAttribute(k) !== v) el.setAttribute(k, v); }
   var EAT_TAP = false; // a tap that closes the layers menu shouldn't also pick a star
   cv.__hits = function () { return HITS; }; // lets automated tests find tappable objects
   cv.__labels = function () { return LAST ? LAST.labels : []; }; // and see where the labels went
@@ -1345,8 +1362,10 @@ html.red .chart canvas{background:#050000}
   // ---------- the timeline ----------
   var tl = $('tlc'), tg = tl.getContext('2d');
   function tlX(t, w) { return (t - NIGHT.start) / (NIGHT.end - NIGHT.start) * w; }
+  var TLK = {}; // what the timeline was last drawn for
   function drawTimeline() {
     if (!NIGHT) return;
+    TLK = { t: T.t.getTime(), n: NIGHT, red: RED, g: LAYOUT };
     var r = tl.getBoundingClientRect(), dpr = Math.min(2.5, window.devicePixelRatio || 1), w = r.width, h = r.height;
     if (!w) return;
     if (tl.width !== Math.round(w * dpr)) { tl.width = Math.round(w * dpr); tl.height = Math.round(h * dpr); }
@@ -1385,9 +1404,9 @@ html.red .chart canvas{background:#050000}
     var N = NIGHT, t = T.t, up = N.moonUpAtStart, max = Math.round((N.end - N.start) / 60e3);
     N.moonEv.forEach(function (e) { if (e.t <= t) up = e.up; });
     var sky = N.midnightSun || (N.sunset && t < N.sunset) || (N.sunrise && t >= N.sunrise) ? 'the Sun up' : N.dark.some(function (s) { return t >= s.a && t <= s.b; }) ? 'fully dark' : 'twilight';
-    tl.setAttribute('aria-valuemax', max);
-    tl.setAttribute('aria-valuenow', clamp(Math.round((t - N.start) / 60e3), 0, max));
-    tl.setAttribute('aria-valuetext', tTime(t) + ', ' + sky + ', Moon ' + (up ? 'up' : 'down'));
+    attr(tl, 'aria-valuemax', max);
+    attr(tl, 'aria-valuenow', clamp(Math.round((t - N.start) / 60e3), 0, max));
+    attr(tl, 'aria-valuetext', tTime(t) + ', ' + sky + ', Moon ' + (up ? 'up' : 'down'));
   }
   (function tlDrag() {
     // A finger can be scrolling the page past the timeline rather than dragging along it, so a touch moves the time only
@@ -2365,7 +2384,7 @@ html.red .chart canvas{background:#050000}
     if (S.loc.guessed) setTimeout(function () { toast('Guessed ' + S.loc.name + ' from your time zone — tap it to change'); }, 900);
     syncDir();
   }).catch(function (e) { $('tonightSec').innerHTML = '<p class="lede">' + (LOADED ? 'Something went wrong drawing the sky' : 'Starhop couldn’t load its star catalog') + ' (' + esc(e && e.message || e) + '). Reload to try again.</p>'; });
-  window.addEventListener('resize', function () { redraw(); });
+  window.addEventListener('resize', function () { LAYOUT++; redraw(); });
   // Keeping up with the clock, every 30 seconds and whenever the page comes back into view: a live map moves on, by day
   // the next night's nightfall shows once this one is over, and the night goes live when it starts. A night the person
   // picked stays, but becomes "Tonight" once the clock reaches it.
@@ -2394,7 +2413,7 @@ html.red .chart canvas{background:#050000}
     if (PT.on) keepScreenOn();
   });
   window.addEventListener('pageshow', function (e) { if (e.persisted) tick(); });
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { LAYOUT++; redraw(); });
 })();
 </script>
 <script>if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function () { });</script>
