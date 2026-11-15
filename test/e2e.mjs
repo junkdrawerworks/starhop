@@ -18,8 +18,9 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 // The server answers the way GitHub Pages does: a browser may keep each file for ten minutes, and asks again by its
 // ETag. `net` is the connection: 'up', 'down' (the server drops every connection) or 'stalled' (a dark site with one
 // bar of signal, a captive wifi: it takes each request and holds on to it). With `release` set it serves the next
-// release, in which every file has changed (see the first check).
-let net = 'up', release = false;
+// release, in which every file has changed (see the first check). With `hooked` set, the page it serves carries a hook
+// into the sky model for the model check (MODEL_HOOK, below); the page in the repo never has it.
+let net = 'up', release = false, hooked = false;
 const held = [];
 const server = createServer((req, res) => {
   if (net === 'down') { req.socket.destroy(); return; }
@@ -30,6 +31,11 @@ const letGo = () => { net = 'up'; for (const [req, res] of held.splice(0)) serve
 async function fileFor(path) {
   if (path.endsWith('/')) path += 'index.html';
   let body = await readFile(join(root, path));
+  if (hooked && path === '/index.html') {
+    const page = String(body), end = '\n})();\n</script>';
+    assert.equal(page.split(end).length, 2, 'the end of the page’s script, where the model check’s hook goes');
+    body = Buffer.from(page.replace(end, '\n' + MODEL_HOOK + end));
+  }
   if (release) {
     if (path === '/sw.js') body = Buffer.from(String(body).replace(/const FILES = '[0-9a-f]*'/, "const FILES = 'next'"));
     else if (path === '/index.html') body = Buffer.concat([body, Buffer.from('<!-- the next release -->\n')]);
@@ -3090,6 +3096,81 @@ check('When the star catalog won’t load, it says what to do and puts away the 
     await page.waitForFunction(() => document.getElementById('tonightSec').textContent.length > 0, null, { timeout: 30000 });
     assert.equal(await text(page, '#tonightSec'), 'Starhop needs to be opened from a web address, not a file. In its folder run python3 -m http.server and open localhost:8000.');
   } finally { await ctx2.close(); }
+});
+
+// The sky model's functions are inside the page's script, out of reach, so the model check has the server add this
+// to the end of it. For a place, a telescope and a sky it shows the night the clock is on, then opens the first three
+// targets, a double star, the last deep-sky object and any extra ({ k, id }), and returns what the page then says.
+const MODEL_HOOK = `
+  window.__model = function (c) {
+    var out = { err: null, cards: [] };
+    try {
+      if (!$('sheet').hidden) closeSheet(true);
+      S.scope = c.scope; S.sky = c.sky; S.seen = {};
+      setLoc(c.loc); $('locName').textContent = c.loc.name;
+      T.live = true; setNight(currentNight(new Date()), true); draw();
+      out.texts = { keys: $('keys').innerText, title: $('nightTitle').innerText, tonight: $('tonightSec').innerText, targets: $('targetSec').innerText, when: $('when').innerText };
+      out.tonight = sameNight(NIGHT.n, currentNight(new Date()));
+      out.rows = TARGETS.map(function (t) {
+        var o = t.o || objById(t.k, t.id), lvl = t.k === 'moon' ? -0.3 : t.k === 'planet' ? 0 : -0.5;
+        return { id: t.id, when: rowWhen(t), alt: altOf(o.b ? { k: 'body', b: o.b } : { v: o.v }, T.t) - lvl };
+      });
+      var picks = TARGETS.slice(0, 3).concat(TARGETS.filter(function (t) { return t.k === 'double'; }).slice(0, 1), TARGETS.filter(function (t) { return t.k === 'dso'; }).slice(-1), c.extra || []);
+      picks.forEach(function (t) {
+        var o = objById(t.k === 'double' ? 'dso' : t.k, t.id);
+        openObject(o); openObject(o); // the second time draws its charts straight away
+        out.cards.push({ id: t.id, text: $('sheet').innerText, cap: $('finderCap').textContent, epCap: $('epCap').innerText, labels: $('finder').__labels.map(function (l) { return l.t; }),
+          rows: [].map.call(document.querySelectorAll('#sheet .eps tbody tr'), function (tr) { return [].map.call(tr.children, function (td) { return td.textContent; }); }) });
+      });
+      if (!$('sheet').hidden) closeSheet(true);
+    } catch (e) { out.err = String(e && e.stack || e); }
+    return out;
+  };
+`;
+const field = deg => deg >= 1 ? deg.toFixed(1) + '°' : Math.round(deg * 60) + '′'; // as the page gives an eyepiece's field
+
+// One wrong edit to the ratings, the eyepiece rows or the star-hops would otherwise pass every check here.
+check('the sky model holds up for places and nights around the world', async () => {
+  const EPS12 = [40, 32, 26, 20, 17, 14, 12, 10, 8, 6, 5, 3.5].map((f, i) => ({ f, a: [52, 68, 82][i % 3] }));
+  const cases = [
+    [AUSTIN, '2026-11-15T21:00:00-06:00', DOB8, 'suburb'],
+    [AUSTIN, '2026-11-15T23:30:00-06:00', DOB8, 'city'],
+    [{ name: 'Edinburgh', lat: 55.95, lon: -3.19, tz: 'Europe/London' }, '2026-06-21T23:00:00+01:00', DOB8, 'rural'],
+    [{ name: 'Tromsø', lat: 69.65, lon: 18.96, tz: 'Europe/Oslo' }, '2026-06-21T23:00:00+02:00', DOB8, 'dark'],
+    [{ name: 'Kirkenes', lat: 69.73, lon: 30.05, tz: 'Europe/Oslo' }, '2027-11-24T20:00:00+01:00', DOB8, 'dark'],
+    [{ name: 'Senmonorom', lat: 12.45, lon: 107.2, tz: 'Asia/Phnom_Penh' }, '2009-01-22T19:15:00+07:00', DOB8, 'rural', [{ k: 'dso', id: 'M43' }]],
+    [{ name: 'Sydney', lat: -33.87, lon: 151.21, tz: 'Australia/Sydney' }, '2026-04-15T22:00:00+10:00', { name: '50 mm', ap: 50, fl: 300, eps: [], set: true }, 'suburb'],
+    [AUSTIN, '2026-07-15T22:30:00-05:00', { name: '500 mm', ap: 500, fl: 4000, eps: EPS12, set: true }, 'dark'],
+    [{ name: 'Utqiaġvik', lat: 71.29, lon: -156.79, tz: 'America/Anchorage' }, '2027-01-22T12:00:00-09:00', DOB8, 'dark'],
+    [{ name: 'Cape Town', lat: -33.93, lon: 18.42, tz: 'Africa/Johannesburg' }, '2026-09-07T03:00:00+02:00', { name: '70 mm', ap: 70, fl: 700, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], set: true }, 'city'],
+  ];
+  hooked = true;
+  const { ctx, page, problems } = await open({ time: cases[0][1] });
+  try {
+    await page.waitForFunction(() => window.__model);
+    const BAD = /NaN|undefined|Invalid Date|Infinity|\[object/;
+    for (const [loc, time, scope, sky, extra] of cases) {
+      const at = `${loc.name} ${time}`;
+      await page.clock.setSystemTime(new Date(time));
+      const r = await page.evaluate(c => window.__model(c), { loc, scope, sky, extra });
+      assert.equal(r.err, null, at);
+      for (const [k, t] of Object.entries(r.texts)) assert.doesNotMatch(t, BAD, `${at}: ${k}`);
+      assert.ok(r.rows.length, `${at}: the list has something`);
+      // a row's state at the time shown: Rises or Set when it's down, and on tonight's list, Up now when it's up
+      for (const row of r.rows) {
+        const st = /^(Rises|Set|Up now)/.exec(row.when);
+        if (st && st[1] !== 'Up now') assert.ok(row.alt < 0.2, `${at}: ${row.id} "${row.when}" but it's ${row.alt.toFixed(1)}° up`);
+        if (r.tonight && (!st || st[1] === 'Up now')) assert.ok(row.alt > -0.2, `${at}: ${row.id} "${row.when}" but it's ${row.alt.toFixed(1)}° down`);
+      }
+      const eps = scope.eps.slice().sort((a, b) => b.f - a.f);
+      for (const c of r.cards) {
+        assert.doesNotMatch(c.text + ' ' + c.epCap, BAD, `${at}: ${c.id}'s card`);
+        assert.deepEqual(c.rows.map(x => x.slice(0, 3)), eps.map(e => [e.f + ' mm', Math.round(scope.fl / e.f) + '×', field(e.a / (scope.fl / e.f))]), `${at}: ${c.id}'s eyepieces`);
+        for (const n of hopStars(c.cap)) assert.ok(c.labels.includes(n), `${at}: ${c.id}'s chart labels ${n}, which its star-hop names`);
+      }
+    }
+    assert.deepEqual(problems, []);
+  } finally { hooked = false; await ctx.close(); }
 });
 
 check('without JavaScript it says what it needs, and GitHub Pages serves it as it is', async () => {
