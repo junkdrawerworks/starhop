@@ -310,6 +310,37 @@ check('a white night and the midnight sun say so instead of showing a dash', asy
   }
 });
 
+// Sunset and sunrise were searched on from noon, so near polar night, when the Sun sets before noon, a night took the
+// next day's sunset and lost its own sunrise. Astronomy Engine 2.1.19: at Kirkenes the Sun sets at 10:42:51Z on Nov 24
+// 2027 (11:42 am), rises at 09:00:25Z on Nov 25 (10:00 am) and sets again at 10:32Z (11:32 am); at Utqiaġvik it sets at
+// 00:15:42Z on Jan 29 2027 (3:15 pm on the 28th) and rises at 20:57:30Z (11:57 am on the 29th).
+check('a night at the edge of polar night keeps its own sunset and sunrise', async () => {
+  for (const [loc, time, want] of [
+    [{ name: 'Kirkenes, NO', lat: 69.73, lon: 30.05, tz: 'Europe/Oslo' }, '2027-11-24T20:00:00+01:00', { Sunset: '11:42 am', Sunrise: '10:00 am' }],
+    [{ name: 'Utqiaġvik, AK', lat: 71.29, lon: -156.79, tz: 'America/Anchorage' }, '2027-01-28T20:00:00-09:00', { Sunset: '3:15 pm', Sunrise: '11:57 am' }],
+  ]) {
+    const { ctx, page, problems } = await open({ loc, time });
+    try {
+      const k = await keys(page);
+      assert.equal(k.Sunset, want.Sunset, loc.name);
+      assert.equal(k.Sunrise, want.Sunrise, loc.name);
+      assert.doesNotMatch(await text(page, '#tonightSec .lede'), /Polar night/, loc.name);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+  // In polar night the timeline takes in the dark from the evening's end of twilight: at Tromsø on Dec 15 2026 the Sun
+  // is 18° down from 15:54Z (4:54 pm), where the fixed hours began at 5:10 pm.
+  const { ctx, page } = await open({ loc: TROMSO, time: '2026-12-15T21:00:00+01:00' });
+  try {
+    const at = await page.$eval('#tlc', el => el.getAttribute('aria-valuemax'));
+    await page.focus('#tlc');
+    await page.keyboard.press('Home');
+    await until(page, '#when', /^4:24 pm/);
+    assert.match(await text(page, '#when'), /^4:24 pm/, 'the timeline starts half an hour before the dark');
+    assert.ok(+at > 14 * 60, 'and runs past the morning twilight');
+  } finally { await ctx.close(); }
+});
+
 // At Tromsø the Sun doesn't set from late May to late July, and doesn't rise from late November to mid January.
 check('under the midnight sun the banner and the verdict say the Sun doesn’t set', async () => {
   let { ctx, page, problems } = await open({ loc: TROMSO, time: '2026-06-21T23:30:00+02:00' });
