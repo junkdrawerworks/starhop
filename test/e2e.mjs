@@ -2953,6 +2953,27 @@ check('small muted labels have 4.5:1 contrast on the page and its panels', async
   } finally { await ctx.close(); }
 });
 
+// A data file that wouldn't load showed "Starhop couldn’t load its star catalog (Failed to fetch). Reload to try again."
+// with the map's and the timeline's buttons still there, doing nothing. Opened from a file, reloading never helps.
+check('When the star catalog won’t load, it says what to do and puts away the buttons that need it', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', route: ['**/data/stars.json', r => r.fulfill({ status: 404, body: '' })] });
+  try {
+    assert.equal(await text(page, '#tonightSec'), 'Starhop couldn’t load its star catalog. Check the connection and reload.');
+    for (const id of ['nowBtn', 'layBtn', 'dirSeg', 'zIn', 'prevN', 'nextN', 'locBtn', 'scopeBtn']) assert.equal(await page.isVisible('#' + id), false, `#${id} is put away`);
+    assert.ok(await page.isVisible('#redBtn'), 'night vision still works');
+    // what went wrong is in the console, not on the page
+    assert.ok(problems.some(p => /^Starhop: Error: stars/.test(p)), 'the console says what went wrong: ' + problems.join(' | '));
+    assert.deepEqual(problems.filter(p => !/^Starhop: |404/.test(p)), [], 'and nothing else');
+  } finally { await ctx.close(); }
+  const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  try {
+    const page = await ctx2.newPage();
+    await page.goto('file://' + join(root, 'index.html'));
+    await page.waitForFunction(() => document.getElementById('tonightSec').textContent.length > 0, null, { timeout: 30000 });
+    assert.equal(await text(page, '#tonightSec'), 'Starhop needs to be opened from a web address, not a file. In its folder run python3 -m http.server and open localhost:8000.');
+  } finally { await ctx2.close(); }
+});
+
 check('without JavaScript it says what it needs, and GitHub Pages serves it as it is', async () => {
   await readFile(join(root, '.nojekyll')).catch(() => assert.fail('.nojekyll is missing'));
   const ctx = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });

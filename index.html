@@ -275,6 +275,8 @@ html.red .chart canvas{background:#050000}
 .eps.plain tbody tr{height:auto;cursor:default}
 .eps.plain tbody tr:hover{background:none}
 .eps.plain td:last-child{font-family:var(--mono);color:var(--ink)}
+.noData .skywrap,.noData #locBtn,.noData #scopeBtn{display:none} /* an empty map and timeline with nothing to draw */
+.noData .panel{max-width:62ch}
 .x{width:34px;height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);padding:0}
 .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
 .opt{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 11px;color:var(--ink)}
@@ -2451,7 +2453,14 @@ html.red .chart canvas{background:#050000}
     setNight(currentNight(new Date()), true);
     if (S.loc.guessed) setTimeout(function () { toast('Guessed ' + S.loc.name + ' from your time zone — tap it to change'); }, 900);
     syncDir();
-  }).catch(function (e) { $('tonightSec').innerHTML = '<p class="lede">' + (LOADED ? 'Something went wrong drawing the sky' : 'Starhop couldn’t load its star catalog') + ' (' + esc(e && e.message || e) + '). Reload to try again.</p>'; });
+  }).catch(function (e) {
+    // What went wrong goes to the console; the page says what to do. Opened from a file, the browser won't read the data
+    // files at all, and reloading never helps. Without the data the map, the timeline, the place and the telescope have
+    // nothing to work on, so they go.
+    if (window.console) console.error('Starhop:', e);
+    if (!LOADED) $('app').classList.add('noData');
+    $('tonightSec').innerHTML = '<p class="lede">' + (LOADED ? 'Something went wrong drawing the sky. Reload to try again.' : location.protocol === 'file:' ? 'Starhop needs to be opened from a web address, not a file. In its folder run <b style="white-space:nowrap">python3 -m http.server</b> and open <b>localhost:8000</b>.' : 'Starhop couldn’t load its star catalog. Check the connection and reload.') + '</p>';
+  });
   window.addEventListener('resize', function () { LAYOUT++; redraw(); });
   // Keeping up with the clock, every 30 seconds and whenever the page comes back into view: a live map moves on, by day
   // the next night's nightfall shows once this one is over, and the night goes live when it starts. A night the person
