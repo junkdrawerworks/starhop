@@ -1518,6 +1518,20 @@ check('pointing stays on the live sky when the night rolls over', async () => {
   } finally { await ctx.close(); }
 });
 
+// On a desktop the page itself could scroll 650px past the screen: the words only screen readers get, in the side
+// panel, hung below it. A wheel over the header slid the whole app up over an empty space.
+check('On a desktop the page holds still and only the side panel scrolls', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  try {
+    assert.ok(await page.evaluate(() => document.scrollingElement.scrollHeight <= innerHeight + 1), 'the page fits the screen');
+    await page.mouse.move(640, 25);
+    await page.mouse.wheel(0, 600);
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => scrollY), 0, 'a wheel over the header leaves it where it is');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('on a desktop an open card covers only the side panel', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
