@@ -2199,6 +2199,37 @@ check('a first visit guesses the place from the time zone, older zone names too'
   }
 });
 
+check('A first visit says what Starhop is for, until Got it or a telescope is set', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    assert.equal(await page.$eval('#hello', el => el.hidden), false, 'the line shows on a first visit');
+    assert.equal(await text(page, '#hello p'), 'What’s up tonight, what’s worth a look in your telescope, and how to star-hop to it.');
+    const top = await page.$eval('#sky', c => c.getBoundingClientRect().top);
+    await page.click('#helloOk');
+    assert.equal(await page.$eval('#hello', el => el.hidden), true, 'Got it takes it away');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'sky', 'and the focus goes on to the map');
+    assert.ok(await page.$eval('#sky', c => c.getBoundingClientRect().top) < top, 'the map moves up into its place');
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('starhop.v1'))).hello, true, 'it is remembered');
+    await page.reload(); await ready(page);
+    assert.equal(await page.$eval('#hello', el => el.hidden), true, 'and stays away after a reload');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  const b = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await b.page.click('#helloScope');
+    assert.ok(await b.page.$('#scAp'), 'Set your telescope opens the telescope sheet');
+    assert.equal(await b.page.$eval('#hello', el => el.hidden), true, 'and the line goes');
+    await b.page.keyboard.press('Escape');
+    await b.page.waitForFunction(() => document.activeElement.id === 'scopeBtn', null, { timeout: 5000 }).catch(() => {});
+    assert.equal(await b.page.evaluate(() => document.activeElement.id), 'scopeBtn', 'closing the sheet hands the focus to the telescope button');
+    assert.deepEqual(b.problems, []);
+  } finally { await b.ctx.close(); }
+  const c = await open({ save: JSON.stringify({ loc: AUSTIN, scope: { name: '8″ Dobsonian', ap: 203, fl: 1200, eps: [{ f: 25, a: 52 }], set: true } }), time: '2026-11-15T21:00:00-06:00' });
+  try {
+    assert.equal(await c.page.$eval('#hello', el => el.hidden), true, 'with a telescope already set it doesn’t show');
+  } finally { await c.ctx.close(); }
+});
+
 check('a damaged or partial save still opens, keeps what makes sense, and is left as it was', async () => {
   const saves = [
     '{"loc":{"name":"Home"}}', '{"loc":{"name":"Home","lat":30.27,"lon":-97.74,"tz":"Mars/Olympus"}}',

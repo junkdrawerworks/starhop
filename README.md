@@ -46,6 +46,7 @@
   - Inside claude.ai the page can't read the phone's sensors, so pointing only works on the website.
 - **Use my location** in the location sheet, also on the website; elsewhere, search for a town or enter coordinates.
 - **Your places.** Save where you observe from the location sheet, named (Home, Club field) and with its own sky, up to eight. Going to one brings its sky back and the ratings follow; a sky chosen under Telescope while you're there is kept with it; and anywhere else keeps the sky that was showing, so a trip doesn't change home. Use my location or coordinates within about 2 km of a saved place count as that place.
+- **A first visit** opens with a line under the header on what Starhop is for, with **Set your telescope** and **Got it**. It doesn't come back once dismissed or once a telescope is set.
 - **Night vision.** Everything turns dim red so your eyes stay dark-adapted at the eyepiece.
 - **Remembered in the browser:** your location, telescope or binoculars (with the telescope's eyepieces, Barlow, finder and which way round it shows the sky), sky, your places, your log, your plan, night vision, what the map shows and your compass correction.
 

@@ -94,6 +94,10 @@ a{color:var(--brass)}
 .ibtn svg{width:17px;height:17px}
 .ibtn[aria-pressed="true"]{background:var(--brass-soft);border-color:var(--ink3);color:var(--ink)}
 
+/* a first visit: one line on what Starhop is for, under the header, until it's dismissed or a telescope is set */
+.hello{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:10px var(--sr) 10px var(--sl);background:var(--panel);border-bottom:1px solid var(--line)}
+.hello p{margin:0;flex:1 1 240px;font-size:14.5px;color:var(--ink)}
+.hello .btnrow{flex:none}
 .main{display:flex;flex-direction:column}
 .skywrap{position:relative;display:flex;flex-direction:column;background:#04070F}
 html.red .skywrap{background:#050000}
@@ -311,7 +315,7 @@ html.red .chart canvas{background:#050000}
 .eps.plain tbody tr{height:auto;cursor:default}
 .eps.plain tbody tr:hover{background:none}
 .eps.plain td:last-child{font-family:var(--mono);color:var(--ink)}
-.noData .skywrap,.noData #locBtn,.noData #scopeBtn{display:none} /* an empty map and timeline with nothing to draw */
+.noData .skywrap,.noData #locBtn,.noData #scopeBtn,.noData .hello{display:none} /* an empty map and timeline with nothing to draw */
 .noData .panel{max-width:62ch}
 .x{width:34px;height:40px;border-radius:10px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);padding:0}
 .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
@@ -342,12 +346,13 @@ html.red .chart canvas{background:#050000}
 @media (min-width:1000px){
   html,body{height:100%}
   .app{height:100%}
-  .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 430px}
+  .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 430px;grid-template-rows:auto minmax(0,1fr)}
+  .hello{grid-column:1/-1}.skywrap,.panel{grid-row:2}
   .skywrap{min-height:0}
   .skybox{flex:1;height:auto}
   .panel{position:relative;overflow:auto;border-left:1px solid var(--line)} /* its screen-reader words (.sr) stay inside it, not below the page */
   /* a sheet takes the side panel's place, below the header, so the sky's controls and the header stay in reach */
-  .sheetbg,html.red .sheetbg{top:55px;justify-content:flex-end;align-items:stretch;background:transparent;pointer-events:none}
+  .sheetbg,html.red .sheetbg{top:calc(55px + var(--hello,0px));justify-content:flex-end;align-items:stretch;background:transparent;pointer-events:none}
   .sheet{pointer-events:auto}
   .sheet{border-radius:0;border:0;border-left:1px solid var(--line2);max-height:none;height:100%;width:430px}
 }
@@ -357,8 +362,9 @@ html.red .chart canvas{background:#050000}
 @media (max-width:999.98px) and (orientation:landscape) and (max-height:540px){
   html,body{height:100%}
   .app{height:100%}
-  .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) min(380px,46%)}
-  .skywrap{min-height:0}
+  .main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) min(380px,46%);grid-template-rows:auto minmax(0,1fr)}
+  .skywrap{min-height:0;grid-row:1/3}
+  .hello{grid-column:2;border-left:1px solid var(--line);--sl:16px}.panel{grid-row:2} /* the first visit's line tops the list, leaving the map its height */
   html:not(.pointing) .skywrap{--or:12px;--sr:16px}
   .skybox{flex:1;height:auto;min-height:0}
   .panel{position:relative;overflow:auto;overscroll-behavior:contain;border-left:1px solid var(--line);--sl:16px} /* its screen-reader words (.sr) stay inside it, not below the page */
@@ -400,6 +406,7 @@ html.red .chart canvas{background:#050000}
     <button class="chip" id="scopeBtn" type="button" aria-label="Your telescope"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="m3 12.5 12.5-6 2 4.2-12.5 6z"/><path d="m15.5 6.5 3.4-1.6 2 4.2-3.4 1.6M9 16l-2.5 5M10 15.5l2.5 5.5"/></svg><span class="t" id="scopeName">Telescope</span></button>
   </header>
   <div class="main">
+    <div class="hello" id="hello" hidden><p>What’s up tonight, what’s worth a look in your telescope, and how to star-hop to it.</p><div class="btnrow"><button class="btn sm" type="button" id="helloScope">Set your telescope</button><button class="btn sec sm" type="button" id="helloOk">Got it</button></div></div>
     <section class="skywrap" aria-label="Sky view">
       <div class="skybox" id="skybox">
         <canvas id="sky" tabindex="0" aria-label="Map of the sky. Arrow keys look around, plus and minus zoom, and Enter opens what is nearest the middle." aria-describedby="skyDesc"></canvas>
@@ -504,7 +511,7 @@ html.red .chart canvas{background:#050000}
     return FINDERS.filter(function (f) { return f.id === S.scope.finder; })[0] || FINDERS[0]; }
   var PLACES_MAX = 8;
   var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], barlow: 1, view: 'inv', finder: 'fs', set: false };
-  var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, log: [], plan: [], places: [] };
+  var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, hello: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, log: [], plan: [], places: [] };
   var SEEN = {}; // the latest night each object in the log was seen, by its id
   try { var saved = JSON.parse(localStorage.getItem(LS) || 'null'); if (plain(saved)) S = checkSave(saved, S); } catch (e) { }
   reseen();
@@ -527,6 +534,7 @@ html.red .chart canvas{background:#050000}
       finder: FINDERS.some(function (f) { return f.id === sc.finder; }) ? sc.finder : 'fs' }) : d.scope;
     if (!SKIES.some(function (k) { return k.id === sv.sky; })) out.sky = d.sky;
     out.red = sv.red === true;
+    out.hello = sv.hello === true;
     out.layers = Object.assign({}, d.layers, plain(sv.layers) ? sv.layers : {});
     out.log = (Array.isArray(sv.log) ? sv.log : []).map(logEntry).filter(Boolean);
     // marks saved before there was a log, { id: night }, come in as entries with only their night
@@ -3113,7 +3121,7 @@ html.red .chart canvas{background:#050000}
         if (badB) { $(badB).setAttribute('aria-invalid', 'true'); $(badB).focus(); toast(badB === 'scAp' && ap >= 2 && ap <= 16 ? INCHES : badB === 'scAp' ? 'Check the aperture, like 50 for 10×50 binoculars' : badB === 'bnMag' ? 'Check the power, like 10 for 10×50 binoculars' : 'Check the field in degrees, like 6.5'); return; }
         if (!name || BINOS.some(function (p) { return p.name === name && (p.ap !== ap || p.mag !== mg || p.fov !== fov); })) name = Math.round(mg * 10) / 10 + '×' + ap + ' binoculars';
         S.scope = { kind: 'bino', name: name, ap: ap, mag: mg, fov: fov, set: true }; setSky(skyv); save();
-        closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies');
+        closeSheet(); renderScopeChip(); renderHello(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies');
         return;
       }
       if (!(ap > 20 && ap < 2000 && fl > 100 && fl < 20000)) { // the field to fix says so, and takes the focus
@@ -3132,12 +3140,24 @@ html.red .chart canvas{background:#050000}
       // A name left empty, or a quick pick's or the example's with other numbers, gives way to one from the numbers.
       if (!name || PRESETS.concat(DEFAULT_SCOPE).some(function (p) { return p.name === name && (p.ap !== ap || p.fl !== fl); })) name = ap + ' mm, f/' + Math.round(fl / ap * 10) / 10;
       S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), barlow: bwv, view: vwv, finder: fdv, set: true }; setSky(skyv); save();
-      closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies'); // the chip hides its name on a phone
+      closeSheet(); renderScopeChip(); renderHello(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies'); // the chip hides its name on a phone
     });
     drawInst(); drawEps(); drawBarlow(); drawViews(); drawFinders(); drawSky(); stats();
   }
   function renderScopeChip() { var n = S.scope.set ? (S.scope.name || S.scope.ap + ' mm') : 'Telescope'; $('scopeName').textContent = n; $('scopeBtn').setAttribute('aria-label', S.scope.set ? (isBino() ? 'Binoculars: ' : 'Telescope: ') + n : 'Your telescope'); }
   $('scopeBtn').addEventListener('click', scopeSheet);
+  // The first visit's line on what Starhop is for, until Got it, Set your telescope or a telescope is set. Whichever
+  // button took it away, the focus goes on: to the map, or to the telescope chip the sheet hands it back to.
+  function renderHello() {
+    var h = $('hello'), had = h.contains(document.activeElement), off = !!(S.hello || S.scope.set); if (h.hidden === off) return;
+    h.hidden = off; LAYOUT++; redraw(); helloTop(); // the map moves up, and on a desktop grows
+    if (had && h.hidden) $('sky').focus();
+  }
+  // on a desktop a sheet opens below the header and the line, over the side panel
+  function helloTop() { var h = $('hello'); document.documentElement.style.setProperty('--hello', h.hidden ? '0px' : h.offsetHeight + 'px'); }
+  function byeHello() { S.hello = true; save(); renderHello(); }
+  $('helloOk').addEventListener('click', byeHello);
+  $('helloScope').addEventListener('click', function () { $('scopeBtn').focus(); byeHello(); scopeSheet(); });
 
   // ---------- location ----------
   var CITIES = null;
@@ -3306,7 +3326,7 @@ html.red .chart canvas{background:#050000}
       var tc = res[4][btz];
       S.loc = { name: tc[0] + (tc[2] === 'US' && tc[1] ? ', ' + tc[1] : tc[2] && tc[2] !== 'US' ? ', ' + tc[2] : ''), lat: tc[3], lon: tc[4], tz: btz, guessed: true };
     }
-    setLoc(S.loc); $('locName').textContent = S.loc.name; renderScopeChip();
+    setLoc(S.loc); $('locName').textContent = S.loc.name; renderScopeChip(); renderHello();
     RED = !!S.red; showRed(RED);
     setNight(currentNight(new Date()), true);
     var shared = openPlanLink(); // a shared plan's link, whose message comes first
@@ -3320,7 +3340,7 @@ html.red .chart canvas{background:#050000}
     if (!LOADED) $('app').classList.add('noData');
     $('tonightSec').innerHTML = '<p class="lede">' + (LOADED ? 'Something went wrong drawing the sky. Reload to try again.' : location.protocol === 'file:' ? 'Starhop needs to be opened from a web address, not a file. In its folder run <b style="white-space:nowrap">python3 -m http.server</b> and open <b>localhost:8000</b>.' : 'Starhop couldn’t load its star catalog. Check the connection and reload.') + '</p>';
   });
-  window.addEventListener('resize', function () { LAYOUT++; redraw(); });
+  window.addEventListener('resize', function () { LAYOUT++; redraw(); helloTop(); });
   // Keeping up with the clock, every 30 seconds and whenever the page comes back into view: a live map moves on, by day
   // the next night's nightfall shows once this one is over, and the night goes live when it starts. A night the person
   // picked stays, but becomes "Tonight" once the clock reaches it.
