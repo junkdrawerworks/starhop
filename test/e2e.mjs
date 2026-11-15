@@ -1153,7 +1153,7 @@ const CHICAGO = { name: 'Chicago, IL', lat: 41.85, lon: -87.65, tz: 'America/Chi
 // Of the 411 stars a star-hop can start or end at, 148 have only a Bayer or Flamsteed label, and the chart labelled only
 // stars with a proper name, so M13's "from η Her" started at an unlabelled star.
 check('the stars a star-hop names are labelled on its chart', async () => {
-  for (const [loc, time, id, want] of [[CHICAGO, '2026-10-16T21:15:00-05:00', 'M13', ['η Her', 'Rutilicus']], [AUSTIN, '2026-10-13T21:00:00-05:00', 'albireo', ['γ Sge']]]) {
+  for (const [loc, time, id, want] of [[CHICAGO, '2026-10-16T21:15:00-05:00', 'M13', ['η Her', 'Rutilicus']], [AUSTIN, '2026-10-13T21:00:00-05:00', 'M27', ['δ Sge']]]) {
     const { ctx, page, problems } = await open({ loc, time });
     try {
       await openCard(page, id);
@@ -1174,7 +1174,7 @@ check('a cluster’s star-hop doesn’t start inside the cluster, and Vega needs
   try {
     await openCard(page, 'M45');
     const cap = await hopCap(page);
-    assert.match(cap, /^Star-hop: /);
+    assert.match(cap, /^Visible without a telescope from your sky: .*Star-hop: /);
     assert.doesNotMatch(cap, /Alcyone|Atlas|Electra|Maia|Merope|Taygeta|Pleione|Celaeno|Asterope/, 'the Pleiades’ star-hop names a Pleiad');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
@@ -1184,6 +1184,36 @@ check('a cluster’s star-hop doesn’t start inside the cluster, and Vega needs
     const cap = await hopCap(page);
     assert.doesNotMatch(cap, /Star-hop/, 'Vega’s card has a star-hop');
     assert.match(cap, /^One of the brightest stars in the sky/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// Every double got a hop, even one whose own star you see at a glance: Polaris "About 12° from Errai", Rigel "About a
+// third of the way from Cursa to Arneb", Mizar from Alkaid to Dubhe. From the suburbs (faintest star 5.0) a star
+// brighter than 4.0 is the target itself; 61 Cygni, at 5.2, still needs finding.
+check('Polaris and Rigel need no star-hop, 61 Cygni still gets one', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:30:00-06:00' });
+  try {
+    await page.click('#targetSec .filters [data-f="double"]');
+    for (const [id, star] of [['polaris', 'Polaris'], ['rigel', 'Rigel']]) {
+      await openCard(page, id);
+      const cap = await hopCap(page);
+      assert.doesNotMatch(cap, /Star-hop/, id + ': ' + cap);
+      assert.match(cap, new RegExp('^' + star + ' is the naked-eye star itself \\(mag \\d\\.\\d\\), at the centre of the chart\\. '));
+      await page.waitForFunction(() => document.getElementById('finder').__ring);
+      assert.ok(await page.$eval('#finder', c => !!c.__ring), id + ' keeps its ring');
+      await page.click('#sheet [data-close]');
+    }
+    await openCard(page, '61cyg');
+    assert.match(await hopCap(page), /^Star-hop: /, '61 Cygni');
+    await page.click('#sheet [data-close]');
+    // a deep-sky object you can see without a telescope says so, and keeps its hop
+    await page.click('#targetSec .filters [data-f="all"]');
+    await openCard(page, 'M45');
+    assert.match(await hopCap(page), /^Visible without a telescope from your sky: a misty patch or a knot of faint stars at the centre of the chart\. Star-hop: /);
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'M57');
+    assert.match(await hopCap(page), /^Star-hop: /, 'the Ring Nebula');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });

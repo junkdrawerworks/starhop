@@ -244,6 +244,8 @@ EXTRA = {
     'NGC 3532': ('Wishing Well Cluster', 'C91'), 'Cr 399': ('Coathanger', ''), 'Cr 256': ('Coma Star Cluster', ''),
     'Cr 39': ('Alpha Persei Cluster', ''), 'IC 2391': ('Omicron Velorum Cluster', 'C85'),
 }
+# The sky map's label for a name too long for it
+SHORT = {'PGC 17223': 'LMC', 'NGC 292': 'SMC'}
 seen = {d['cat'] for d in dso}
 for f in json.load(open(D / 'dsos.bright.json'))['features']:
     k = f['id']
@@ -254,6 +256,8 @@ for f in json.load(open(D / 'dsos.bright.json'))['features']:
     nm, _ = EXTRA[k]
     dso.append({'id': k, 'cat': k, 'name': nm or k, 'type': TYPE.get(p['type'], 'Deep-sky object'), 'kind': KIND.get(p['type'], 'cluster'),
                 'mag': r(p['mag'], 1), 'dim': dims(p.get('dim')), 'ra': r(ra_of(lon), 3), 'dec': r(lat, 3)})
+    if k in SHORT:
+        dso[-1]['short'] = SHORT[k]
 
 # A few favourite NGC targets from the fuller catalog.
 MORE = {'NGC 6543': "Cat's Eye Nebula", 'NGC 7662': 'Blue Snowball', 'NGC 7009': 'Saturn Nebula', 'NGC 457': 'Owl Cluster',

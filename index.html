@@ -904,7 +904,7 @@ html.red .chart canvas{background:#050000}
         else { g.setLineDash([2, 2.5]); g.arc(p[0], p[1], rpx, 0, 2 * Math.PI); }
         g.stroke(); g.setLineDash([]);
         var dObj = { k: 'dso', id: d.id }; hits.push({ x: p[0], y: p[1], r: Math.max(rpx, 9), dr: Math.max(rpx, ry), pr: 2, obj: dObj });
-        if ((fovDeg < 110 || (sp >= 2.5 && w > 600)) && S.layers.names && !o.noLabels && (hv[2] >= 0 || isT)) label(dObj, d.id.indexOf('M') === 0 ? d.id : (d.name && d.name.length < 18 ? d.name : d.id), p[0], p[1], rpx, 3, 4, '400 11.5px "Atkinson Hyperlegible", sans-serif', col(c, 0.85), 5 - sp / 10, isT ? 't' : o.sel && o.sel.id === d.id ? 's' : '');
+        if ((fovDeg < 110 || (sp >= 2.5 && w > 600)) && S.layers.names && !o.noLabels && (hv[2] >= 0 || isT)) label(dObj, d.id.indexOf('M') === 0 ? d.id : d.short || (d.name && d.name.length < 18 ? d.name : d.id), p[0], p[1], rpx, 3, 4, '400 11.5px "Atkinson Hyperlegible", sans-serif', col(c, 0.85), 5 - sp / 10, isT ? 't' : o.sel && o.sel.id === d.id ? 's' : '');
       });
     }
     // stars, batched by colour
@@ -1824,11 +1824,17 @@ html.red .chart canvas{background:#050000}
     var rows = epRows(o, sc), adv = adviceFor(o, sc, rows), st = scopeStats();
     if (!again || EPS.o !== o || EPS.i >= rows.length) EPS = { o: o, i: -1 };
     var shown = EPS.i >= 0 ? EPS.i : adv.pick; // the eyepiece the sketch shows
-    // the brightest stars need no hop, nor do the Moon and planets
-    var ct = chartTime(o, rs), bright = o.k === 'star' && o.mag < 1.5, hop = o.k === 'planet' || o.k === 'moon' || bright || !ct ? null : hopFor(o, ct.t);
+    // The brightest stars need no hop, nor do the Moon and planets, nor a double whose star you can see plainly from
+    // your sky (a magnitude brighter than the faintest you see). Something else you can see without a telescope from
+    // there, by its total magnitude, says so and keeps its hop.
+    var eyeLim = sky().nelm - 1, own = o.k === 'double' && o.star != null ? STARS[o.star * 4 + 2] : null, eyeStar = own != null && own < eyeLim;
+    var eyeSees = o.k === 'dso' && o.mag != null && o.mag < eyeLim;
+    var ct = chartTime(o, rs), bright = o.k === 'star' && o.mag < 1.5, hop = o.k === 'planet' || o.k === 'moon' || bright || eyeStar || !ct ? null : hopFor(o, ct.t);
+    var eyeTxt = eyeStar ? ((NAMES[o.star] || [])[0] || o.name) + ' is the naked-eye star itself (mag ' + own.toFixed(1) + '), at the centre of the chart. ' :
+      eyeSees ? 'Visible without a telescope from your sky: ' + (o.type === 'Globular cluster' ? 'a fuzzy star' : o.kind === 'cluster' ? 'a misty patch or a knot of faint stars' : 'a misty patch') + ' at the centre of the chart. ' : '';
     var h = '<div class="hd"><h2>' + esc(name) + '<small>' + esc(sub) + '</small></h2><button class="btn sec sm" type="button" id="cardDone" data-close>Done</button></div><div class="bd">' +
       '<div class="card"><h3>At ' + esc(tTime(T.t)) + '</h3><p class="big">' + esc(nowTxt) + '</p><p>' + esc(rs.text) + '</p>' + (facts.length ? '<div class="kv">' + facts.map(function (f) { return '<div><span>' + esc(f[0]) + '</span><b>' + esc(f[1]) + '</b></div>'; }).join('') + '</div>' : '') + '</div>' +
-      '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart"></canvas><div class="cap">' + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + 'The dashed circle is a typical finderscope field (5°).</div></div>' +
+      '<div class="charts"><div class="chart"><canvas id="finder" aria-label="Finder chart"></canvas><div class="cap">' + esc(eyeTxt) + (hop ? '<b>Star-hop:</b> ' + esc(hop.text) + ' ' : o.k === 'moon' ? 'You can’t miss it. ' : bright ? 'One of the brightest stars in the sky — you’ll see it straight away. ' : o.k === 'planet' ? 'The brightest “star” in that part of the sky. ' : '') + 'The dashed circle is a typical finderscope field (5°).</div></div>' +
       '<div class="chart"><canvas id="eyepiece" aria-label="Simulated eyepiece view"></canvas><div class="cap" id="epCap"></div></div></div>' +
       '<div class="card"><h3>In your telescope</h3><p>' + esc(adv.txt) + '</p><div class="epsw"><table class="eps"><thead><tr><th>Eyepiece</th><th>Power</th><th>Field</th><th></th></tr></thead><tbody>' +
       rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + r.f + ' mm</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
