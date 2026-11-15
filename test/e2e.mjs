@@ -288,6 +288,28 @@ check('fully dark and the verdict use the same twilight and moonset times as the
   }
 });
 
+// North of about 54.6°N the Sun doesn't get 12° down in midsummer, and the facts said "Twilight until —" and "First
+// light —"; under the midnight sun and in polar night "Sunset —". Astronomy Engine 2.1.19: at Edinburgh on Jun 21 2026
+// the Sun sets at 21:02Z and rises at 03:26Z, and gets no lower than -10.6°; at Tromsø it neither sets on Jun 21 nor
+// rises on Dec 15, when it is 18° down from 15:54Z to 05:24Z.
+check('a white night and the midnight sun say so instead of showing a dash', async () => {
+  for (const [loc, time, sunset, sunrise, lede] of [
+    [EDINBURGH, '2026-06-21T22:30:00+01:00', 'Sunset 10:02 pm Twilight lasts all night', 'Sunrise 4:26 am Never fully dark', /^The sky never gets fully dark/],
+    [TROMSO, '2026-06-21T23:30:00+02:00', 'Sunset None The Sun stays up all night', 'Sunrise None The Sun stays up all night', /^The Sun doesn’t set tonight/],
+    [TROMSO, '2026-12-15T21:00:00+01:00', 'Sunset None Twilight until 4:54 pm', 'Sunrise None First light 6:24 am', /^Polar night: the Sun stays below the horizon all day\. /],
+  ]) {
+    const { ctx, page, problems } = await open({ loc, time });
+    try {
+      const where = loc.name + ' ' + time, facts = await page.$$eval('#tonightSec .fact', fs => fs.map(f => [...f.children].map(c => c.textContent).join(' ')));
+      assert.equal(facts[0], sunset, where);
+      assert.equal(facts[1], sunrise, where);
+      assert.match(await text(page, '#tonightSec .lede'), lede, where);
+      assert.doesNotMatch(await text(page, '#tonightSec .facts') + await text(page, '#tonightSec .moonrow'), /—/, 'no bare dash, ' + where);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
 // At Tromsø the Sun doesn't set from late May to late July, and doesn't rise from late November to mid January.
 check('under the midnight sun the banner and the verdict say the Sun doesn’t set', async () => {
   let { ctx, page, problems } = await open({ loc: TROMSO, time: '2026-06-21T23:30:00+02:00' });

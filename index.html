@@ -1432,14 +1432,23 @@ html.red .chart canvas{background:#050000}
     else if (N.moonIllum < 0.08) verdict = 'A dark, moonless night from <b>' + esc(tTime(N.dark[0].a)) + '</b> to <b>' + esc(tTime(N.dark[N.dark.length - 1].b)) + '</b> — the best kind for faint galaxies and nebulae.';
     else if (ml >= 1 && longest) verdict = 'Darkest with the Moon down from <b>' + esc(tTime(longest.a)) + '</b> to <b>' + esc(tTime(longest.b)) + '</b>' + (ml < 3 ? ' — a short window for faint galaxies and nebulae.' : ' — time for faint galaxies and nebulae.');
     else verdict = 'The ' + (il > 60 ? 'bright ' : '') + 'Moon is up through the dark hours. A good night for the Moon itself, the planets, double stars and bright clusters; faint galaxies will struggle.';
+    // Polar night, and the nights either side of it, when the Sun sets for the last time or rises for the first
+    if (!N.midnightSun && !N.sunset) verdict = (N.sunrise ? 'Polar night ends with the sunrise in the morning. ' : 'Polar night: the Sun stays below the horizon all day. ') + verdict;
+    else if (N.sunset && !N.sunrise) verdict = 'Polar night begins: the Sun doesn’t rise in the morning. ' + verdict;
     VERDICT = verdict.replace(/<\/?b>/g, '');
+    // Sunset and sunrise, each with the end or start of twilight under it, or why there's none: twilight that lasts
+    // all night, the midnight sun, or polar night, which keeps whatever twilight it has.
+    function fact(name, at, tw, twName, allNight) {
+      var b = at ? tTime(at) : 'None', em = !at && N.midnightSun ? 'The Sun stays up all night' : tw ? twName + tTime(tw) : at ? allNight : 'The Sun doesn’t rise today';
+      return '<div class="fact"><span>' + name + '</span><b>' + esc(b) + '</b><em>' + esc(em) + '</em></div>';
+    }
     var mEv = N.moonNight.map(function (e) { return (e.up ? 'rises ' : 'sets ') + tTime(e.t); }).join(', '), mEvC = mEv.replace(/^./, function (c) { return c.toUpperCase(); });
     var moonTxt = !mEv ? (N.moonUpAtDusk ? 'Up all night' : 'Below the horizon all night') : N.moonUpAtDusk && N.sunset ? 'Up at dusk, ' + mEv : mEvC;
     $('tonightSec').innerHTML = '<h2>' + (isTonight ? 'Tonight' : 'That night') + ' <small>' + esc(S.loc ? S.loc.name : '') + '</small></h2>' +
       '<p class="lede">' + verdict + '</p>' +
       '<div class="facts">' +
-      '<div class="fact"><span>Sunset</span><b>' + esc(tTime(N.sunset)) + '</b><em>Twilight until ' + esc(tTime(N.astD || N.nauD)) + '</em></div>' +
-      '<div class="fact"><span>Sunrise</span><b>' + esc(tTime(N.sunrise)) + '</b><em>First light ' + esc(tTime(N.astM || N.nauM)) + '</em></div>' +
+      fact('Sunset', N.sunset, N.astD || N.nauD, 'Twilight until ', 'Twilight lasts all night') +
+      fact('Sunrise', N.sunrise, N.astM || N.nauM, 'First light ', 'Never fully dark') +
       '<div class="fact wide"><span>Fully dark</span><b>' + (N.dark.length ? esc(tTime(N.dark[0].a)) + ' – ' + esc(tTime(N.dark[N.dark.length - 1].b)) : 'Not tonight') + '</b><em>' + (N.dark.length ? 'The Sun is 18° or more below the horizon; twilight is over' : N.midnightSun ? 'The Sun doesn’t set tonight' : 'The Sun stays within 18° of the horizon all night') + '</em></div>' +
       '</div>' +
       '<div class="moonrow"><canvas id="moonIc" aria-hidden="true"></canvas><div><b>' + esc(ph) + ' · ' + il + '% lit</b><span>' + esc(moonTxt) + '</span></div></div>';
