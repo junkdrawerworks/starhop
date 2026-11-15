@@ -1242,6 +1242,27 @@ check('the Moon card says the whole Moon fits only when it does', async () => {
   } finally { await ctx.close(); }
 });
 
+check('a star marked as seen stays marked after a reload', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  try {
+    await openCard(page, 'albireo');
+    await page.click('#seenB');
+    assert.equal(await text(page, '#seenB'), '✓ Seen Oct 13', 'the card says when');
+    await page.click('#sheet [data-close]');
+    const seen = () => page.$eval('#targetSec .row[data-id="albireo"]', r => !!r.querySelector('.seen'));
+    assert.ok(await seen(), 'the list marks it');
+    await page.reload();
+    await ready(page);
+    if (!await page.$('#targetSec .row[data-id="albireo"]')) await page.click('#moreT');
+    assert.ok(await seen(), 'the list still marks it after a reload');
+    await openCard(page, 'albireo');
+    assert.equal(await text(page, '#seenB'), '✓ Seen Oct 13', 'and so does the card');
+    await page.click('#seenB');
+    assert.equal(await text(page, '#seenB'), 'Mark as seen', 'a second tap takes the mark off');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 check('a sheet takes the keyboard focus, has a name, and gives the focus back', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   const focusIn = sel => page.evaluate(s => document.querySelector(s).contains(document.activeElement), sel);
