@@ -1631,7 +1631,7 @@ const events = async page => {
   await page.waitForFunction(() => document.querySelectorAll('#eventSec .ev').length > 0, null, { timeout: 30000 });
   return page.$$eval('#eventSec .ev', rows => rows.map(r => ({
     d: +r.querySelector('.d b').textContent, mon: r.querySelector('.d span').textContent, at: r.querySelector('.d small')?.textContent || '',
-    title: r.querySelector('h3').textContent, text: r.querySelector('p').textContent,
+    title: r.querySelector('.evt').textContent, text: r.querySelector('.evp').textContent,
   })));
 };
 const SYDNEY = { name: 'Sydney, AU', lat: -33.87, lon: 151.21, tz: 'Australia/Sydney' };
@@ -1702,6 +1702,58 @@ check('coming up lists the next moon phases and a meteor shower, in order', asyn
     await page.click('#prevN');
     await page.waitForTimeout(300);
     assert.ok(await page.$eval('#eventSec .list', l => l.kept), 'stepping to another night and back keeps the list');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// Planning a trip: step to a night, then pick the dark site. The view jumped back to tonight.
+check('Changing place keeps the night being planned', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  try {
+    for (let i = 0; i < 6; i++) await page.click('#nextN');
+    assert.equal(await text(page, '#nightTitle'), 'Night of Sat, Nov 21');
+    await until(page, '#when', /^9:00 pm/);
+    await page.click('#locBtn');
+    await page.fill('#lq', 'Tucson');
+    await page.waitForFunction(() => document.querySelector('#lres button')?.textContent.startsWith('Tucson'));
+    await page.click('#lres button');
+    assert.equal(await text(page, '#locName'), 'Tucson, AZ');
+    assert.equal(await text(page, '#nightTitle'), 'Night of Sat, Nov 21', 'the night planned stays');
+    await until(page, '#when', /^9:00 pm/);
+    assert.equal(await text(page, '#when'), '9:00 pm Sat, Nov 21', 'at the same time of night, there');
+    assert.equal(await page.$eval('#tonightSec h2', h => h.textContent), 'That night Tucson, AZ');
+    // from tonight, a new place shows its tonight, live
+    await page.click('#nowBtn');
+    await page.click('#locBtn');
+    await page.fill('#lq', 'Austin');
+    await page.waitForFunction(() => document.querySelector('#lres button')?.textContent.startsWith('Austin'));
+    await page.click('#lres button');
+    assert.equal(await text(page, '#nightTitle'), 'Tonight · Sun, Nov 15');
+    assert.equal(await page.$eval('#nowBtn', b => b.classList.contains('on')), true);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// New Moon on Dec 8, the night to plan a dark-site trip, couldn't be opened from Coming up. It falls at 6:52 pm in Austin.
+check('A Coming up row opens its night', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await events(page);
+    const row = title => page.locator('#eventSec .ev', { hasText: title }).first();
+    await row('New Moon').scrollIntoViewIfNeeded();
+    assert.ok(await page.evaluate(() => scrollY) > 500);
+    await row('New Moon').click();
+    assert.equal(await text(page, '#nightTitle'), 'Night of Tue, Dec 8', 'it steps to that night');
+    await until(page, '#when', /^6:52 pm/);
+    assert.equal(await text(page, '#when'), '6:52 pm Tue, Dec 8', 'at the time it happens');
+    await page.waitForFunction(() => scrollY === 0, null, { timeout: 5000 }).catch(() => {});
+    assert.equal(await page.evaluate(() => scrollY), 0, 'and goes up to the sky');
+    // a shower is listed for its night, with no time of its own, so the time of night shown stays
+    await row('Leonids').click();
+    assert.equal(await text(page, '#nightTitle'), 'Night of Tue, Nov 17');
+    await until(page, '#when', /^6:52 pm/);
+    assert.match(await text(page, '#when'), /^6:52 pm Tue, Nov 17$/);
+    assert.equal(await page.getByRole('button', { name: /^8 Dec 6:52 pm New Moon/ }).count(), 1, 'a row is a button named by what it says');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
