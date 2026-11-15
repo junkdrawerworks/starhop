@@ -351,8 +351,11 @@ ADDED = {
     'NGC 2808': ('', 13.8, 6.3), 'NGC 3293': ('Gem Cluster', 40.0, 4.7), 'NGC 2477': ('', 27.0, 5.8), 'NGC 3201': ('', 18.2, 6.8),
     'NGC 4945': ('', 20.0, None), 'NGC 300': ('', 20.0, None), 'NGC 1365': ('Great Barred Spiral', 9.8, 9.5), 'NGC 6744': ('', 15.5, None),
 }
-# NGC 2000.0's 40' for the Gem Cluster takes in the nebula around it; the cluster itself is d3-celestial's 8'.
-SIZE = {'NGC 3293': 8.0}
+# NGC 2000.0's 40' for the Gem Cluster takes in the nebula around it; the cluster itself is d3-celestial's 8'. Its 40'
+# and magnitude 8.2 for the Tarantula Nebula spread the whole faint glow, which rated the bright knot you see Very hard
+# from the suburbs; that knot is OpenNGC's 16' at visual magnitude 7.25 (github.com/mattiaverga/OpenNGC, NGC.csv).
+SIZE = {'NGC 3293': 8.0, 'NGC 2070': 16.0}
+MAG = {'NGC 2070': 7.25}
 # The Gem Cluster is a cluster in faint nebula, like the Christmas Tree Cluster.
 CLUSTER = {'NGC 3293'}
 for k, (nm, size, mag) in ADDED.items():
@@ -365,7 +368,7 @@ for k, (nm, size, mag) in ADDED.items():
     size = SIZE.get(k, size)
     minor = size if KIND.get(p['type']) != 'galaxy' or not d3dim[0] else size * d3dim[1] / d3dim[0]
     dso.append({'id': k, 'cat': k, 'name': nm or k, 'type': 'Open cluster' if k in CLUSTER else TYPE.get(p['type'], 'Deep-sky object'),
-                'kind': 'cluster' if k in CLUSTER else KIND.get(p['type'], 'cluster'), 'mag': mag if mag is not None else r(p['mag'], 1),
+                'kind': 'cluster' if k in CLUSTER else KIND.get(p['type'], 'cluster'), 'mag': MAG.get(k, mag if mag is not None else r(p['mag'], 1)),
                 'dim': [r(size, 1), r(minor, 1)], 'ra': r(ra_of(lon), 3), 'dec': r(lat, 3)})
 dump('dso.json', {'dso': dso, 'doubles': doubles})
 print(f'  {len(dso)} deep-sky objects, {len(doubles)} doubles')

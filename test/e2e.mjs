@@ -3349,6 +3349,18 @@ check('A southern autumn night lists the Jewel Box, Alpha Centauri and the great
   } finally { await a.ctx.close(); }
 });
 
+// NGC 2000.0's 40′ and magnitude 8.2 for the Tarantula Nebula spread its whole faint glow, and rated the bright knot a
+// small telescope shows plainly Very hard from Sydney's suburbs, 87th of 107. Sydney, Nov 15 2026.
+check('The Tarantula Nebula is rated for the bright knot you see', async () => {
+  const { ctx, page, problems } = await open({ loc: SYDNEY, time: '2026-11-15T22:00:00+11:00' });
+  try {
+    const t = (await targetRows(page)).find(r => r.id === 'NGC 2070');
+    assert.ok(t, 'listed');
+    assert.match(t.rate, /^(Easy|Fair)$/, 'rated ' + t.rate);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 const only = process.argv[2];
 let failed = 0, ran = 0;
 for (const [name, fn] of checks) {
