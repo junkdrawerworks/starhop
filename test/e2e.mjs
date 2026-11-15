@@ -1760,6 +1760,38 @@ check('A filter chip keeps the focus after it filters the list', async () => {
   } finally { await ctx.close(); }
 });
 
+// What changes out of sight of the focus is said through one polite live region, which screen readers read out.
+check('Stepping a night is announced', async () => {
+  const { ctx, page } = await open({ time: '2026-11-15T21:00:00-06:00', phone: false });
+  const said = re => page.waitForFunction(src => new RegExp(src).test(document.getElementById('say').textContent), re.source, { timeout: 5000 }).then(() => true, () => false);
+  const label = id => page.$eval('#' + id, b => b.getAttribute('aria-label'));
+  try {
+    assert.equal(await page.$eval('#say', el => el.getAttribute('aria-live')), 'polite');
+    assert.ok(await page.$eval('#say', el => el.getBoundingClientRect().width <= 1), 'and is out of sight');
+    assert.equal(await label('nextN'), 'Next night, Mon, Nov 16', 'the arrows say which night they go to');
+    assert.equal(await label('prevN'), 'Previous night, Sat, Nov 14');
+    await page.locator('#nextN').focus();
+    await page.keyboard.press('Enter');
+    assert.ok(await said(/^Night of Mon, Nov 16\. (A dark|Darkest|The )/), 'the new night and its verdict are said: ' + await page.$eval('#say', el => el.textContent));
+    assert.ok(!/[<>]/.test(await page.$eval('#say', el => el.textContent)), 'as plain words');
+    assert.equal(await label('nextN'), 'Next night, Tue, Nov 17');
+    assert.equal(await label('prevN'), 'Previous night, Sun, Nov 15');
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Enter');
+    assert.ok(await said(/^Tonight, Sun, Nov 15\. /), 'and stepping back says tonight');
+    await page.locator('#targetSec [data-f="galaxy"]').focus();
+    await page.keyboard.press('Enter');
+    const n = (await page.$eval('#targetSec h2 small', s => s.textContent)).replace(/ targets?/, '');
+    assert.ok(await said(new RegExp('^Galaxies: ' + n + ' targets?$')), 'a filter says how many it shows');
+    await page.click('#locBtn');
+    await page.waitForFunction(() => document.activeElement.id === 'lq');
+    await page.keyboard.type('Aus');
+    assert.ok(await said(/^\d+ places?$/), 'a town search says how many places it found');
+    await page.keyboard.type('qqq');
+    assert.ok(await said(/^No match$/), 'or that none match');
+  } finally { await ctx.close(); }
+});
+
 // Austin, Oct 13 2026, by the USNO convention (PyEphem): Saturn rises 6:37 pm and sets 6:48 am, Jupiter rises 2:58 am, Mars 1:58 am.
 // Sunset is 7:01 pm and sunrise 7:32 am, and the card gives the times between them, so Saturn is up at dusk.
 check('planet rise and set times match the standard ones', async () => {

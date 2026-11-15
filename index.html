@@ -329,6 +329,7 @@ html.red .chart canvas{background:#050000}
 </div>
 <div id="sheet" hidden></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<p class="sr" id="say" aria-live="polite"></p>
 <script src="js/astronomy.browser.min.js"></script>
 <script>
 (function () {
@@ -340,6 +341,9 @@ html.red .chart canvas{background:#050000}
   function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
   function norm360(x) { x %= 360; return x < 0 ? x + 360 : x; }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  // Words for a screen reader about a change away from the focus. The region is emptied first and written a moment
+  // later, so the same words twice are said twice; quick changes in a row say only the last.
+  var sayT; function say(m) { var el = $('say'); el.textContent = ''; clearTimeout(sayT); sayT = setTimeout(function () { el.textContent = m; }, 100); }
   var toastT; function toast(m) { var t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.remove('show'); }, 2600); }
 
   if (!A) { document.body.insertAdjacentHTML('beforeend', '<p style="padding:20px">Starhop couldn’t load its astronomy library. Check the connection and reload.</p>'); return; }
@@ -1383,8 +1387,9 @@ html.red .chart canvas{background:#050000}
     if (SHEET_OBJ) openObject(SHEET_OBJ);
     laterEvents();
   }
-  $('prevN').addEventListener('click', function () { setNight(addDays(NDATE, -1)); });
-  $('nextN').addEventListener('click', function () { setNight(addDays(NDATE, 1)); });
+  function stepNight(k) { setNight(addDays(NDATE, k)); say($('nightTitle').textContent.replace(' · ', ', ') + '. ' + VERDICT); }
+  $('prevN').addEventListener('click', function () { stepNight(-1); });
+  $('nextN').addEventListener('click', function () { stepNight(1); });
 
   // ---------- tonight panel ----------
   // A waxing Moon is lit on the right from the northern hemisphere and on the left from the southern, where it's seen
@@ -1395,10 +1400,12 @@ html.red .chart canvas{background:#050000}
     drawPhase(g, size / 2, size / 2, size / 2 - 1.5, frac, litRight ? 0 : Math.PI, col('#F5EFDC', 1), col('#252A3A', 1));
   }
   var SHOWN_TONIGHT = null; // whether the panel last said Tonight or That night
+  var VERDICT = ''; // the night's verdict in plain words, said when the night is stepped
   function renderTonight() {
     var N = NIGHT, isTonight = SHOWN_TONIGHT = sameNight(N.n, currentNight(new Date()));
     var noonName = tLong(N.noon);
     $('nightTitle').textContent = isTonight ? 'Tonight · ' + tDay(N.noon) : 'Night of ' + tDay(N.noon);
+    [['prevN', -1, 'Previous night, '], ['nextN', 1, 'Next night, ']].forEach(function (b) { var n = addDays(N.n, b[1]); $(b[0]).setAttribute('aria-label', b[2] + tDay(zoned(n.y, n.mo, n.d, 12, 0, tz()))); });
     // keys under the timeline
     var keys = [];
     if (N.sunset) keys.push(['Sunset', N.sunset]);
@@ -1418,6 +1425,7 @@ html.red .chart canvas{background:#050000}
     else if (N.moonIllum < 0.08) verdict = 'A dark, moonless night from <b>' + esc(tTime(N.dark[0].a)) + '</b> to <b>' + esc(tTime(N.dark[N.dark.length - 1].b)) + '</b> — the best kind for faint galaxies and nebulae.';
     else if (ml >= 1 && longest) verdict = 'Darkest with the Moon down from <b>' + esc(tTime(longest.a)) + '</b> to <b>' + esc(tTime(longest.b)) + '</b>' + (ml < 3 ? ' — a short window for faint galaxies and nebulae.' : ' — time for faint galaxies and nebulae.');
     else verdict = 'The ' + (il > 60 ? 'bright ' : '') + 'Moon is up through the dark hours. A good night for the Moon itself, the planets, double stars and bright clusters; faint galaxies will struggle.';
+    VERDICT = verdict.replace(/<\/?b>/g, '');
     var mEv = N.moonEv.map(function (e) { return (e.up ? 'rises ' : 'sets ') + tTime(e.t); }).join(', ');
     var moonTxt = (N.moonUpAtStart ? (N.moonEv.length ? 'Up at dusk, ' + mEv : 'Up all night') : (N.moonEv.length ? mEv.replace(/^./, function (c) { return c.toUpperCase(); }) : 'Below the horizon all night'));
     $('tonightSec').innerHTML = '<h2>' + (isTonight ? 'Tonight' : 'That night') + ' <small>' + esc(S.loc ? S.loc.name : '') + '</small></h2>' +
@@ -1458,7 +1466,7 @@ html.red .chart canvas{background:#050000}
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
     $('targetSec').innerHTML = h;
-    $('targetSec').querySelectorAll('.filters button').forEach(function (b) { b.addEventListener('click', function () { TFILTER = b.dataset.f; TMORE = false; renderTargets(); }); });
+    $('targetSec').querySelectorAll('.filters button').forEach(function (b) { b.addEventListener('click', function () { TFILTER = b.dataset.f; TMORE = false; renderTargets(); say((TFILTER === 'all' ? 'All ' : b.textContent + ': ') + $('targetSec').querySelector('h2 small').textContent); }); });
     $('targetSec').querySelectorAll('.row').forEach(function (b) { b.addEventListener('click', function () { var o = objById(b.dataset.k === 'double' ? 'dso' : b.dataset.k, b.dataset.id); select(o, true); }); });
     $('targetSec').querySelectorAll('canvas[data-moon]').forEach(function (c) { moonIcon(c, NIGHT.moonIllum, NIGHT.moonPhase, 26); });
     if ($('moreT')) $('moreT').addEventListener('click', function () { TMORE = !TMORE; renderTargets(); });
@@ -2123,6 +2131,7 @@ html.red .chart canvas{background:#050000}
       if (q.length < 2) { $('lres').innerHTML = '<p style="padding:10px 12px;margin:0;color:var(--ink2);font-size:13.5px">Type at least two letters. ' + plural(CITIES.c.length, 'place') + ' to choose from.</p>'; return; }
       if (!CITIES.f) CITIES.f = CITIES.c.map(function (c) { return fold(c[0]); });
       for (var i = 0; i < CITIES.c.length && out.length < 12; i++) { var c = CITIES.c[i], nm = CITIES.f[i]; if (nm.indexOf(q) === 0 || (q.length > 3 && nm.indexOf(q) >= 0)) out.push(c); }
+      say(out.length ? plural(out.length, 'place') : 'No match');
       $('lres').innerHTML = out.length ? out.map(function (c, i) { return '<button type="button" data-i="' + CITIES.c.indexOf(c) + '"><span>' + esc(c[0]) + (c[1] ? ', ' + esc(c[1]) : '') + ' <span style="color:var(--ink3)">' + esc(c[2]) + '</span></span><small>' + c[3].toFixed(1) + '°, ' + c[4].toFixed(1) + '°</small></button>'; }).join('') : '<p style="padding:10px 12px;margin:0;color:var(--ink2);font-size:13.5px">No match — try a nearby larger town, or enter coordinates.</p>';
       $('lres').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { var c = CITIES.c[+b.dataset.i]; applyLoc({ name: c[0] + (c[1] && c[2] === 'US' ? ', ' + c[1] : c[2] && c[2] !== 'US' ? ', ' + c[2] : ''), lat: c[3], lon: c[4], tz: CITIES.tz[c[6]] }); }); });
     }
