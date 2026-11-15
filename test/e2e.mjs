@@ -1761,6 +1761,23 @@ check('The Owl Nebula stays on a suburban 130 mm list in spring', async () => {
   } finally { await ctx.close(); }
 });
 
+// The names came straight from d3-celestial: M31's card was "Andromeda · M31", which reads as the constellation, M24 a
+// "Milky Way patch", M77 "Cetus A" (a radio source), M94 a second "Cat’s Eye", and NGC 6543 had a straight apostrophe.
+check('Deep-sky names read as names, with curly apostrophes', async () => {
+  const { dso } = JSON.parse(await readFile(join(root, 'data/dso.json'), 'utf8')), name = id => dso.find(d => d.id === id).name;
+  assert.deepEqual(['M31', 'M33', 'M24', 'M44', 'M64', 'M51', 'M77', 'M94'].map(name),
+    ['Andromeda Galaxy', 'Triangulum Galaxy', 'Sagittarius Star Cloud', 'Beehive Cluster', 'Black Eye Galaxy', 'Whirlpool Galaxy', '', '']);
+  assert.deepEqual(dso.filter(d => /'/.test(d.name)).map(d => d.name), [], 'straight apostrophes');
+  assert.equal(dso.find(d => d.id === 'NGC 2264').type, 'Open cluster', 'the Christmas Tree Cluster');
+  const { ctx, page, problems } = await open({ time: '2026-10-13T21:00:00-05:00' });
+  try {
+    await openCard(page, 'M31');
+    assert.equal(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), 'Andromeda Galaxy · M31');
+    assert.match(await text(page, '#sheet'), /the farthest thing most people can see without a telescope/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // A star brighter than 4.6 can be tapped, and its card goes by its name or label, or "A magnitude 4.5 star" with neither. The build
 // gives Bayer letters down to 4.5 and Flamsteed numbers down to 4.0, which leaves 126 tappable stars with no label (16 of
 // them have neither in d3-celestial), so one more is a star that lost its only label, as ξ Sco did with "Grafias".

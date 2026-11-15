@@ -165,7 +165,12 @@ TYPE = {'gc': 'Globular cluster', 'oc': 'Open cluster', 's': 'Spiral galaxy', 's
         'pn': 'Planetary nebula', 'snr': 'Supernova remnant', 'pos': 'Star field'}
 KIND = {'gc': 'cluster', 'oc': 'cluster', 's': 'galaxy', 's0': 'galaxy', 'sd': 'galaxy', 'e': 'galaxy', 'i': 'galaxy',
         'sfr': 'nebula', 'en': 'nebula', 'rn': 'nebula', 'bn': 'nebula', 'pn': 'nebula', 'snr': 'nebula', 'pos': 'cluster'}
-POS = {'M24': ('Star field', 'Sagittarius Star Cloud'), 'M73': ('Asterism', '')}
+POS = {'M24': 'Star field', 'M73': 'Asterism'}
+# Names that read better than d3-celestial's: 'Andromeda' alone reads as the constellation, 'Cetus A' is a radio
+# source's name, and M94 shared 'Cat's Eye' with NGC 6543. An empty name shows the catalogue number.
+NAMES = {'M31': 'Andromeda Galaxy', 'M33': 'Triangulum Galaxy', 'M24': 'Sagittarius Star Cloud', 'M64': 'Black Eye Galaxy',
+         'M44': 'Beehive Cluster', 'M51': 'Whirlpool Galaxy', 'M101': 'Pinwheel Galaxy', 'M104': 'Sombrero Galaxy',
+         'M102': 'Spindle Galaxy', 'M73': '', 'M77': '', 'M94': ''}
 
 def dims(s):
     try:
@@ -184,8 +189,8 @@ for f in json.load(open(D / 'messier.json'))['features']:
     tn = TYPE.get(t, 'Deep-sky object')
     common = (p.get('alt') or '').replace('´', '’')
     if f['id'] in POS:
-        tn, c2 = POS[f['id']]
-        common = common or c2
+        tn = POS[f['id']]
+    common = NAMES.get(f['id'], common)
     mag = p.get('mag')
     mag = r(mag, 1) if mag not in (None, '', 999) and float(mag) < 90 else None
     dso.append({'id': f['id'], 'cat': (p.get('desig') or '').replace(' ', ' '), 'name': common, 'type': tn, 'kind': KIND.get(t, 'cluster'),
@@ -278,6 +283,11 @@ for f in pool:
             mag = None
         dso.append({'id': k, 'cat': k, 'name': MORE[k] or k, 'type': TYPE.get(p['type'], 'Deep-sky object'), 'kind': KIND.get(p['type'], 'cluster'),
                     'mag': mag, 'dim': dims(p.get('dim')), 'ra': r(ra_of(lon), 3), 'dec': r(lat, 3)})
+# The Christmas Tree Cluster is a cluster with faint nebula around it, so its sketch should show stars, not a glow.
+for d in dso:
+    if d['id'] == 'NGC 2264':
+        d['type'], d['kind'] = 'Open cluster', 'cluster'
+    d['name'] = d['name'].replace("'", '’')
 missing = set(MORE) - {d['cat'] for d in dso}
 print('  NGC extras not found:', sorted(missing))
 dump('dso.json', {'dso': dso, 'doubles': doubles})
