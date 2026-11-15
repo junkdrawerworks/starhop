@@ -685,6 +685,8 @@ html.red .chart canvas{background:#050000}
     if (o.k === 'double') {
       var need = splitPower(o), st = scopeStats(), rows = epRows();
       if (o.sep < st.dawes * 1.1) return { r: 'hard', label: 'Too close', d: 9 };
+      // a companion fainter than the faintest star the telescope shows (M40's 10th-magnitude pair from a city)
+      if (mags(o)[1] > st.lm - (sky().nelm - nelmAt(sunAlt))) return { r: 'hard', label: 'Too faint', d: 4.5 };
       // without eyepieces entered, the telescope's highest useful power stands in for them
       var top = rows.length ? Math.max.apply(null, rows.map(function (r) { return r.M; })) : st.maxMag;
       // an easy split has room to spare: 0.6 of the highest power, and twice the telescope's resolving limit

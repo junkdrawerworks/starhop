@@ -1694,6 +1694,12 @@ check('M13 ranks above M40 on an Austin November night', async () => {
     assert.match(await advice(page), /^The two stars are 53\.2″ apart/);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
+  // its stars, magnitudes 9.7 and 10.2, are beyond a 70 mm's reach from a city (faintest star 8.0)
+  ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, sky: 'city', scope: { name: '', ap: 70, fl: 700, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], set: true } }), time: '2026-04-15T22:00:00-05:00' }));
+  try {
+    assert.equal((await targetRows(page)).find(r => r.id === 'M40')?.rate, 'Too faint');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
   // its stars are too faint for the star catalog, so it keeps a mark of its own on the map, which opens its card
   ({ ctx, page, problems } = await open({ time: '2026-04-15T22:00:00-05:00', phone: false }));
   try {
