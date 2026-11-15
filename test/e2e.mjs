@@ -1284,7 +1284,7 @@ check('a card says an object is wider than the field only when it is', async () 
   try {
     const say = async id => { await openCard(page, id); const a = await advice(page); await page.click('#sheet [data-close]'); return a; };
     assert.equal(await say('M45'), 'At 1.8° across, it fills most of your lowest-power field (2.0°). Use the 25 mm, or try binoculars.');
-    assert.match(await say('M31'), /^At 3\.2° across, it’s wider than your lowest-power field \(2\.0°\)\./);
+    assert.match(await say('M31'), /^At 3\.0° across, it’s wider than your lowest-power field \(2\.0°\)\./);
     assert.match(await say('M57'), /^It spans 1′\. Find it with the 25 mm \(2\.0° field\), then try the 10 mm \(65×\) for a closer look\.$/);
   } finally { await ctx.close(); }
 });
@@ -1574,18 +1574,35 @@ check('planet rise and set times match the standard ones', async () => {
   } finally { await ctx.close(); }
 });
 
-check('M40 and M73, which have no size, get no made-up size or cluster sketch', async () => {
+// d3-celestial gives them no size, and the card made one up. SEDS gives M40's pair as 0.8′ across and M73's four stars as 2.8′.
+check('M40 and M73, a few faint stars, take their size from SEDS and get no cluster sketch', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
-    for (const id of ['M40', 'M73']) {
+    for (const [id, sz] of [['M40', '1′'], ['M73', '3′']]) {
       await openCard(page, id);
       const size = await page.$$eval('#sheet .kv div', ds => ds.find(d => d.querySelector('span').textContent === 'Size').querySelector('b').textContent);
-      assert.equal(size, '—', id + ' size');
-      assert.equal(await advice(page), 'Find it with the 25 mm (2.0° field), then try the 10 mm (65×) for a closer look.', id + ' advice');
+      assert.equal(size, sz, id + ' size');
+      assert.equal(await advice(page), 'It spans ' + sz + '. Find it with the 25 mm (2.0° field), then try the 10 mm (65×) for a closer look.', id + ' advice');
       await page.waitForFunction(() => document.getElementById('epCap').textContent);
       assert.doesNotMatch(await text(page, '#epCap'), /sketch/, id + ' has no cluster sketch');
       await page.keyboard.press('Escape');
     }
+  } finally { await ctx.close(); }
+});
+
+// d3-celestial gave the Omega Nebula the size of its whole faint glow (46′ × 37′; SEDS gives 11′) and the Lagoon and
+// the Trifid photographic magnitudes (5.8 and 8.5; SEDS gives 4.6 and 6.3), so on a moonless July night in Austin the
+// list called the Omega Hard, the Trifid Very hard and the Lagoon Fair.
+check('The Omega and Lagoon nebulae rate Easy in a 130 mm from the suburbs', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-07-15T22:30:00-05:00' });
+  try {
+    const rows = await targetRows(page), rate = id => rows.find(r => r.id === id)?.rate;
+    assert.equal(rate('M17'), 'Easy', 'the Omega Nebula');
+    assert.equal(rate('M8'), 'Easy', 'the Lagoon Nebula');
+    assert.notEqual(rate('M20'), 'Very hard', 'the Trifid Nebula');
+    await openCard(page, 'M17');
+    assert.match(await text(page, '#sheet .kv'), /mag 7\.0 SIZE 11′ DIFFICULTY Easy/i);
+    assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
 

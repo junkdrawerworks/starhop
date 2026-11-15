@@ -4,7 +4,7 @@ The files in this folder are compact versions of the data below, made by `tools/
 
 ## d3-celestial
 
-`stars.json`, `constellations.json`, `dso.json` (positions, types, sizes and magnitudes) and `milkyway.json` come from d3-celestial 0.7.35 by Olaf Frohn. Its sources include the XHIP extended Hipparcos compilation, IAU star names and constellation figures, and SEDS Messier data.
+`stars.json`, `constellations.json`, `dso.json` (positions and types, and the sizes and magnitudes of objects outside the Messier catalog) and `milkyway.json` come from d3-celestial 0.7.35 by Olaf Frohn. Its sources include the XHIP extended Hipparcos compilation, IAU star names and constellation figures, and SEDS Messier data.
 
 ```
 Copyright (c) 2015, Olaf Frohn
@@ -20,6 +20,10 @@ Redistribution and use in source and binary forms, with or without modification,
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+## SEDS Messier Catalog
+
+The visual magnitudes and sizes of the 110 Messier objects in `dso.json` come from the data table of the SEDS Messier Catalog by Hartmut Frommert and Christine Kronberg (http://www.messier.seds.org/data.html, last modified April 26, 2013), in place of d3-celestial's. Its materials may be freely used for non-profit, educational purposes when the SEDS Messier Catalog online database is acknowledged as the source (http://www.messier.seds.org/usage.html).
 
 ## IAU Working Group on Star Names
 
