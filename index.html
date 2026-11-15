@@ -2139,6 +2139,21 @@ html.red .chart canvas{background:#050000}
   // A typed coordinate. "−97.74" with a real minus sign and "45,76" with a decimal comma are read as meant; anything
   // else that isn't a plain number ("97.74 W") is refused rather than half read.
   function coord(v) { v = String(v).trim().replace(/\u2212/g, '-'); if (/^[-+]?\d*,\d+$/.test(v)) v = v.replace(',', '.'); return v === '' ? NaN : Number(v); }
+  // The k towns nearest a spot, nearest first, each with its distance in degrees along the ground (a degree of
+  // longitude shrinks toward the poles). None until the list has loaded.
+  function nearCities(la, lo, k) {
+    var out = [];
+    if (CITIES) CITIES.c.forEach(function (c) {
+      var d = Math.hypot(c[3] - la, (c[4] - lo) * Math.cos(la * D2R));
+      if (out.length < k || d < out[out.length - 1].d) { out.push({ c: c, d: d }); out.sort(function (a, b) { return a.d - b.d; }); if (out.length > k) out.pop(); }
+    });
+    return out;
+  }
+  // A spot within 0.6° (about 65 km) of a town is named Near it; anywhere else goes by its coordinates.
+  function placeName(near, la, lo) { return near && near.d < 0.6 ? 'Near ' + near.c[0] : la.toFixed(2) + '°, ' + lo.toFixed(2) + '°'; }
+  function deviceZone() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } }
+  // The browser's own name for a zone, so an older name (Asia/Calcutta) matches the list's (Asia/Kolkata)
+  function zoneId(k) { try { return new Intl.DateTimeFormat('en-US', { timeZone: k }).resolvedOptions().timeZone; } catch (e) { return null; } }
   function locSheet() {
     openSheet('<div class="hd"><h2>Where you observe<small>Times, twilight and what’s up all depend on it</small></h2><button class="btn sec sm" type="button" data-close>Done</button></div><div class="bd">' +
       '<label class="fld"><span>Search for a town or city</span><input id="lq" placeholder="e.g. Austin, Tucson, Lyon" autocomplete="off" inputmode="search"></label><div class="res" id="lres"></div>' +
@@ -2165,11 +2180,13 @@ html.red .chart canvas{background:#050000}
     if ($('lGeo')) $('lGeo').addEventListener('click', function () {
       var b = this; b.disabled = true; b.textContent = 'Finding you…';
       navigator.geolocation.getCurrentPosition(function (pos) {
-        var la = pos.coords.latitude, lo = pos.coords.longitude, tzid = 'UTC';
-        try { tzid = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (err) { }
+        var la = pos.coords.latitude, lo = pos.coords.longitude, dev = deviceZone();
+        // The place's own zone, from the towns nearest it: a laptop on home time, a zone set by hand or a VPN says
+        // nothing about where it is. The device's zone stands only when one of those towns shares it, as by a border.
         loadCities().then(function () { return null; }, function () { return null; }).then(function () {
-          var near = null, bd = 1e9; if (CITIES) CITIES.c.forEach(function (c) { var d = Math.hypot(c[3] - la, (c[4] - lo) * Math.cos(la * D2R)); if (d < bd) { bd = d; near = c; } });
-          applyLoc({ name: near && bd < 0.6 ? 'Near ' + near[0] : la.toFixed(2) + '°, ' + lo.toFixed(2) + '°', lat: la, lon: lo, tz: tzid });
+          var near = nearCities(la, lo, 5), tzid = near.length ? CITIES.tz[near[0].c[6]] : dev;
+          if (near.some(function (n) { return zoneId(CITIES.tz[n.c[6]]) === zoneId(dev); })) tzid = dev;
+          applyLoc({ name: placeName(near[0], la, lo), lat: la, lon: lo, tz: tzid });
         });
       }, function () { b.disabled = false; b.textContent = 'Use my location'; toast('Couldn’t get your location here — search for a town instead'); }, { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 });
     });
@@ -2177,8 +2194,8 @@ html.red .chart canvas{background:#050000}
       var la = coord($('lLat').value), lo = coord($('lLon').value);
       if (isNaN(la) || isNaN(lo)) { toast('Enter plain numbers, like 30.27 and −97.74 (south and west are negative)'); return; }
       if (!(la >= -90 && la <= 90 && lo >= -180 && lo <= 180)) { toast('Latitude runs −90 to 90, longitude −180 to 180'); return; }
-      var near = null; if (CITIES) { var bd = 1e9; CITIES.c.forEach(function (c) { var d = Math.hypot(c[3] - la, (c[4] - lo) * Math.cos(la * D2R)); if (d < bd) { bd = d; near = c; } }); }
-      applyLoc({ name: near && Math.hypot(near[3] - la, near[4] - lo) < 1 ? 'Near ' + near[0] : la.toFixed(2) + '°, ' + lo.toFixed(2) + '°', lat: la, lon: lo, tz: near ? CITIES.tz[near[6]] : (Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC') });
+      var near = nearCities(la, lo, 1)[0];
+      applyLoc({ name: placeName(near, la, lo), lat: la, lon: lo, tz: near ? CITIES.tz[near.c[6]] : deviceZone() });
     });
     setTimeout(function () { if (!('ontouchstart' in window) && $('lq')) $('lq').focus(); }, 50);
   }
@@ -2202,9 +2219,8 @@ html.red .chart canvas{background:#050000}
   // America/Indiana/Indianapolis). Find the zone in the list the browser counts as the same; the list runs from the
   // biggest city down, so the first match is the likeliest place.
   function sameZone(list, z) {
-    function id(k) { try { return new Intl.DateTimeFormat('en-US', { timeZone: k }).resolvedOptions().timeZone; } catch (e) { return null; } }
-    var want = id(z), keys = Object.keys(list);
-    for (var i = 0; want && i < keys.length; i++) if (id(keys[i]) === want) return keys[i];
+    var want = zoneId(z), keys = Object.keys(list);
+    for (var i = 0; want && i < keys.length; i++) if (zoneId(keys[i]) === want) return keys[i];
     return null;
   }
   function load(name) { return fetch('data/' + name + '.json').then(function (r) { if (!r.ok) throw new Error(name); return r.json(); }); }

@@ -54,12 +54,14 @@ const browser = await pw.chromium.launch();
 // Opens Starhop at phone size (or desktop) with a saved location, or a raw save, and the clock set to `time`.
 // Anything the page asks of another site is refused and listed in `outside`.
 // `init` runs in the page before Starhop does. `route` is [url pattern, handler] for the page's requests, and with
-// `wait` false it returns as soon as the page has loaded, without waiting for the sky to be drawn.
-async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, reducedMotion = 'no-preference', init, route, wait = true } = {}) {
+// `wait` false it returns as soon as the page has loaded, without waiting for the sky to be drawn. `geo` is where the
+// device says it is, { latitude, longitude }, with leave to ask.
+async function open({ loc = AUSTIN, save, time, tz, phone = true, sw = false, reducedMotion = 'no-preference', init, route, wait = true, geo } = {}) {
   const ctx = await browser.newContext({
     viewport: phone ? { width: 390, height: 844 } : { width: 1280, height: 800 },
     deviceScaleFactor: phone ? 2 : 1, isMobile: phone, hasTouch: phone, locale: 'en-US',
     timezoneId: tz || (loc && loc.tz) || 'America/Chicago', serviceWorkers: sw ? 'allow' : 'block', reducedMotion,
+    ...(geo ? { geolocation: geo, permissions: ['geolocation'] } : {}),
   });
   const problems = [], outside = [];
   await ctx.route(url => !url.href.startsWith(base), route => { outside.push(route.request().url()); route.abort(); });
@@ -1005,6 +1007,30 @@ check("typed coordinates take a decimal comma and a real minus sign, and refuse 
     assert.ok(await sheetOpen(page), '"97.74 W" is refused, not read as 97.74° east');
     assert.deepEqual(await saved(), [30.27, -97.74]);
   } finally { await ctx.close(); }
+});
+
+// The time zone came from the device, so a laptop on New York time in Tucson showed a November sunset at 7:23 pm. The
+// nearest town's zone is used now, and the device's only when a town that near shares it (as by a border). Sunset in
+// Tucson on Nov 15 2026 is 5:2x pm MST; in Austin 5:34 pm CST (Astronomy Engine 2.1.19: 00:24Z and 23:34Z).
+check("Use my location takes the place's time zone, not the phone's", async () => {
+  for (const [tz, geo, want, sunset] of [
+    ['America/New_York', { latitude: 32.22, longitude: -110.97 }, 'America/Phoenix', /^Sunset 5:2\d pm/],
+    ['Europe/London', { latitude: 30.27, longitude: -97.74 }, 'America/Chicago', /^Sunset 5:34 pm/],
+  ]) {
+    const { ctx, page, problems } = await open({ tz, geo, time: '2026-11-15T12:00:00Z' });
+    try {
+      await page.click('#locBtn');
+      await page.click('#lGeo');
+      await page.waitForFunction(() => document.getElementById('sheet').hidden, null, { timeout: 15000 });
+      const loc = await page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).loc);
+      assert.equal(loc.tz, want, `a device on ${tz}`);
+      assert.match(loc.name, /^Near /);
+      await until(page, '#keys', sunset);
+      assert.match(await text(page, '#keys'), sunset);
+      assert.match(await text(page, '#keys'), /Sunrise \d:\d\d am/);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
 });
 
 // Town search dropped accents but left ø, æ, ð and the curly apostrophe as they were, so Tromsø, København, Egilsstaðir
