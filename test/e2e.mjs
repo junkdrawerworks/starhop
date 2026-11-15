@@ -644,6 +644,84 @@ check('A plan lists its picks by best time, marks what is badly placed, and open
   } finally { await ctx.close(); }
 });
 
+// Saved places, each with its own sky: a trip doesn't overwrite home, and the ratings follow the place. Fort Davis
+// (McDonald Observatory, 30.67° N, 104.02° W) as a dark site.
+const savedPlaces = page => page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).places.map(p => p.name + ':' + p.sky));
+const ratingsSky = page => page.$eval('#targetSec .note:not(.tally)', n => n.textContent.match(/under (\S+) skies/)[1]);
+check('Saved places each keep their own sky, and a trip doesn’t overwrite home', async () => {
+  let { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await page.click('#locBtn');
+    assert.match(await text(page, '#sheet .places'), /^YOUR PLACES Keep the places you observe from/);
+    await page.click('#pAdd');
+    assert.equal(await page.$eval('#pName', i => i.value), 'Austin, TX', 'the name starts as the place’s');
+    assert.equal(await page.$eval('#pSky .on', b => b.dataset.s), 'suburb', 'and the sky as the one showing');
+    await page.fill('#pName', 'Home');
+    await page.click('#pOk');
+    assert.equal(await sheetOpen(page), false);
+    assert.equal(await text(page, '#locName'), 'Home');
+    assert.deepEqual(await savedPlaces(page), ['Home:suburb']);
+    // a dark site, by its coordinates
+    await page.click('#locBtn');
+    await page.fill('#lLat', '30.67'); await page.fill('#lLon', '-104.02');
+    await page.click('#lUse');
+    await page.click('#locBtn');
+    assert.equal(await page.$eval('#sheet [data-p="0"]', b => b.getAttribute('aria-pressed')), 'false', 'Home isn’t where it is now');
+    await page.click('#pAdd');
+    await page.fill('#pName', 'Club field');
+    await page.click('#pSky [data-s="dark"]');
+    await page.click('#pOk');
+    assert.deepEqual(await savedPlaces(page), ['Home:suburb', 'Club field:dark']);
+    assert.equal(await ratingsSky(page), 'dark-site', 'the ratings follow the place');
+    const m33 = async () => (await targetRows(page)).find(r => r.id === 'M33').rate, darkM33 = await m33();
+    // back home, its own sky comes back
+    await page.click('#locBtn');
+    await page.click('#sheet [data-p="0"]');
+    assert.equal(await text(page, '#locName'), 'Home');
+    assert.equal(await ratingsSky(page), 'suburban');
+    assert.match(await text(page, '#toast'), /^Showing the sky over Home, under suburban skies$/);
+    assert.notEqual(await m33(), darkM33, 'the Triangulum Galaxy is rated for each place’s sky: ' + darkM33);
+    // a sky chosen at home is kept with home
+    await page.click('#scopeBtn');
+    assert.match(await text(page, '#sheet'), /Kept with Home, one of your places/);
+    await page.click('#skyOpts [data-s="city"]');
+    await page.click('#scSave');
+    assert.deepEqual(await savedPlaces(page), ['Home:city', 'Club field:dark']);
+    // a trip somewhere else doesn't touch either, and keeps the sky that was showing
+    await page.click('#locBtn');
+    await page.fill('#lq', 'Tucs');
+    await page.waitForFunction(() => /Tucson/.test(document.getElementById('lres').textContent), null, { timeout: 10000 });
+    await page.click('#lres button');
+    assert.match(await text(page, '#locName'), /^Tucson/);
+    assert.deepEqual(await savedPlaces(page), ['Home:city', 'Club field:dark']);
+    assert.equal(await ratingsSky(page), 'city');
+    // Use these coordinates a few hundred metres from the club field finds it, and its sky
+    await page.click('#locBtn');
+    await page.fill('#lLat', '30.672'); await page.fill('#lLon', '-104.018');
+    await page.click('#lUse');
+    assert.equal(await text(page, '#locName'), 'Club field');
+    assert.equal(await ratingsSky(page), 'dark-site');
+    // removing one
+    await page.click('#locBtn');
+    assert.match(await text(page, '#sheet .places'), /Its sky goes with it/);
+    await page.click('#sheet [data-pdel="0"]');
+    assert.deepEqual(await savedPlaces(page), ['Club field:dark']);
+    assert.equal(await sheetOpen(page), true, 'the sheet stays open');
+    await page.click('#sheet [data-close]');
+    await page.reload(); await ready(page);
+    assert.equal(await text(page, '#locName'), 'Club field');
+    assert.deepEqual(await savedPlaces(page), ['Club field:dark']);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // a damaged list of places opens with the ones that make sense
+  ({ ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, places: [{ name: 'X', lat: 'a', lon: 2, tz: 'UTC' }, { name: 'Ok', lat: 10, lon: 10, tz: 'UTC', sky: 'zzz' }, 'junk'] }), time: '2026-11-15T21:00:00-06:00' }));
+  try {
+    await page.click('#locBtn');
+    assert.deepEqual(await page.$$eval('#sheet [data-p]', b => b.map(x => x.innerText.replace(/\s+/g, ' '))), ['Ok Suburbs · Bortle 7']);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // At 7:30 pm in New York on Nov 15 2026 the list put Venus, Jupiter and Mercury, which rise before dawn, above Saturn,
 // up now. Astronomy Engine 2.1.19 has Jupiter rising at 11:17 pm there, and Saturn setting at 1:44 am.
 const NEW_YORK = { name: 'New York, NY', lat: 40.71, lon: -74.01, tz: 'America/New_York' };

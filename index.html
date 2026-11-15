@@ -316,6 +316,12 @@ html.red .chart canvas{background:#050000}
 .opt b{display:block;font-size:14px}
 .opt small{display:block;color:var(--ink2);font-size:12px;margin-top:2px}
 .opt.on{border-color:var(--brass);background:var(--brass-soft)}
+.plist{display:flex;flex-direction:column;gap:6px;margin:4px 0 8px}
+.pl{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:6px}
+.pl .x{height:auto}
+.pl .opt b{overflow-wrap:anywhere}
+.places .btnrow{margin-top:8px}
+.pform{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .opt .bt{font:500 11px var(--mono);color:var(--ink2);margin-left:4px;white-space:nowrap}
 .res{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .res button{display:flex;justify-content:space-between;gap:10px;text-align:left;background:var(--panel);border:0;border-bottom:1px solid var(--line);padding:10px 12px;color:var(--ink)}
@@ -473,8 +479,9 @@ html.red .chart canvas{background:#050000}
   function finder() {
     if (isBino()) return { rings: [{ deg: S.scope.fov, dash: true, a: 0.6 }], cap: 'The dashed circle is your binoculars’ field (' + S.scope.fov + '°).' };
     return FINDERS.filter(function (f) { return f.id === S.scope.finder; })[0] || FINDERS[0]; }
+  var PLACES_MAX = 8;
   var DEFAULT_SCOPE = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }, { f: 10, a: 52 }], barlow: 1, view: 'inv', finder: 'fs', set: false };
-  var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, log: [], plan: [] };
+  var S = { loc: null, scope: DEFAULT_SCOPE, sky: 'suburb', red: false, layers: { lines: true, names: true, dso: true, mw: true, grid: false }, log: [], plan: [], places: [] };
   var SEEN = {}; // the latest night each object in the log was seen, by its id
   try { var saved = JSON.parse(localStorage.getItem(LS) || 'null'); if (plain(saved)) S = checkSave(saved, S); } catch (e) { }
   reseen();
@@ -502,6 +509,12 @@ html.red .chart canvas{background:#050000}
     // marks saved before there was a log, { id: night }, come in as entries with only their night
     if (plain(sv.seen)) Object.keys(sv.seen).forEach(function (k) { var v = sv.seen[k]; if (typeof v === 'string' && v && k !== 'Moon' && !out.log.some(function (e) { return e.id === k && e.night === v; })) out.log.push({ id: k, night: v }); });
     delete out.seen;
+    // your places, each with its own sky; one that can't be found again is left out
+    out.places = (Array.isArray(sv.places) ? sv.places : []).map(function (p) {
+      var a = plain(p) ? num(p.lat) : NaN, b = plain(p) ? num(p.lon) : NaN;
+      if (!(a >= -90 && a <= 90 && b >= -180 && b <= 180 && zoneOk(p.tz))) return null;
+      return { name: typeof p.name === 'string' && p.name.trim() ? p.name.trim().slice(0, 40) : a.toFixed(2) + '°, ' + b.toFixed(2) + '°', lat: a, lon: b, tz: p.tz, sky: SKIES.some(function (k) { return k.id === p.sky; }) ? p.sky : d.sky };
+    }).filter(Boolean).slice(0, PLACES_MAX);
     // the plan: what's in it, by the names its link uses (see planToken), each once
     out.plan = (Array.isArray(sv.plan) ? sv.plan : []).filter(function (k, i, a) { return typeof k === 'string' && k.trim() && k.length <= 60 && a.indexOf(k) === i; }).slice(0, 100);
     if (!(Array.isArray(sv.ptOff) && sv.ptOff.length === 2 && sv.ptOff.every(function (v) { return typeof v === 'number' && isFinite(v); }))) delete out.ptOff;
@@ -519,6 +532,16 @@ html.red .chart canvas{background:#050000}
     return o;
   }
   function sky() { return SKIES.filter(function (s) { return s.id === S.sky; })[0] || SKIES[1]; }
+  // Your places, each remembering its own sky: going to one brings its sky back, and a sky chosen while there is kept
+  // with it. Anywhere else keeps the sky that was showing.
+  // within about 2 km, so Use my location at home finds home, whatever the phone's fix
+  function placeAt(la, lo) {
+    var best = null, bd = 0.02;
+    S.places.forEach(function (p) { var d = Math.hypot(p.lat - la, (p.lon - lo) * Math.cos(la * D2R)); if (d < bd) { bd = d; best = p; } });
+    return best;
+  }
+  function curPlace() { return S.loc ? placeAt(S.loc.lat, S.loc.lon) : null; }
+  function setSky(v) { S.sky = v; var p = curPlace(); if (p) p.sky = v; }
 
   // ---------- time zones: every time is shown in the observer's own zone ----------
   var FMT = {};
@@ -2878,7 +2901,7 @@ html.red .chart canvas{background:#050000}
       '<div class="fld" data-only="scope"><span>Barlow</span><p class="hint">A Barlow lens goes in front of an eyepiece and doubles or triples its power.</p><div class="opts" id="bwOpts" role="group" aria-label="Barlow"></div></div>' +
       '<div class="fld" data-only="scope"><span>What you see through it</span><div class="opts" id="vwOpts" role="group" aria-label="What you see through it"></div></div>' +
       '<div class="fld" data-only="scope"><span>Your finder</span><div class="opts" id="fdOpts" role="group" aria-label="Your finder"></div></div>' +
-      '<div class="fld"><span>Your sky</span><p class="hint">Each sky’s Bortle class goes by the faintest star you see by eye, as Bortle’s scale gives it (Sky &amp; Telescope, February 2001).</p><div class="opts" id="skyOpts"></div></div>' +
+      '<div class="fld"><span>Your sky</span><p class="hint">' + (curPlace() ? 'Kept with ' + esc(curPlace().name) + ', one of your places. ' : '') + 'Each sky’s Bortle class goes by the faintest star you see by eye, as Bortle’s scale gives it (Sky &amp; Telescope, February 2001).</p><div class="opts" id="skyOpts"></div></div>' +
       '<div class="card" id="scStats"></div></div>');
     // Until a telescope is set, the example's name stays out of the field, so one typed in by hand isn't saved under it.
     $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = ts.fl; $('bnMag').value = bn.mag; $('bnFov').value = bn.fov;
@@ -2946,7 +2969,7 @@ html.red .chart canvas{background:#050000}
         var badB = !(ap > 20 && ap < 300) ? 'scAp' : !(mg >= 2 && mg <= 40) ? 'bnMag' : !(fov >= 0.5 && fov <= 15) ? 'bnFov' : null;
         if (badB) { $(badB).setAttribute('aria-invalid', 'true'); $(badB).focus(); toast(badB === 'scAp' && ap >= 2 && ap <= 16 ? INCHES : badB === 'scAp' ? 'Check the aperture, like 50 for 10×50 binoculars' : badB === 'bnMag' ? 'Check the power, like 10 for 10×50 binoculars' : 'Check the field in degrees, like 6.5'); return; }
         if (!name || BINOS.some(function (p) { return p.name === name && (p.ap !== ap || p.mag !== mg || p.fov !== fov); })) name = Math.round(mg * 10) / 10 + '×' + ap + ' binoculars';
-        S.scope = { kind: 'bino', name: name, ap: ap, mag: mg, fov: fov, set: true }; S.sky = skyv; save();
+        S.scope = { kind: 'bino', name: name, ap: ap, mag: mg, fov: fov, set: true }; setSky(skyv); save();
         closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies');
         return;
       }
@@ -2965,7 +2988,7 @@ html.red .chart canvas{background:#050000}
       }
       // A name left empty, or a quick pick's or the example's with other numbers, gives way to one from the numbers.
       if (!name || PRESETS.concat(DEFAULT_SCOPE).some(function (p) { return p.name === name && (p.ap !== ap || p.fl !== fl); })) name = ap + ' mm, f/' + Math.round(fl / ap * 10) / 10;
-      S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), barlow: bwv, view: vwv, finder: fdv, set: true }; S.sky = skyv; save();
+      S.scope = { name: name, ap: ap, fl: fl, eps: eps.map(function (e) { return { f: e.f, a: e.a }; }), barlow: bwv, view: vwv, finder: fdv, set: true }; setSky(skyv); save();
       closeSheet(); renderScopeChip(); computeTargets(); renderTargets(); redraw(); toast('Ratings now for your ' + name + ' under ' + sky().adj + ' skies'); // the chip hides its name on a phone
     });
     drawInst(); drawEps(); drawBarlow(); drawViews(); drawFinders(); drawSky(); stats();
@@ -3012,11 +3035,12 @@ html.red .chart canvas{background:#050000}
   function deviceZone() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } }
   // The browser's own name for a zone, so an older name (Asia/Calcutta) matches the list's (Asia/Kolkata)
   function zoneId(k) { try { return new Intl.DateTimeFormat('en-US', { timeZone: k }).resolvedOptions().timeZone; } catch (e) { return null; } }
-  function locSheet() {
-    openSheet('<div class="hd"><h2>Where you observe<small>Times, twilight and what’s up all depend on it</small></h2><button class="btn sec sm" type="button" data-close>Done</button></div><div class="bd">' +
+  function locSheet(again) {
+    openSheet('<div class="hd"><h2>Where you observe<small>Times, twilight and what’s up all depend on it</small></h2><button class="btn sec sm" type="button" data-close>Done</button></div><div class="bd">' + placesCard() +
       '<label class="fld"><span>Search for a town or city</span><input id="lq" placeholder="e.g. Austin, Tucson, Lyon" autocomplete="off" inputmode="search"></label><div class="res" id="lres"></div>' +
       (navigator.geolocation ? '<div class="btnrow"><button class="btn sec sm" type="button" id="lGeo">Use my location</button></div>' : '') +
-      '<div class="card"><h3>Or enter exact coordinates</h3><div class="grid2"><label class="fld"><span>Latitude</span><input id="lLat" inputmode="decimal" placeholder="30.27"></label><label class="fld"><span>Longitude</span><input id="lLon" inputmode="decimal" placeholder="-97.74"></label></div><p style="margin-top:8px;font-size:13px">North and east are positive. Your phone’s map app shows the numbers for a spot you tap.</p><div class="btnrow" style="margin-top:10px"><button class="btn sec sm" type="button" id="lUse">Use these coordinates</button></div></div></div>');
+      '<div class="card"><h3>Or enter exact coordinates</h3><div class="grid2"><label class="fld"><span>Latitude</span><input id="lLat" inputmode="decimal" placeholder="30.27"></label><label class="fld"><span>Longitude</span><input id="lLon" inputmode="decimal" placeholder="-97.74"></label></div><p style="margin-top:8px;font-size:13px">North and east are positive. Your phone’s map app shows the numbers for a spot you tap.</p><div class="btnrow" style="margin-top:10px"><button class="btn sec sm" type="button" id="lUse">Use these coordinates</button></div></div></div>', null, again);
+    wirePlaces();
     if (S.loc) { $('lLat').value = S.loc.lat.toFixed(4); $('lLon').value = S.loc.lon.toFixed(4); }
     $('lres').innerHTML = '<p style="padding:10px 12px;margin:0;color:var(--ink2);font-size:13.5px">Loading places…</p>';
     // The sheet can close before the places arrive, so each step checks it is still there.
@@ -3055,15 +3079,57 @@ html.red .chart canvas{background:#050000}
       var near = nearCities(la, lo, 1)[0];
       applyLoc({ name: placeName(near, la, lo), lat: la, lon: lo, tz: near ? CITIES.tz[near.c[6]] : deviceZone() });
     });
-    setTimeout(function () { if (!('ontouchstart' in window) && $('lq')) $('lq').focus(); }, 50);
+    if (!again) setTimeout(function () { if (!('ontouchstart' in window) && $('lq')) $('lq').focus(); }, 50);
   }
+  function skyOpts(id, v) { return '<div class="opts" id="' + id + '" role="group" aria-label="Its sky">' + SKIES.map(function (k) { return '<button class="opt' + (k.id === v ? ' on' : '') + '" type="button" data-s="' + k.id + '" aria-pressed="' + (k.id === v) + '"><b>' + k.name + ' <span class="bt">Bortle ' + k.bortle + '</span></b><small>' + k.sub + '</small></button>'; }).join('') + '</div>'; }
+  // Your places at the top of the location sheet: each opens with its own sky. Where you are can be saved as one,
+  // named and with the sky it has.
+  function placesCard() {
+    var cur = curPlace();
+    var h = '<div class="card places"><h3>Your places</h3>';
+    if (!S.places.length) h += '<p>Keep the places you observe from, each with its own sky, such as home in the suburbs and a dark site you drive to.</p>';
+    else h += '<div class="plist">' + S.places.map(function (p, i) {
+      var k = SKIES.filter(function (x) { return x.id === p.sky; })[0] || SKIES[1], on = p === cur;
+      return '<div class="pl"><button class="opt' + (on ? ' on' : '') + '" type="button" data-p="' + i + '" aria-pressed="' + on + '"><b>' + esc(p.name) + '</b><small>' + k.name + ' · Bortle ' + k.bortle + '</small></button><button class="x" type="button" data-pdel="' + i + '" aria-label="Remove ' + esc(p.name) + ' from your places">×</button></div>';
+    }).join('') + '</div>';
+    if (cur) h += '<p class="hint" style="margin:0">Its sky goes with it: change it under Telescope while you’re here.</p>';
+    else if (S.loc && S.places.length < PLACES_MAX) h += '<div class="btnrow"><button class="btn sec sm" type="button" id="pAdd">Save ' + esc(S.loc.name) + ' as a place</button></div>' +
+      '<div class="pform" id="pForm" hidden><label class="fld"><span>Name</span><input id="pName" maxlength="40" autocomplete="off" placeholder="e.g. Home, Club field"></label><div class="fld"><span>Its sky</span>' + skyOpts('pSky', S.sky) + '</div><div class="btnrow"><button class="btn sm" type="button" id="pOk">Save place</button></div></div>';
+    else if (S.loc) h += '<p class="hint" style="margin:0">That’s ' + PLACES_MAX + ' places, as many as it keeps: remove one to save another.</p>';
+    return h + '</div>';
+  }
+  function wirePlaces() {
+    var sk = S.sky;
+    $('sheet').querySelectorAll('[data-p]').forEach(function (b) { b.addEventListener('click', function () { var p = S.places[+b.dataset.p]; if (p) goPlace(p); }); });
+    $('sheet').querySelectorAll('[data-pdel]').forEach(function (b) {
+      b.addEventListener('click', function () { var p = S.places.splice(+b.dataset.pdel, 1)[0]; save(); locSheet(true); if (p) toast('Removed ' + p.name + ' from your places'); });
+    });
+    if ($('pAdd')) $('pAdd').addEventListener('click', function () {
+      $('pForm').hidden = false; this.parentNode.hidden = true;
+      $('pName').value = S.loc.name; $('pName').focus(); $('pName').select();
+    });
+    if ($('pSky')) $('pSky').querySelectorAll('button').forEach(function (b) {
+      b.addEventListener('click', function () { sk = b.dataset.s; $('pSky').querySelectorAll('button').forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }); });
+    });
+    if ($('pOk')) $('pOk').addEventListener('click', function () {
+      var name = $('pName').value.trim() || S.loc.name, l = { name: name, lat: S.loc.lat, lon: S.loc.lon, tz: S.loc.tz };
+      S.places.push({ name: name, lat: l.lat, lon: l.lon, tz: l.tz, sky: sk });
+      S.loc = l; S.sky = sk; save(); $('locName').textContent = name; closeSheet();
+      computeTargets(); renderTonight(); renderTargets(); redraw();
+      toast('Saved ' + name + ' as one of your places, under ' + sky().adj + ' skies');
+    });
+  }
+  // a saved place, and its sky
+  function goPlace(p) { applyLoc({ name: p.name, lat: p.lat, lon: p.lon, tz: p.tz }); }
   // A night being planned stays, at the same time of night there; from tonight, the new place's tonight shows, live.
   function applyLoc(l) {
     var planning = NDATE && !T.live && !T.auto && !sameNight(NDATE, currentNight(new Date())), clock = parts(T.t, tz());
+    var mine = placeAt(l.lat, l.lon); // one of your places, found again: its name and its sky
+    if (mine) { l = { name: mine.name, lat: mine.lat, lon: mine.lon, tz: mine.tz }; S.sky = mine.sky; }
     setLoc(l); save(); $('locName').textContent = l.name; closeSheet(); SCN = {};
     if (planning) { T.t = zoned(clock.y, clock.mo, clock.d, clock.h, clock.mi, tz()); setNight(NDATE); }
     else { T.live = true; T.t = new Date(); setNight(currentNight(T.t), true); }
-    toast(/^Near /.test(l.name) ? 'Showing the sky near ' + l.name.slice(5) : 'Showing the sky over ' + l.name); }
+    toast((/^Near /.test(l.name) ? 'Showing the sky near ' + l.name.slice(5) : 'Showing the sky over ' + l.name) + (mine ? ', under ' + sky().adj + ' skies' : '')); }
   $('locBtn').addEventListener('click', locSheet);
 
   // ---------- night vision ----------
