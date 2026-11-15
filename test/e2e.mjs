@@ -2339,6 +2339,7 @@ check('Binoculars can be chosen, with one power and field, and the sketch shows 
     await page.click('#scopeBtn');
     assert.equal(await page.isVisible('#bnMag'), false, 'a telescope’s sheet has no power box');
     await page.click('#inOpts [data-n="bino"]');
+    assert.equal(await page.inputValue('#scAp'), '50', 'binoculars start from their own aperture, not the telescope’s 130 mm');
     assert.equal(await page.isVisible('#epl'), false, 'binoculars have no eyepieces');
     assert.equal(await page.isVisible('#bwOpts'), false, 'no Barlow');
     assert.equal(await page.isVisible('#fdOpts'), false, 'and no finder');
@@ -2368,6 +2369,9 @@ check('Binoculars can be chosen, with one power and field, and the sketch shows 
     await page.click('#inOpts [data-n="scope"]');
     assert.equal(await page.inputValue('#scFl'), '650');
     assert.equal(await page.isVisible('#epl'), true);
+    assert.deepEqual([await page.inputValue('#scName'), await page.inputValue('#scAp')], ['', '130'], 'the binoculars’ name and aperture stay with them');
+    await page.click('#inOpts [data-n="bino"]');
+    assert.deepEqual([await page.inputValue('#scName'), await page.inputValue('#scAp')], ['10×50 binoculars', '50'], 'and come back with them');
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });

@@ -2492,10 +2492,17 @@ html.red .chart canvas{background:#050000}
     $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = ts.fl; $('bnMag').value = bn.mag; $('bnFov').value = bn.fov;
     var picked = null; // the name a quick pick put in the field
     var skyv = S.sky, fdv = isBino() ? 'fs' : finder().id, bwv = ts.barlow || 1, vwv = isBino() ? guessView(ts.name) : viewOf().id, inv = isBino() ? 'bino' : 'scope';
+    // The name and aperture each kind keeps while the sheet is open, so a telescope's don't become the binoculars' (10×130)
+    var kept = { scope: { name: isBino() ? '' : $('scName').value, ap: ts.ap }, bino: { name: isBino() ? $('scName').value : '', ap: bn.ap } };
+    function swap(to) {
+      if (to === inv) return;
+      kept[inv] = { name: $('scName').value, ap: $('scAp').value }; inv = to;
+      $('scName').value = kept[to].name; $('scAp').value = kept[to].ap; $('scAp').removeAttribute('aria-invalid'); picked = null;
+    }
     // Telescope or binoculars: the sheet shows the fields for the one chosen
     function drawInst() {
       $('inOpts').innerHTML = [['scope', 'Telescope'], ['bino', 'Binoculars']].map(function (o) { return '<button class="opt' + (o[0] === inv ? ' on' : '') + '" type="button" data-n="' + o[0] + '" aria-pressed="' + (o[0] === inv) + '"><b>' + o[1] + '</b></button>'; }).join('');
-      $('inOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { if (inv !== b.dataset.n) { inv = b.dataset.n; if (picked && $('scName').value === picked) $('scName').value = ''; picked = null; } drawInst(); stats(); }); });
+      $('inOpts').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { swap(b.dataset.n); drawInst(); stats(); }); });
       $('sheet').querySelectorAll('[data-only]').forEach(function (el) { el.hidden = el.dataset.only !== inv; });
       $('scName').placeholder = inv === 'bino' ? 'e.g. 10×50 binoculars' : 'e.g. 70 mm refractor';
     }
@@ -2527,7 +2534,7 @@ html.red .chart canvas{background:#050000}
     }
     $('scPre').addEventListener('change', function () {
       var v = this.value, p = (v[0] === 'b' ? BINOS : PRESETS)[+v.slice(1)]; if (!p) return;
-      $('scName').value = picked = p.name; $('scAp').value = p.ap; $('scAp').removeAttribute('aria-invalid');
+      swap(v[0] === 'b' ? 'bino' : 'scope'); $('scName').value = picked = p.name; $('scAp').value = p.ap; $('scAp').removeAttribute('aria-invalid');
       if (v[0] === 'b') { inv = 'bino'; $('bnMag').value = p.mag; $('bnFov').value = p.fov; $('bnMag').removeAttribute('aria-invalid'); $('bnFov').removeAttribute('aria-invalid'); }
       else { inv = 'scope'; $('scFl').value = p.fl; vwv = guessView(p.name); drawViews(); $('scFl').removeAttribute('aria-invalid'); }
       drawInst(); stats();
