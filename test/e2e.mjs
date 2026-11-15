@@ -1684,6 +1684,24 @@ check('the stars a star-hop names are labelled on its chart', async () => {
   }
 });
 
+// Hatysa is 0.9° from M43, inside the target's ring, so every place for its name ran into the ring or M43's label, and
+// the chart named it in its star-hop without labelling it. Spica, 1.6° from Venus, had the same trouble.
+check('the star a hop starts from is labelled even right beside the target', async () => {
+  for (const [loc, time, id, name] of [[{ name: 'Senmonorom', lat: 12.45, lon: 107.2, tz: 'Asia/Phnom_Penh' }, '2009-01-22T19:15:00+07:00', 'M43', 'Hatysa'], [AUSTIN, '2026-11-16T06:24:00-06:00', 'Venus', 'Spica']]) {
+    const { ctx, page, problems } = await open({ loc, time });
+    try {
+      await openCard(page, id);
+      await page.waitForFunction(() => document.getElementById('finder').__labels);
+      const f = await finderLabels(page), labels = f.labels.map(l => l.t);
+      if (id === 'M43') assert.match(await hopCap(page), /Just beside Hatysa/);
+      assert.ok(labels.includes(name), `${id}'s chart labels ${name} (it has ${labels.join(', ')})`);
+      assert.ok(labels.includes(id), `${id}'s chart still labels ${id}`);
+      checkLabels(f.labels, f.w, f.h, f.keep, `${id}’s finder chart`);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
 // The Pleiades' hop started "Just beside Electra", a Pleiad 0.48° from the cluster's centre, and Vega's hopped to the
 // fifth brightest star in the sky from Sheliak, at magnitude 3.5.
 check('a cluster’s star-hop doesn’t start inside the cluster, and Vega needs no hop', async () => {

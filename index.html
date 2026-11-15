@@ -855,8 +855,8 @@ html.red .chart canvas{background:#050000}
     g.closePath(); g.fillStyle = lit; g.fill(); g.restore();
   }
   // Labels go on last, over the ground: each one right of its mark, or left of it where it would run off the right
-  // edge or cover something on the right. The most important are placed first (the target, the Moon, planets, stars
-  // by brightness, deep-sky objects, then constellation names), and one that would cover a label already placed or a
+  // edge or cover something on the right. The most important are placed first (a star-hop's stars, the target, the
+  // Moon, planets, stars by brightness, deep-sky objects, then constellation names), and one that would cover a label already placed or a
   // box kept clear (the map's buttons and time, a chart's stamp, the compass letters, the target's ring) is left out.
   function overlap(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
   function placeLabels(g, w, h, labs, keep) {
@@ -875,14 +875,27 @@ html.red .chart canvas{background:#050000}
         if (right + tw <= w - 2) spots.push([right, L.y + L.dy]);
         if (left >= 2) spots.push([left, L.y + L.dy]);
         if (!spots.length) spots.push([right, L.y + L.dy]); // no room either side: kept inside below
-        if (L.more) [-1, 1].forEach(function (k) { var dy = L.dy + k * (px + 3); if (right + tw <= w - 2) spots.push([right, L.y + dy]); if (left >= 2) spots.push([left, L.y + dy]); }); // a star-hop's star can go a line up or down
+        // The target, a star-hop's star and the brightest stars can go a line up or down, then centred just above or
+        // below the mark, then two lines up or down: a hop's star right beside the target has its ring and label on both
+        // sides. Off to one side, such a label can also move up to 12px further out to clear the target's ring.
+        if (L.more) {
+          var side = function (k) { var dy = L.dy + k * (px + 3); if (right + tw <= w - 2) spots.push([right, L.y + dy, 1]); if (left >= 2) spots.push([left, L.y + dy, -1]); };
+          side(-1); side(1);
+          spots.push([L.x - tw / 2, L.y - L.r - 3 - desc], [L.x - tw / 2, L.y + L.r + 3 + asc]);
+          side(-2); side(2);
+        }
       }
       var pad = L.center ? px * 0.6 : 1; // italic constellation names lean past their width, so they keep a wider gap
       for (var j = 0; j < spots.length; j++) {
         var x0 = clamp(spots[j][0], pad + 1, Math.max(pad + 1, w - pad - 1 - tw));
         var by = spots[j][1]; by += Math.max(0, 1 - (by - asc)); by -= Math.max(0, by + desc - (h - 1));
         var b = { x: x0 - pad, y: by - asc - 1, w: tw + 2 * pad, h: asc + desc + 2 };
-        if (!clear(b)) continue;
+        if (!clear(b)) {
+          var dir = spots[j][2]; if (!dir) continue;
+          var hit = keep.filter(function (q) { return overlap(b, q); }), sh = dir > 0 ? Math.max.apply(null, hit.map(function (q) { return q.x + q.w - b.x; })) + 0.5 : Math.min.apply(null, hit.map(function (q) { return q.x - b.x - b.w; })) - 0.5;
+          if (Math.abs(sh) > 12 || x0 + sh < pad + 1 || x0 + sh > w - pad - 1 - tw) continue;
+          x0 += sh; b.x += sh; if (!clear(b)) continue;
+        }
         g.fillStyle = L.color; g.fillText(L.t, x0, by);
         keep.push(b); placed.push({ t: L.t, x: x0 - 1, y: b.y, w: tw + 2, h: b.h, ax: L.x, ay: L.y, obj: L.obj });
         break;
@@ -897,9 +910,9 @@ html.red .chart canvas{background:#050000}
     // Labels are collected as things are drawn and placed at the end. The target's and the selection's go outside
     // their rings ('t' and 's').
     var tStar = o.target ? (o.target.k === 'star' ? o.target.i : o.target.star) : null, sStar = o.sel ? (o.sel.k === 'star' ? o.sel.i : o.sel.star) : null;
-    var hopStars = o.hop ? o.hop.stars : []; // a finder chart's star-hop names these, so they're labelled next after the target
+    var hopStars = o.hop ? o.hop.stars : []; // a finder chart's star-hop names these, so they're labelled first
     // obj is what a tap on the label opens
-    function label(obj, text, x, y, r, gap, dy, font, color, pri, ring, more) { labs.push({ obj: obj, t: text, x: x, y: y, r: ring === 't' ? Math.max(r, 12) : ring === 's' ? Math.max(r, 27) : r, gap: gap, dy: dy, font: font, color: color, pri: ring === 't' ? 0 : pri, more: more }); }
+    function label(obj, text, x, y, r, gap, dy, font, color, pri, ring, more) { labs.push({ obj: obj, t: text, x: x, y: y, r: ring === 't' ? Math.max(r, 12) : ring === 's' ? Math.max(r, 27) : r, gap: gap, dy: dy, font: font, color: color, pri: ring === 't' ? 0 : pri, more: more || ring === 't' }); }
     var lim = Math.min(6.2, limitMag(sc) + (vw.fov < 70 ? 0.6 : 0) + (vw.fov < 35 ? 0.8 : 0) + (vw.fov < 15 ? 0.6 : 0));
     if (o.lim != null) lim = o.lim;
     var bg = skyColor(sc.sun.alt), bgc = 'rgb(' + bg.map(Math.round).join(',') + ')';
@@ -989,7 +1002,8 @@ html.red .chart canvas{background:#050000}
       if (o.labelMag != null) nl = o.labelMag;
       bright.forEach(function (b) {
         var onHop = hopStars.indexOf(b[0]) >= 0;
-        if (onHop || (b[2] <= nl && (b[4] >= 0 || b[0] === tStar))) label(b[5], NAMES[b[0]][0] || NAMES[b[0]][1], b[1][0], b[1][1], b[3], 3, -2, '400 12px "Atkinson Hyperlegible", sans-serif', col('#C9CFDF', 0.8), onHop ? 0.5 : 3 + b[2] / 10, b[0] === tStar ? 't' : b[0] === sStar ? 's' : '', onHop);
+        // a star-hop's stars go before the target's own label, which has its ring to show where it is
+        if (onHop || (b[2] <= nl && (b[4] >= 0 || b[0] === tStar))) label(b[5], NAMES[b[0]][0] || NAMES[b[0]][1], b[1][0], b[1][1], b[3], 3, -2, '400 12px "Atkinson Hyperlegible", sans-serif', col('#C9CFDF', 0.8), onHop ? -0.5 : 3 + b[2] / 10, b[0] === tStar ? 't' : b[0] === sStar ? 's' : '', onHop || b[2] < 1.5);
       });
       // constellation names in the old atlas style
       if (!o.noCons) {
