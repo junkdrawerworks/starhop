@@ -37,7 +37,7 @@
   - Inside claude.ai the page can't read the phone's sensors, so pointing only works on the website.
 - **Use my location** in the location sheet, also on the website; elsewhere, search for a town or enter coordinates.
 - **Night vision.** Everything turns dim red so your eyes stay dark-adapted at the eyepiece.
-- **Remembered in the browser:** your location, telescope, eyepieces, sky and the objects you mark as seen.
+- **Remembered in the browser:** your location, telescope, eyepieces, sky and the objects you mark as seen, with the night you saw each (a mark at 1 am goes under the evening before).
 
 ## How it works
 

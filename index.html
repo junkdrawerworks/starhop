@@ -373,7 +373,7 @@ html.red .chart canvas{background:#050000}
     if (!SKIES.some(function (k) { return k.id === sv.sky; })) out.sky = d.sky;
     out.red = sv.red === true;
     out.layers = Object.assign({}, d.layers, plain(sv.layers) ? sv.layers : {});
-    out.seen = plain(sv.seen) ? sv.seen : {};
+    out.seen = {}; if (plain(sv.seen)) Object.keys(sv.seen).forEach(function (k) { if (typeof sv.seen[k] === 'string') out.seen[k] = sv.seen[k]; });
     if (!(Array.isArray(sv.ptOff) && sv.ptOff.length === 2 && sv.ptOff.every(function (v) { return typeof v === 'number' && isFinite(v); }))) delete out.ptOff;
     return out;
   }
@@ -389,10 +389,17 @@ html.red .chart canvas{background:#050000}
   function tTime(d) { return d ? fmt(tz(), { hour: 'numeric', minute: '2-digit' }).format(d).replace(' AM', ' am').replace(' PM', ' pm') : '—'; }
   function tDay(d) { return fmt(tz(), { weekday: 'short', month: 'short', day: 'numeric' }).format(d); }
   function tLong(d) { return fmt(tz(), { weekday: 'long', month: 'long', day: 'numeric' }).format(d); }
-  function tMD(d) { return fmt(tz(), { month: 'short', day: 'numeric' }).format(d); }
   function addDays(n, k) { var d = new Date(Date.UTC(n.y, n.mo, n.d + k)); return { y: d.getUTCFullYear(), mo: d.getUTCMonth(), d: d.getUTCDate() }; }
   function nightOf(date) { var p = parts(date, tz()); var n = { y: p.y, mo: p.mo, d: p.d }; return p.h < 12 ? addDays(n, -1) : n; }
   function sameNight(a, b) { return a && b && a.y === b.y && a.mo === b.mo && a.d === b.d; }
+  // A night as saved with a seen mark, 2026-11-15, and as shown, Sun, Nov 15, with the year when it isn't this one. A
+  // mark saved any other way shows as it is.
+  function nightKey(n) { return n.y + '-' + ('0' + (n.mo + 1)).slice(-2) + '-' + ('0' + n.d).slice(-2); }
+  function seenText(v) {
+    var m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(v); if (!m) return v;
+    var o = { weekday: 'short', month: 'short', day: 'numeric' }; if (+m[1] !== parts(new Date(), tz()).y) o.year = 'numeric';
+    return fmt('UTC', o).format(new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12)));
+  }
 
   // ---------- geometry ----------
   function vec(raDeg, decDeg) { var a = raDeg * D2R, d = decDeg * D2R, c = Math.cos(d); return [c * Math.cos(a), c * Math.sin(a), Math.sin(d)]; }
@@ -1398,7 +1405,7 @@ html.red .chart canvas{background:#050000}
     else h += '<div class="list">' + shown.map(function (t) {
       var b = t.best, when = 'Best ' + tTime(b.t) + ' · ' + (b.alt > 78 ? 'overhead' : Math.round(b.alt) + '° up · ' + dirName(b.az, true));
       var id = t.k === 'dso' && t.o.id !== t.name ? '<small>' + esc(t.o.id) + '</small>' : '';
-      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen">✓ seen</span>' : '') + '</span><span class="dt">' + esc(when) + '</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
+      return '<button class="row' + (SEL && SEL.id === t.id ? ' sel' : '') + '" type="button" data-k="' + t.k + '" data-id="' + esc(t.id) + '">' + glyph(t) + '<span style="min-width:0"><span class="nm"><span>' + esc(t.name) + '</span>' + id + (S.seen[t.id] ? '<span class="seen" title="You marked this as seen">✓ Seen ' + esc(seenText(S.seen[t.id])) + '</span>' : '') + '</span><span class="dt">' + esc(when) + '</span></span><span class="rate ' + t.rate.r + '">' + esc(t.rate.label) + '</span></button>';
     }).join('') + '</div>' + bright;
     if (list.length > 14) h += '<button class="more" type="button" id="moreT">' + (TMORE ? 'Show fewer' : 'Show all ' + list.length) + '</button>';
     h += '<p class="note">Ratings assume ' + (S.scope.set ? 'your ' : 'an example ') + esc(S.scope.name || (S.scope.ap + ' mm telescope')) + ' under ' + esc(sky().adj) + ' skies' + (S.scope.set ? '' : ' — <button type="button" id="setScope">set your telescope</button>') + '.</p>';
@@ -1769,11 +1776,12 @@ html.red .chart canvas{background:#050000}
       rows.map(function (r, i) { return '<tr' + (i === adv.pick ? ' class="pick"' : '') + '><td>' + r.f + ' mm</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>' +
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
-      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB">' + (S.seen[o.id] ? '✓ Seen ' + esc(S.seen[o.id]) : 'Mark as seen') + '</button></div></div>';
+      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB">' + (S.seen[o.id] ? '✓ Seen ' + esc(seenText(S.seen[o.id])) : 'Mark as seen') + '</button></div></div>';
     openSheet(h, null, again).querySelector('.bd').scrollTop = keep;
     SHEET_OBJ = o; SHEET_AT = tTime(T.t);
     $('ctr').addEventListener('click', function () { closeSheet(); SEL = o; center(o); markRows(); if (window.innerWidth < 1000) window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); });
-    $('seenB').addEventListener('click', function () { if (S.seen[o.id]) delete S.seen[o.id]; else S.seen[o.id] = tMD(new Date()); save(); openObject(o); renderTargets(); });
+    // dated by the night: tonight's, which a mark at 1 am still belongs to, or the night being planned
+    $('seenB').addEventListener('click', function () { var now = new Date(); if (S.seen[o.id]) delete S.seen[o.id]; else S.seen[o.id] = nightKey(sameNight(NDATE, currentNight(now)) ? nightOf(now) : NDATE); save(); openObject(o); renderTargets(); });
     requestAnimationFrame(function () { drawFinder(o, hop, ct); drawEyepiece(o, rows, adv.pick); if (keep && SHEET_OBJ === o) $('sheet').querySelector('.bd').scrollTop = keep; });
   }
   // The time the finder chart shows, and where the target is then. Low now, so the chart shows it at its highest
