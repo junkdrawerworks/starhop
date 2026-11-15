@@ -1557,8 +1557,9 @@ html.red .chart canvas{background:#050000}
     g.fillStyle = col('#0A0F1C', 1); g.fillRect(0, 0, w, f.h);
     var t = T.t, sc = scene(t), rd = objRaDec(o, t), cvec = vec(rd.ra, rd.dec), e = unit(cross([0, 0, 1], cvec)), nth = cross(cvec, e);
     function sky2px(v) { var d = dot(v, cvec); if (d < 0.99) return null; return [cx0 - dot(v, e) / d * R2D * 60 * scale, cy0 - dot(v, nth) / d * R2D * 60 * scale]; }
-    // background stars from the catalog
-    for (var k = 0, n = STARS.length / 4; k < n; k++) { var v = SVEC[k]; if (dot(v, cvec) < Math.cos(r.tf * D2R)) continue; var p = sky2px(v); if (!p) continue; var mg = STARS[k * 4 + 2]; g.fillStyle = col(BVC[bvClass(STARS[k * 4 + 3])], 1); g.beginPath(); g.arc(p[0], p[1], clamp(3.2 - mg * 0.35, 0.8, 3.5), 0, 2 * Math.PI); g.fill(); }
+    // background stars from the catalog, leaving out a double's own pair, which is sketched below
+    var own = o.k === 'double' ? Math.cos(Math.max(2 * o.sep / 3600, 1 / 60) * D2R) : 2;
+    for (var k = 0, n = STARS.length / 4; k < n; k++) { var v = SVEC[k]; if (dot(v, cvec) < Math.cos(r.tf * D2R) || k === o.star && o.k === 'double' || dot(v, cvec) > own) continue; var p = sky2px(v); if (!p) continue; var mg = STARS[k * 4 + 2]; g.fillStyle = col(BVC[bvClass(STARS[k * 4 + 3])], 1); g.beginPath(); g.arc(p[0], p[1], clamp(3.2 - mg * 0.35, 0.8, 3.5), 0, 2 * Math.PI); g.fill(); }
     var cap = Math.round(r.M) + '× with the ' + r.f + ' mm · field ' + (r.tf >= 1 ? r.tf.toFixed(1) + '°' : Math.round(fovMin) + '′');
     if (o.k === 'planet') {
       var pl = sc.planets.filter(function (x) { return x.id === o.id; })[0], dpx = Math.max(2.2, pl.diam / 60 * scale);

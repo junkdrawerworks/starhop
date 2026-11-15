@@ -648,6 +648,31 @@ check('a double star is rated, advised and sketched by the same power, the one y
   }
 });
 
+// Separate lit blobs within r px of the eyepiece view's centre.
+const blobsNearCentre = (page, r) => page.$eval('#eyepiece', (c, r) => {
+  const k = c.width / c.getBoundingClientRect().width, R = Math.round(r * k), x0 = Math.round(c.width / 2) - R, y0 = Math.round(c.height / 2) - R, n = 2 * R;
+  const d = c.getContext('2d').getImageData(x0, y0, n, n).data, lit = new Uint8Array(n * n);
+  for (let i = 0; i < n * n; i++) lit[i] = d[i * 4] + d[i * 4 + 1] + d[i * 4 + 2] > 420 ? 1 : 0;
+  let blobs = 0;
+  for (let i = 0; i < n * n; i++) if (lit[i]) { blobs++; const st = [i]; lit[i] = 0; while (st.length) { const j = st.pop(), x = j % n, y = (j - x) / n; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy, q = yy * n + xx; if (xx >= 0 && yy >= 0 && xx < n && yy < n && lit[q]) { lit[q] = 0; st.push(q); } } } }
+  return blobs;
+}, r);
+
+// The sketch draws a double's two stars wider apart than they look, 6 px either side of the centre at 26×, and the
+// catalogue's own stars for the pair were drawn too, at their true 34″ (under 2 px), so Albireo showed a third dot
+// between the two, touching the gold one.
+check('Albireo’s eyepiece sketch shows two stars', async () => {
+  const scope = { name: '130 mm reflector', ap: 130, fl: 650, eps: [{ f: 25, a: 52 }], set: true };
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, scope }), time: '2026-10-13T21:00:00-05:00' });
+  try {
+    await openCard(page, 'albireo');
+    await page.waitForFunction(() => /25 mm/.test(document.getElementById('epCap').textContent));
+    assert.equal(await blobsNearCentre(page, 20), 2, 'stars drawn at the centre of Albireo’s eyepiece view');
+    assert.equal(await blobsNearCentre(page, 2), 0, 'a star drawn between the pair, where the catalogue has Albireo');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Taps an object on the sky map: a planet by name, or a star by its index in data/stars.json.
 const tapMap = async (page, k, id) => {
   // The map draws a moment after the page is ready, so wait for the object to be on it.
