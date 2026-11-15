@@ -1406,6 +1406,29 @@ check('Labels keep off the map’s buttons as the time, the banner and Point cha
   } finally { await ctx.close(); }
 });
 
+// At dusk the Twilight message sat in the middle of the map, over the sky low in the west where the evening's planets
+// and the first stars are, and hid their names. It is now one line in the top-left corner, under the time.
+check('At dusk and by day the message is one line in the corner, and the middle of the map stays clear', async () => {
+  for (const [time, words] of [['2026-11-15T17:45:00-06:00', 'Twilight · only the brightest show yet'], ['2026-11-15T14:00:00-06:00', 'The Sun is up · drag the night below for tonight’s sky']]) {
+    for (const size of [[390, 844], [1280, 800]]) {
+      const { ctx, page, problems } = await open({ time, size, phone: size[0] < 1000 });
+      try {
+        if (/14:00/.test(time)) await page.click('#nowBtn');
+        await page.click('#dirSeg button[data-d="270"]');
+        await page.waitForTimeout(150);
+        assert.equal(await text(page, '#banner'), words);
+        const at = await page.evaluate(() => { const s = document.getElementById('sky').getBoundingClientRect(), b = document.getElementById('banner').getBoundingClientRect(), w = document.getElementById('when').getBoundingClientRect(); return { left: b.left - s.left, top: b.top - s.top, bottom: b.bottom - s.top, right: b.right - s.left, h: b.height, sw: s.width, sh: s.height, under: b.top >= w.bottom }; });
+        assert.ok(at.under && at.left < 30 && at.bottom < at.sh * 0.42, `${size}: under the time at the top left (${JSON.stringify(at)})`);
+        assert.ok(at.h < 32, `${size}: one line (${at.h}px)`);
+        assert.ok(at.right < at.sw - 40, `${size}: it leaves the top right to Show`);
+        const mid = await page.$eval('#sky', c => { const r = c.getBoundingClientRect(); return c.__labels().filter(l => l.y + l.h > r.height * 0.42 && l.y < r.height * 0.8).length; });
+        assert.ok(mid > 0, `${size}: names show in the middle of the map`);
+        assert.deepEqual(problems, []);
+      } finally { await ctx.close(); }
+    }
+  }
+});
+
 check('pointing stays on the live sky when the night rolls over', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T07:30:00-06:00', init: fakeWakeLock });
   try {
