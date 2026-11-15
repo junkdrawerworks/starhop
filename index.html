@@ -762,7 +762,7 @@ html.red .chart canvas{background:#050000}
         var b = { x: x0 - pad, y: by - asc - 1, w: tw + 2 * pad, h: asc + desc + 2 };
         if (!clear(b)) continue;
         g.fillStyle = L.color; g.fillText(L.t, x0, by);
-        keep.push(b); placed.push({ t: L.t, x: x0 - 1, y: b.y, w: tw + 2, h: b.h, ax: L.x, ay: L.y });
+        keep.push(b); placed.push({ t: L.t, x: x0 - 1, y: b.y, w: tw + 2, h: b.h, ax: L.x, ay: L.y, obj: L.obj });
         break;
       }
     });
@@ -776,7 +776,8 @@ html.red .chart canvas{background:#050000}
     // their rings ('t' and 's').
     var tStar = o.target ? (o.target.k === 'star' ? o.target.i : o.target.star) : null, sStar = o.sel ? (o.sel.k === 'star' ? o.sel.i : o.sel.star) : null;
     var hopStars = o.hop ? o.hop.stars : []; // a finder chart's star-hop names these, so they're labelled next after the target
-    function label(text, x, y, r, gap, dy, font, color, pri, ring, more) { labs.push({ t: text, x: x, y: y, r: ring === 't' ? Math.max(r, 12) : ring === 's' ? Math.max(r, 27) : r, gap: gap, dy: dy, font: font, color: color, pri: ring === 't' ? 0 : pri, more: more }); }
+    // obj is what a tap on the label opens
+  function label(obj, text, x, y, r, gap, dy, font, color, pri, ring, more) { labs.push({ obj: obj, t: text, x: x, y: y, r: ring === 't' ? Math.max(r, 12) : ring === 's' ? Math.max(r, 27) : r, gap: gap, dy: dy, font: font, color: color, pri: ring === 't' ? 0 : pri, more: more }); }
     var lim = Math.min(6.2, limitMag(sc) + (vw.fov < 70 ? 0.6 : 0) + (vw.fov < 35 ? 0.8 : 0) + (vw.fov < 15 ? 0.6 : 0));
     if (o.lim != null) lim = o.lim;
     var bg = skyColor(sc.sun.alt), bgc = 'rgb(' + bg.map(Math.round).join(',') + ')';
@@ -830,8 +831,8 @@ html.red .chart canvas{background:#050000}
         else if (d.kind === 'nebula') { if (g.roundRect) g.roundRect(p[0] - rpx, p[1] - rpx, rpx * 2, rpx * 2, rpx * 0.35); else g.rect(p[0] - rpx, p[1] - rpx, rpx * 2, rpx * 2); }
         else { g.setLineDash([2, 2.5]); g.arc(p[0], p[1], rpx, 0, 2 * Math.PI); }
         g.stroke(); g.setLineDash([]);
-        hits.push({ x: p[0], y: p[1], r: Math.max(rpx, 9), pr: 2, obj: { k: 'dso', id: d.id } });
-        if ((fovDeg < 110 || (sp >= 2.5 && w > 600)) && S.layers.names && !o.noLabels && (hv[2] >= 0 || isT)) label(d.id.indexOf('M') === 0 ? d.id : (d.name && d.name.length < 18 ? d.name : d.id), p[0], p[1], rpx, 3, 4, '400 11.5px "Atkinson Hyperlegible", sans-serif', col(c, 0.85), 5 - sp / 10, isT ? 't' : o.sel && o.sel.id === d.id ? 's' : '');
+        var dObj = { k: 'dso', id: d.id }; hits.push({ x: p[0], y: p[1], r: Math.max(rpx, 9), dr: Math.max(rpx, ry), pr: 2, obj: dObj });
+        if ((fovDeg < 110 || (sp >= 2.5 && w > 600)) && S.layers.names && !o.noLabels && (hv[2] >= 0 || isT)) label(dObj, d.id.indexOf('M') === 0 ? d.id : (d.name && d.name.length < 18 ? d.name : d.id), p[0], p[1], rpx, 3, 4, '400 11.5px "Atkinson Hyperlegible", sans-serif', col(c, 0.85), 5 - sp / 10, isT ? 't' : o.sel && o.sel.id === d.id ? 's' : '');
       });
     }
     // stars, batched by colour
@@ -843,7 +844,7 @@ html.red .chart canvas{background:#050000}
       var p3 = proj(P, hv2); if (!p3 || p3[0] < -4 || p3[1] < -4 || p3[0] > w + 4 || p3[1] > h + 4) continue;
       var rad = Math.max(0.6, (lim - mag + 0.8) * 0.66 * sScale) + (mag < 1.5 ? 0.6 : 0), al2 = clamp((lim - mag) / 1.6 + 0.35, 0.3, 1);
       buckets[bvClass(s[k * 4 + 3])].push(p3[0], p3[1], rad, al2);
-      if (mag < 4.6) { hits.push({ x: p3[0], y: p3[1], r: rad + 6, pr: 1, obj: { k: 'star', i: k } }); if (NAMES[k] && (NAMES[k][0] || hopStars.indexOf(k) >= 0)) bright.push([k, p3, mag, rad, hv2[2]]); }
+      if (mag < 4.6) { var sObj = { k: 'star', i: k }; hits.push({ x: p3[0], y: p3[1], r: rad + 6, dr: rad, pr: 1, mag: mag, obj: sObj }); if (NAMES[k] && (NAMES[k][0] || hopStars.indexOf(k) >= 0)) bright.push([k, p3, mag, rad, hv2[2], sObj]); }
     }
     buckets.forEach(function (b, ci) {
       for (var j = 0; j < b.length; j += 4) { g.fillStyle = col(BVC[ci], b[j + 3]); g.beginPath(); g.arc(b[j], b[j + 1], b[j + 2], 0, 2 * Math.PI); g.fill(); }
@@ -854,7 +855,7 @@ html.red .chart canvas{background:#050000}
       if (o.labelMag != null) nl = o.labelMag;
       bright.forEach(function (b) {
         var onHop = hopStars.indexOf(b[0]) >= 0;
-        if (onHop || (b[2] <= nl && (b[4] >= 0 || b[0] === tStar))) label(NAMES[b[0]][0] || NAMES[b[0]][1], b[1][0], b[1][1], b[3], 3, -2, '400 12px "Atkinson Hyperlegible", sans-serif', col('#C9CFDF', 0.8), onHop ? 0.5 : 3 + b[2] / 10, b[0] === tStar ? 't' : b[0] === sStar ? 's' : '', onHop);
+        if (onHop || (b[2] <= nl && (b[4] >= 0 || b[0] === tStar))) label(b[5], NAMES[b[0]][0] || NAMES[b[0]][1], b[1][0], b[1][1], b[3], 3, -2, '400 12px "Atkinson Hyperlegible", sans-serif', col('#C9CFDF', 0.8), onHop ? 0.5 : 3 + b[2] / 10, b[0] === tStar ? 't' : b[0] === sStar ? 's' : '', onHop);
       });
       // constellation names in the old atlas style
       if (!o.noCons) {
@@ -870,9 +871,9 @@ html.red .chart canvas{background:#050000}
       var rad = clamp(4.2 - pl.mag * 0.55, 1.8, 5.5) * (vw.fov < 40 ? 1.3 : 1);
       g.fillStyle = col(pl.col, 1); g.beginPath(); g.arc(p[0], p[1], rad, 0, 2 * Math.PI); g.fill();
       g.strokeStyle = col(pl.col, 0.4); g.lineWidth = 1; g.beginPath(); g.arc(p[0], p[1], rad + 3, 0, 2 * Math.PI); g.stroke();
-      var plT = o.target && o.target.id === pl.id;
-      if (!o.noLabels && (pl.alt >= 0 || plT)) label(pl.id, p[0], p[1], rad, 5, 4, '700 12.5px "Atkinson Hyperlegible", sans-serif', col(pl.col, 0.95), 2 + pl.mag / 100, plT ? 't' : o.sel && o.sel.id === pl.id ? 's' : '');
-      hits.push({ x: p[0], y: p[1], r: rad + 10, pr: 4, obj: { k: 'planet', id: pl.id } });
+      var plT = o.target && o.target.id === pl.id, pObj = { k: 'planet', id: pl.id };
+      if (!o.noLabels && (pl.alt >= 0 || plT)) label(pObj, pl.id, p[0], p[1], rad, 5, 4, '700 12.5px "Atkinson Hyperlegible", sans-serif', col(pl.col, 0.95), 2 + pl.mag / 100, plT ? 't' : o.sel && o.sel.id === pl.id ? 's' : '');
+      hits.push({ x: p[0], y: p[1], r: rad + 10, dr: rad + 3, pr: 4, obj: pObj });
     });
     // the Moon, lit on the side facing the Sun
     var mo = sc.moon;
@@ -882,9 +883,9 @@ html.red .chart canvas{background:#050000}
         var mr = Math.max(7, mo.diam * D2R * P.s / 2), sp2 = proj(P, sc.sun.h), ang = sp2 ? Math.atan2(sp2[1] - mp[1], sp2[0] - mp[0]) : 0;
         if (!sp2) { var far = proj(P, unit([mo.h[0] + (sc.sun.h[0] - mo.h[0]) * 0.02, mo.h[1] + (sc.sun.h[1] - mo.h[1]) * 0.02, mo.h[2] + (sc.sun.h[2] - mo.h[2]) * 0.02])); if (far) ang = Math.atan2(far[1] - mp[1], far[0] - mp[0]); }
         drawPhase(g, mp[0], mp[1], mr, mo.illum, ang, col('#F5EFDC', 1), col('#2A2F3F', 0.85));
-        var moT = o.target && o.target.k === 'moon';
-        if (!o.noLabels && (mo.alt >= 0 || moT)) label('Moon', mp[0], mp[1], mr, 5, 4, '700 12.5px "Atkinson Hyperlegible", sans-serif', col('#F5EFDC', 0.9), 1, moT ? 't' : o.sel && o.sel.k === 'moon' ? 's' : '');
-        hits.push({ x: mp[0], y: mp[1], r: mr + 8, pr: 5, obj: { k: 'moon', id: 'Moon' } });
+        var moT = o.target && o.target.k === 'moon', mObj = { k: 'moon', id: 'Moon' };
+        if (!o.noLabels && (mo.alt >= 0 || moT)) label(mObj, 'Moon', mp[0], mp[1], mr, 5, 4, '700 12.5px "Atkinson Hyperlegible", sans-serif', col('#F5EFDC', 0.9), 1, moT ? 't' : o.sel && o.sel.k === 'moon' ? 's' : '');
+        hits.push({ x: mp[0], y: mp[1], r: mr + 8, dr: mr, pr: 5, obj: mObj });
       }
     }
     // the ground: the horizon is a circle in this projection. It's drawn through three horizon points a quarter turn
@@ -930,7 +931,9 @@ html.red .chart canvas{background:#050000}
       var sv = objHor(o.sel, sc), spx = sv && proj(P, sv);
       if (spx) { g.strokeStyle = col('#DDB05A', 1); g.lineWidth = 2; g.beginPath(); g.arc(spx[0], spx[1], 15, 0, 2 * Math.PI); g.stroke(); g.beginPath(); [[0, -21, 0, -26], [0, 21, 0, 26], [-21, 0, -26, 0], [21, 0, 26, 0]].forEach(function (l) { g.moveTo(spx[0] + l[0], spx[1] + l[1]); g.lineTo(spx[0] + l[2], spx[1] + l[3]); }); g.stroke(); keep.push({ x: spx[0] - 16, y: spx[1] - 16, w: 32, h: 32 }); }
     }
-    return { hits: hits, P: P, sc: sc, labels: compass.concat(placeLabels(g, w, h, labs, keep)) };
+    var placed = placeLabels(g, w, h, labs, keep);
+    placed.forEach(function (l) { if (l.obj) l.obj.lab = true; }); // a labelled star is the likelier one to be tapped
+    return { hits: hits, P: P, sc: sc, labels: compass.concat(placed) };
   }
   function circle3(a, b, c) {
     var d = 2 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1])); if (Math.abs(d) < 1e-6) return null;
@@ -943,7 +946,7 @@ html.red .chart canvas{background:#050000}
   function objById(k, id) {
     if (k === 'planet') return { k: 'planet', id: id, b: A.Body[id], name: id };
     if (k === 'moon') return { k: 'moon', id: 'Moon', b: A.Body.Moon, name: 'The Moon' };
-    if (k === 'star') { var n = NAMES[id] || []; return { k: 'star', id: id, i: id, name: n[0] || n[1] || 'Star', v: SVEC[id], mag: STARS[id * 4 + 2], ra: STARS[id * 4], dec: STARS[id * 4 + 1] }; }
+    if (k === 'star') { var n = NAMES[id] || []; return { k: 'star', id: id, i: id, name: n[0] || n[1] || 'A magnitude ' + STARS[id * 4 + 2].toFixed(1) + ' star', v: SVEC[id], mag: STARS[id * 4 + 2], ra: STARS[id * 4], dec: STARS[id * 4 + 1] }; }
     var o = DSO.concat(DOUBLES).filter(function (x) { return x.id === id; })[0];
     return o || null;
   }
@@ -1067,9 +1070,23 @@ html.red .chart canvas{background:#050000}
       if (k === 'ArrowLeft') V.az = norm360(V.az - st); else if (k === 'ArrowRight') V.az = norm360(V.az + st); else if (k === 'ArrowUp') V.alt = clamp(V.alt + st, -5, 90); else if (k === 'ArrowDown') V.alt = clamp(V.alt - st, -5, 90); else if (k === '+' || k === '=') V.fov = clamp(V.fov / 1.3, 2, 200); else if (k === '-') V.fov = clamp(V.fov * 1.3, 2, 200); else return;
       e.preventDefault(); redraw(); syncDir();
     });
+    // In order: a tap on the Moon, a planet or the middle of a deep-sky object picks it; one on a label picks what it names
+    // (labels often lie over faint stars); one on or close to a star picks the likeliest there. Failing those, a tap near
+    // a label picks it, or else the likeliest mark within a fingertip. The likeliest favours the Moon and planets, then
+    // deep-sky objects (more so inside their outlines), then bright and labelled stars.
     function tap(e) {
-      var r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, best = null, bs = 1e9;
-      HITS.forEach(function (h) { var d = Math.hypot(h.x - x, h.y - y); if (d > h.r + 6) return; var s = d - h.pr * 6; if (s < bs) { bs = s; best = h; } });
+      var r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+      function nearLabel(pad) { var best = null, ld = pad + 0.01; (LAST ? LAST.labels : []).forEach(function (l) { if (!l.obj) return; var d = Math.hypot(Math.max(l.x - x, 0, x - l.x - l.w), Math.max(l.y - y, 0, y - l.y - l.h)); if (d < ld) { ld = d; best = { obj: l.obj }; } }); return best; }
+      function likeliest(reach) {
+        var best = null, bs = 1e9;
+        HITS.forEach(function (h) {
+          var d = Math.hypot(h.x - x, h.y - y); if (d > reach(h)) return;
+          var s = d - h.pr * 6 - (h.obj.k === 'star' ? (4.6 - h.mag) * 3 + (h.obj.lab ? 3 : 0) : h.obj.k === 'dso' && d <= h.r ? 4 : 0);
+          if (s < bs) { bs = s; best = h; }
+        });
+        return best;
+      }
+      var best = likeliest(function (h) { return h.obj.k === 'star' ? -1 : Math.min(h.dr, 6) + 2; }) || nearLabel(0) || likeliest(function (h) { return h.dr + 2; }) || likeliest(function (h) { return h.r; }) || nearLabel(6) || likeliest(function (h) { return Math.max(h.r + 6, 22); });
       if (best) { select(objById(best.obj.k, best.obj.id != null ? best.obj.id : best.obj.i), true); }
       else if (SEL) { SEL = null; redraw(); markRows(); }
     }

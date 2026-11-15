@@ -712,6 +712,53 @@ const tapMap = async (page, k, id) => {
   await page.mouse.click(box.x + hit.x, box.y + hit.y);
   await page.waitForFunction(() => !document.getElementById('sheet').hidden);
 };
+// Taps the middle of a label on the sky map and returns the title of the card it opens.
+const tapLabel = async (page, t) => {
+  const l = await page.waitForFunction(t => document.getElementById('sky').__labels().find(l => l.t === t), t, { timeout: 10000 }).then(h => h.jsonValue(), () => null);
+  assert.ok(l, `"${t}" is labelled on the map`);
+  const box = await page.locator('#sky').boundingBox();
+  await page.mouse.click(box.x + l.x + l.w / 2, box.y + l.y + l.h / 2);
+  await page.waitForFunction(() => !document.getElementById('sheet').hidden);
+  const title = await page.$eval('#sheet .hd h2', h => h.firstChild.textContent);
+  await page.click('#sheet [data-close]');
+  return title;
+};
+
+// Labels weren't tap targets, and a tap was scored only by distance, so the middle of "Saturn" opened γ Psc and "Vega"
+// ν Her. A tap 10 px below Capella opened Almaaz, and an unnamed star's card was titled just "Star".
+check('tapping a name on the map opens that object', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' }), { n, s: cat } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8'));
+  try {
+    for (const t of ['Saturn', 'Vega', 'Capella', 'Altair', 'Deneb', 'Moon']) assert.equal(await tapLabel(page, t), t === 'Moon' ? 'The Moon' : t, `tapping the label "${t}"`);
+    // A tap between a bright star and a faint one 9 to 16 px away, a little nearer the faint one but not on it, picks the bright one.
+    const box = await page.locator('#sky').boundingBox(), hits = await page.$eval('#sky', c => c.__hits());
+    const stars = hits.filter(h => h.obj.k === 'star').map(h => Object.assign(h, { mag: cat[h.obj.i * 4 + 2] })), pairs = [];
+    for (const a of stars.filter(h => h.mag < 1.5)) for (const b of stars.filter(h => h.mag > 3.5)) { const d = Math.hypot(a.x - b.x, a.y - b.y); if (d > 9 && d < 16) pairs.push([a, b, d]); }
+    assert.ok(pairs.length >= 3, 'bright stars with faint neighbours on the map');
+    for (const [a, b, d] of pairs.slice(0, 5)) {
+      const f = Math.min(0.6, (d - 4.5) / d), x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f;
+      if (stars.some(h => h !== a && Math.hypot(h.x - x, h.y - y) < Math.max(4.5, h.r - 5))) continue; // right on another star
+      await page.mouse.click(box.x + x, box.y + y);
+      await page.waitForFunction(() => !document.getElementById('sheet').hidden);
+      assert.equal(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), n[a.obj.i][0], `a tap ${(d * f).toFixed(1)} px from ${n[a.obj.i][0]} toward a fainter star`);
+      await page.click('#sheet [data-close]');
+    }
+    // deep-sky objects beside bright stars still open with a tap on their marks
+    for (const id of ['M57', 'M45']) {
+      await tapMap(page, 'dso', id);
+      assert.match(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), new RegExp(id + '$'), 'a tap on ' + id);
+      await page.click('#sheet [data-close]');
+    }
+    // a star with no name or label in the data
+    const bare = hits.find(h => h.obj.k === 'star' && !(n[h.obj.i] && (n[h.obj.i][0] || n[h.obj.i][1])));
+    assert.ok(bare, 'a star with no name is on the map');
+    await page.mouse.click(box.x + bare.x, box.y + bare.y);
+    await page.waitForFunction(() => !document.getElementById('sheet').hidden);
+    assert.match(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), /^A magnitude \d\.\d star$/, 'an unnamed star’s card');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 const starIndex = async name => { const n = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')).n; return +Object.keys(n).find(i => n[i][0] === name); };
 const starAt = async (ra, dec) => { const s = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')).s; for (let i = 0; i < s.length / 4; i++) if (s[i * 4] === ra && s[i * 4 + 1] === dec) return i; };
 
@@ -795,7 +842,7 @@ check('M40 and M73, which have no size, get no made-up size or cluster sketch', 
   } finally { await ctx.close(); }
 });
 
-// A star brighter than 4.6 can be tapped, and its card goes by its name or label, or just "Star" with neither. The build
+// A star brighter than 4.6 can be tapped, and its card goes by its name or label, or "A magnitude 4.5 star" with neither. The build
 // gives Bayer letters down to 4.5 and Flamsteed numbers down to 4.0, which leaves 126 tappable stars with no label (16 of
 // them have neither in d3-celestial), so one more is a star that lost its only label, as ξ Sco did with "Grafias".
 check('star labels in the data are all real designations, and no tappable star loses its label', async () => {
