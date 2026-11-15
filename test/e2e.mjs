@@ -648,6 +648,21 @@ check('the finder chart’s stamp sits on a plate', async () => {
   } finally { await ctx.close(); }
 });
 
+// Seen from south of the equator the Moon is upside down to a northern observer, so a waxing Moon is lit on its left,
+// as the sky map (which lights it from the Sun's direction) already drew it. The Tonight icon lit it on the right.
+check('the Moon icon is lit on the left from Sydney when waxing', async () => {
+  const { ctx, page } = await open({ loc: { name: 'Sydney, AU', lat: -33.87, lon: 151.21, tz: 'Australia/Sydney' }, time: '2026-11-19T21:30:00+11:00' });
+  try {
+    assert.match(await text(page, '#tonightSec .moonrow b'), /^Waxing gibbous/);
+    const [left, right] = await page.$eval('#moonIc', c => {
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, n = [0, 0];
+      for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] > 500) n[(i / 4) % c.width < c.width / 2 ? 0 : 1]++;
+      return n;
+    });
+    assert.ok(left > right, `lit pixels: ${left} on the left, ${right} on the right`);
+  } finally { await ctx.close(); }
+});
+
 const advice = page => page.$$eval('#sheet .card', cs => cs.find(c => c.querySelector('h3').textContent === 'In your telescope').querySelector('p').textContent);
 
 check('a card says an object is wider than the field only when it is', async () => {

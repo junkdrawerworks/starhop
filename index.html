@@ -1254,9 +1254,12 @@ html.red .chart canvas{background:#050000}
   $('nextN').addEventListener('click', function () { setNight(addDays(NDATE, 1)); });
 
   // ---------- tonight panel ----------
+  // A waxing Moon is lit on the right from the northern hemisphere and on the left from the southern, where it's seen
+  // the other way up.
   function moonIcon(c, frac, phase, size) {
     var g = c.getContext('2d'), dpr = Math.min(2.5, window.devicePixelRatio || 1); c.width = c.height = size * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawPhase(g, size / 2, size / 2, size / 2 - 1.5, frac, phase < 180 ? 0 : Math.PI, col('#F5EFDC', 1), col('#252A3A', 1));
+    var litRight = (phase < 180) !== !!(S.loc && S.loc.lat < 0);
+    drawPhase(g, size / 2, size / 2, size / 2 - 1.5, frac, litRight ? 0 : Math.PI, col('#F5EFDC', 1), col('#252A3A', 1));
   }
   function renderTonight() {
     var N = NIGHT, isTonight = sameNight(N.n, currentNight(new Date()));
