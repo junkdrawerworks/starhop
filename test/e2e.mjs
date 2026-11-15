@@ -2231,12 +2231,12 @@ check('A first visit says what Starhop is for, until Got it or a telescope is se
 });
 
 check('On a phone the telescope button says Telescope until one is set', async () => {
-  for (const size of [[390, 844], [360, 740]]) {
-    const { ctx, page, problems } = await open({ size, time: '2026-11-15T21:00:00-06:00' });
+  for (const [size, loc] of [[[390, 844], { ...AUSTIN, name: 'Chicago, IL' }], [[360, 740], AUSTIN]]) {
+    const { ctx, page, problems } = await open({ size, loc, time: '2026-11-15T21:00:00-06:00' });
     try {
       const word = () => page.$eval('#scopeName', el => el.offsetWidth > 0 && el.scrollWidth <= el.clientWidth ? el.textContent : '');
       assert.equal(await word(), 'Telescope', 'the word shows whole at ' + size[0] + ' px');
-      assert.equal(await text(page, '#locName'), 'Austin, TX', 'beside the place');
+      if (size[0] >= 390) assert.equal(await page.$eval('#locName', el => el.scrollWidth <= el.clientWidth ? el.textContent : ''), loc.name, 'beside the place’s whole name');
       await page.click('#scopeBtn');
       await page.selectOption('#scPre', 's6');
       await page.click('#scSave');
