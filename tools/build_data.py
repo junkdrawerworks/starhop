@@ -156,7 +156,7 @@ TYPE = {'gc': 'Globular cluster', 'oc': 'Open cluster', 's': 'Spiral galaxy', 's
         'pn': 'Planetary nebula', 'snr': 'Supernova remnant', 'pos': 'Star field'}
 KIND = {'gc': 'cluster', 'oc': 'cluster', 's': 'galaxy', 's0': 'galaxy', 'sd': 'galaxy', 'e': 'galaxy', 'i': 'galaxy',
         'sfr': 'nebula', 'en': 'nebula', 'rn': 'nebula', 'bn': 'nebula', 'pn': 'nebula', 'snr': 'nebula', 'pos': 'cluster'}
-POS = {'M24': ('Star field', 'Sagittarius Star Cloud'), 'M40': ('Double star', 'Winnecke 4'), 'M73': ('Asterism', '')}
+POS = {'M24': ('Star field', 'Sagittarius Star Cloud'), 'M73': ('Asterism', '')}
 
 def dims(s):
     try:
@@ -215,6 +215,15 @@ SEDS = {
 for d in dso:
     d['mag'], d['dim'] = SEDS[d['id']][0], dims(SEDS[d['id']][1])
 assert len(SEDS) == 110 and {d['id'] for d in dso} == set(SEDS)
+
+# M40 is a double star, Winnecke 4 (WDS 12222+5805 WNC 4: 53.2" apart, magnitudes 9.74 and 10.18 at the latest
+# measure, 2017), so it goes with the doubles, keeping its Messier number. Its stars are fainter than the star catalog
+# goes, so it has no catalog star of its own.
+m40 = next(d for d in dso if d['id'] == 'M40')
+dso.remove(m40)
+doubles.append({'id': 'M40', 'name': 'Winnecke 4', 'cat': 'WNC 4', 'type': 'ds', 'ra': r(m40['ra']), 'dec': r(m40['dec']), 'mag': 9.7,
+                'sep': 53.2, 'mags': '9.7 + 10.2', 'star': None,
+                'note': 'A faint pair Messier logged while looking for a nebula Hevelius had reported.'})
 
 # Bright non-Messier showpieces, with their usual names.
 EXTRA = {

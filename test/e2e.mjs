@@ -1574,19 +1574,43 @@ check('planet rise and set times match the standard ones', async () => {
   } finally { await ctx.close(); }
 });
 
-// d3-celestial gives them no size, and the card made one up. SEDS gives M40's pair as 0.8′ across and M73's four stars as 2.8′.
-check('M40 and M73, a few faint stars, take their size from SEDS and get no cluster sketch', async () => {
+// d3-celestial gives M73 no size, and the card made one up; SEDS gives its four stars as 2.8′ across.
+check('M73, a few faint stars, takes its size from SEDS and gets no cluster sketch', async () => {
   const { ctx, page } = await open({ time: '2026-10-13T21:00:00-05:00', phone: false });
   try {
-    for (const [id, sz] of [['M40', '1′'], ['M73', '3′']]) {
-      await openCard(page, id);
-      const size = await page.$$eval('#sheet .kv div', ds => ds.find(d => d.querySelector('span').textContent === 'Size').querySelector('b').textContent);
-      assert.equal(size, sz, id + ' size');
-      assert.equal(await advice(page), 'It spans ' + sz + '. Find it with the 25 mm (2.0° field), then try the 10 mm (65×) for a closer look.', id + ' advice');
-      await page.waitForFunction(() => document.getElementById('epCap').textContent);
-      assert.doesNotMatch(await text(page, '#epCap'), /sketch/, id + ' has no cluster sketch');
-      await page.keyboard.press('Escape');
-    }
+    await openCard(page, 'M73');
+    const size = await page.$$eval('#sheet .kv div', ds => ds.find(d => d.querySelector('span').textContent === 'Size').querySelector('b').textContent);
+    assert.equal(size, '3′', 'M73 size');
+    assert.equal(await advice(page), 'It spans 3′. Find it with the 25 mm (2.0° field), then try the 10 mm (65×) for a closer look.');
+    await page.waitForFunction(() => document.getElementById('epCap').textContent);
+    assert.doesNotMatch(await text(page, '#epCap'), /sketch/, 'M73 has no cluster sketch');
+  } finally { await ctx.close(); }
+});
+
+// M40 is two 10th-magnitude stars, Winnecke 4, 53″ apart. With no size in the data, its surface brightness came out
+// brilliant: Easy, and 24th on the list on Nov 15, above M13 at 29th. It is now a double star, rated by its split.
+check('M13 ranks above M40 on an Austin November night', async () => {
+  let { ctx, page, problems } = await open({ time: '2026-11-15T20:30:00-06:00' });
+  try {
+    const rows = await targetRows(page), at = id => rows.findIndex(r => r.id === id);
+    assert.ok(at('M13') >= 0 && at('M40') >= 0, 'both are listed');
+    assert.ok(at('M13') < at('M40'), `M13 is row ${at('M13') + 1}, M40 row ${at('M40') + 1}`);
+    assert.equal(rows[at('M40')].kind, 'ds', 'M40 is listed as a double star');
+    assert.ok(at('M40') >= 14, 'M40 is among the first 14 targets, the ones shown before Show all');
+    await openCard(page, 'M40');
+    assert.equal(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), 'Winnecke 4 · M40');
+    assert.match(await text(page, '#sheet .kv'), /9\.7 \+ 10\.2 SEPARATION 53\.2″/i);
+    assert.match(await advice(page), /^The two stars are 53\.2″ apart/);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+  // its stars are too faint for the star catalog, so it keeps a mark of its own on the map, which opens its card
+  ({ ctx, page, problems } = await open({ time: '2026-04-15T22:00:00-05:00', phone: false }));
+  try {
+    await openCard(page, 'M40');
+    await page.click('#ctr');
+    await tapMap(page, 'dso', 'M40');
+    assert.equal(await page.$eval('#sheet .hd h2', h => h.firstChild.textContent), 'Winnecke 4 · M40');
+    assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });
 
