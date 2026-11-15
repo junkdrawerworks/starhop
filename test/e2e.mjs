@@ -2300,6 +2300,36 @@ check('A saved telescope without a view guesses it from its name', async () => {
   }
 });
 
+// The eyepiece sketch drew the target alone, M31 without M32 and M110 beside it, and every glow as bright as its
+// magnitude, so a Hard M33 from the suburbs was an obvious 70′ patch; galaxies were tilted at a made-up angle.
+check('The eyepiece sketch shows what shares the field, faded as hard as each one is', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  const nbrs = () => page.waitForFunction(() => document.getElementById('eyepiece').__nbrs).then(h => h.jsonValue());
+  try {
+    await openCard(page, 'M31');
+    assert.match(await text(page, '#sheet'), /M32 and M110 share the 25 mm field\./);
+    const n = await nbrs(), w = await page.$eval('#eyepiece', c => c.getBoundingClientRect().width);
+    assert.deepEqual(n.map(q => q.id), ['M32', 'M110'], 'drawn in the sketch, nearest first');
+    assert.ok(n.every(q => Math.hypot(q.x - w / 2, q.y - w / 2) < w / 2 - 6), 'inside the field');
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'M81');
+    assert.match(await text(page, '#sheet'), /M82 shares the 25 mm field\./);
+    await page.click('#epr0');
+    await page.waitForFunction(() => /25 mm/.test(document.getElementById('epCap').textContent));
+    assert.deepEqual((await nbrs()).map(q => q.id), ['M82'], 'M82 is beside M81 in the 25 mm');
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'M33');
+    assert.match(await text(page, '#sheet'), /DIFFICULTY Hard/i);
+    const sub = await page.waitForFunction(() => document.getElementById('eyepiece').__glow).then(h => h.jsonValue());
+    await page.click('#sheet [data-close]');
+    await page.click('#scopeBtn'); await page.click('#skyOpts [data-s="dark"]'); await page.click('#scSave');
+    await openCard(page, 'M33');
+    const dark = await page.waitForFunction(() => document.getElementById('eyepiece').__glow).then(h => h.jsonValue());
+    assert.ok(sub < dark * 0.6, `a Hard M33 is drawn fainter than from a dark site: ${sub} against ${dark}`);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // A step across the eyepiece sketch as a position angle, from north through east, by where its N and E point.
 const paOf = (page, a, b) => page.$eval('#eyepiece', (c, [a, b]) => { const f = c.__frame, d = [b[0] - a[0], b[1] - a[1]]; return Math.atan2(d[0] * f.e[0] + d[1] * f.e[1], d[0] * f.n[0] + d[1] * f.n[1]) * 180 / Math.PI; }, [a, b]);
 check('Albireo’s companion is drawn to the northeast', async () => {
