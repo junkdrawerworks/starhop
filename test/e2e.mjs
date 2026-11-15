@@ -2688,6 +2688,21 @@ check('a star marked as seen stays marked after a reload', async () => {
   } finally { await ctx.close(); }
 });
 
+// Everyone has seen the Moon, so its card offered a mark that only left a tick on the top row of every night's list.
+check('The Moon has no seen mark, and the planets keep theirs', async () => {
+  const { ctx, page, problems } = await open({ save: JSON.stringify({ loc: AUSTIN, seen: { Moon: '2026-10-17' } }), time: '2026-10-18T20:00:00-05:00' });
+  try {
+    assert.equal(await page.$eval('#targetSec .row[data-id="Moon"]', r => !!r.querySelector('.tick, .seen')), false, 'a mark saved for it doesn’t show in the list');
+    await openCard(page, 'Moon');
+    assert.equal(await page.$('#seenB'), null, 'its card has no Mark as seen');
+    assert.equal(await text(page, '#sheet .btnrow'), 'Show in the sky view');
+    await page.click('#sheet [data-close]');
+    await openCard(page, 'Saturn');
+    assert.equal(await text(page, '#seenB'), 'Mark as seen', 'a planet’s card still has it');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // Observers date a night by its evening, but a mark at 1 am was saved as the next day's date, and without a year.
 check('A star seen at 1 am is dated by the night, with its year', async () => {
   const seen = page => page.evaluate(() => JSON.parse(localStorage.getItem('starhop.v1')).seen);

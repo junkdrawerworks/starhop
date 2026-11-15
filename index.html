@@ -464,7 +464,7 @@ html.red .chart canvas{background:#050000}
     if (!SKIES.some(function (k) { return k.id === sv.sky; })) out.sky = d.sky;
     out.red = sv.red === true;
     out.layers = Object.assign({}, d.layers, plain(sv.layers) ? sv.layers : {});
-    out.seen = {}; if (plain(sv.seen)) Object.keys(sv.seen).forEach(function (k) { if (typeof sv.seen[k] === 'string') out.seen[k] = sv.seen[k]; });
+    out.seen = {}; if (plain(sv.seen)) Object.keys(sv.seen).forEach(function (k) { if (typeof sv.seen[k] === 'string' && k !== 'Moon') out.seen[k] = sv.seen[k]; });
     if (!(Array.isArray(sv.ptOff) && sv.ptOff.length === 2 && sv.ptOff.every(function (v) { return typeof v === 'number' && isFinite(v); }))) delete out.ptOff;
     return out;
   }
@@ -2229,13 +2229,14 @@ html.red .chart canvas{background:#050000}
       rows.map(function (r, i) { return '<tr id="epr' + i + '" data-i="' + i + '" role="button" tabindex="0" aria-pressed="' + (i === shown) + '"' + (i === shown ? ' class="on"' : '') + '><td>' + epCell(r) + '</td><td>' + Math.round(r.M) + '×</td><td>' + field(r.tf) + '</td><td>' + (i === adv.pick ? 'Suggested' : !r.ok ? 'Beyond ' + st.maxMag + '×' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div></div>') +
       (about ? '<div class="card"><h3>About it</h3><p>' + esc(about) + '</p></div>' : '') +
-      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button><button class="btn sec" type="button" id="seenB"' + (S.seen[o.id] ? ' aria-label="Seen ' + esc(seenText(S.seen[o.id])) + '">✓ Seen ' + esc(seenText(S.seen[o.id])) : '>Mark as seen') + '</button></div></div>';
+      '<div class="btnrow"><button class="btn" type="button" id="ctr">Show in the sky view</button>' + (o.k === 'moon' ? '' : '<button class="btn sec" type="button" id="seenB"' + (S.seen[o.id] ? ' aria-label="Seen ' + esc(seenText(S.seen[o.id])) + '">✓ Seen ' + esc(seenText(S.seen[o.id])) : '>Mark as seen') + '</button>') + '</div></div>';
     openSheet(h, null, again).querySelector('.bd').scrollTop = keep;
     SHEET_OBJ = o; SHEET_AT = tTime(T.t);
     $('ctr').addEventListener('click', function () { closeSheet(); SEL = o; center(o); markRows(); if (window.innerWidth < 1000) window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); });
-    // dated by the night: an earlier night being looked back on, or else tonight's, which a mark at 1 am still belongs
+    // The Moon has no seen mark: everyone has seen it, and it would sit ticked at the top of the list for good.
+    // Dated by the night: an earlier night being looked back on, or else tonight's, which a mark at 1 am still belongs
     // to (a night still to come can't have been seen yet)
-    $('seenB').addEventListener('click', function () { var now = new Date(), was = nightKey(NDATE), night = nightKey(nightOf(now)); var off = !!S.seen[o.id]; if (off) delete S.seen[o.id]; else S.seen[o.id] = !sameNight(NDATE, currentNight(now)) && was < night ? was : night; save(); openObject(o); renderTargets(); if (off) toast('No longer marked as seen'); });
+    if ($('seenB')) $('seenB').addEventListener('click', function () { var now = new Date(), was = nightKey(NDATE), night = nightKey(nightOf(now)); var off = !!S.seen[o.id]; if (off) delete S.seen[o.id]; else S.seen[o.id] = !sameNight(NDATE, currentNight(now)) && was < night ? was : night; save(); openObject(o); renderTargets(); if (off) toast('No longer marked as seen'); });
     // a tap or Enter on an eyepiece shows its view
     $('sheet').querySelectorAll('.eps tbody tr').forEach(function (tr) {
       function pick() {
