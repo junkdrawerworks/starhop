@@ -2974,11 +2974,11 @@ html.red .chart canvas{background:#050000}
   // A cluster, nebula or galaxy as the eyepiece sketch draws it at (x, y): a glow, or a cluster's stars, at its size,
   // as bright as its magnitude and faded by fade (fadeOf). A galaxy's long axis lies along its position angle (pa, from
   // north through east), turned and flipped with the sketch; one with no angle is drawn level. A hard one keeps only its
-  // core: its outer glow fades twice over. Returns the glow's centre alpha, its radius, the angle its long axis is drawn
+  // core: its outer glow fades twice over. Returns the glow's centre alpha, its radius along its long axis and across it, the angle its long axis is drawn
   // at on the screen and the Double Cluster's two halves.
   function glow(g, o, x, y, scale, fade, sky2px) {
     var a = Math.max(3, (o.dim[0] || 4) / 2 * scale), b2 = Math.max(2, (o.dim[1] || o.dim[0] || 4) / 2 * scale);
-    var bright = (o.mag != null ? clamp((10.5 - o.mag) / 7, 0.18, 0.75) : 0.3) * fade, out = { a: bright, r: a, tilt: 0 };
+    var bright = (o.mag != null ? clamp((10.5 - o.mag) / 7, 0.18, 0.75) : 0.3) * fade, out = { a: bright, r: a, r2: b2, tilt: 0 };
     if (o.kind === 'cluster') {
       var seed = 0; for (var q = 0; q < o.id.length; q++) seed = (seed * 31 + o.id.charCodeAt(q)) >>> 0;
       var rnd = function () { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -3089,7 +3089,7 @@ html.red .chart canvas{background:#050000}
       else cap += ' · not split at this power';
     } else if (o.k !== 'star' && o.type !== 'Asterism') { // M73 is a few faint stars, not a cluster
       var gl = glow(g, o, cx0, cy0, scale, fadeOf(o), sky2px);
-      c.__glow = gl.a; c.__tilt = gl.tilt; if (gl.groups) c.__groups = gl.groups; // tests read how bright it is drawn, at what slant, and where the Double Cluster's halves went
+      c.__glow = gl.a; c.__tilt = gl.tilt; c.__axes = [gl.r, gl.r2]; if (gl.groups) c.__groups = gl.groups; // tests read how bright it is drawn, how long and wide, at what slant, and where the Double Cluster's halves went
       if (gl.groups) { var halves = String(o.cat).split(' and '); if (halves.length === gl.groups.length) gl.groups.forEach(function (gq, i) { tags.push([halves[i], gq[0], gq[1], gq[2], 0.9]); }); }
       cap += ' · a sketch, not a photo — expect it fainter';
     } else if (o.stars) { // Kemble's Cascade: its stars, most fainter than the map's

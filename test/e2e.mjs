@@ -2927,6 +2927,24 @@ check('A galaxy in the eyepiece sketch lies at its slant on the sky, with M32 al
   } finally { await ctx.close(); }
 });
 
+// SEDS gives M105's size as 4.8′ × 5.4′, its short axis first, and the sketch lays the first along OpenNGC's position
+// angle (71°), so M105 lay 90° off its slant on the sky; d3-celestial gave the Ghost of Jupiter and the Cat's Eye the
+// same way round. Every size now gives the long axis first.
+check('Every size gives the long axis first, so M105 lies at its slant in the eyepiece sketch', async () => {
+  const { dso } = JSON.parse(await readFile(join(root, 'data/dso.json'), 'utf8')), byId = Object.fromEntries(dso.map(d => [d.id, d]));
+  assert.deepEqual(dso.filter(d => d.dim[1] > d.dim[0]).map(d => d.id), [], 'sizes with the short axis first');
+  assert.deepEqual([byId.M105.dim, byId.M105.pa], [[5.4, 4.8], 71]);
+  const { ctx, page, problems } = await open({ time: '2026-11-17T05:30:00-06:00' });
+  try {
+    await openCard(page, 'M105');
+    const ep = await page.waitForFunction(() => { const c = document.getElementById('eyepiece'); return c.__nbrs && { tilt: c.__tilt, axes: c.__axes, frame: c.__frame }; }).then(h => h.jsonValue());
+    const pa = 71 * Math.PI / 180, want = [0, 1].map(j => Math.cos(pa) * ep.frame.n[j] + Math.sin(pa) * ep.frame.e[j]), axis = [Math.cos(ep.tilt), Math.sin(ep.tilt)];
+    assert.ok(Math.abs(axis[0] * want[0] + axis[1] * want[1]) > 0.995, `drawn at ${ep.tilt}, the sky's 71° is ${Math.atan2(want[1], want[0])}`);
+    assert.ok(ep.axes[0] > ep.axes[1], `the glow is longer along 71° than across it: ${ep.axes.map(v => v.toFixed(1)).join(' × ')} px`);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 // A neighbour in the field was drawn as a glow or a cloud of made-up stars whatever it was, so in 10×50s Kemble's
 // Cascade, 1.4° from NGC 1502, came out as a round cluster 2.8° across, and M73, four faint stars by M72, as a cluster.
 check('Kemble’s Cascade beside NGC 1502 is drawn by its own stars, and M73’s few faint ones are left out', async () => {

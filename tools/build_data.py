@@ -210,6 +210,9 @@ NAMES = {'M31': 'Andromeda Galaxy', 'M33': 'Triangulum Galaxy', 'M24': 'Sagittar
          'M44': 'Beehive Cluster', 'M51': 'Whirlpool Galaxy', 'M101': 'Pinwheel Galaxy', 'M104': 'Sombrero Galaxy',
          'M102': 'Spindle Galaxy', 'M73': '', 'M77': '', 'M94': ''}
 
+# A size is its long axis, then its short one: the eyepiece sketch lays the first along a galaxy's position angle. SEDS
+# gives M105's as 4.8' x 5.4', short axis first, which turned its long axis 90 degrees off OpenNGC's angle, and
+# d3-celestial gives the Ghost of Jupiter's and the Cat's Eye's that way round too.
 def dims(s):
     try:
         parts = [float(x) for x in str(s).replace('×', 'x').split('x') if x.strip()]
@@ -217,7 +220,8 @@ def dims(s):
         return [0, 0]
     if not parts:
         return [0, 0]
-    return [r(parts[0], 1), r(parts[1] if len(parts) > 1 else parts[0], 1)]
+    a, b = parts[0], parts[1] if len(parts) > 1 else parts[0]
+    return [r(max(a, b), 1), r(min(a, b), 1)]
 
 dso = []
 for f in json.load(open(D / 'messier.json'))['features']:
@@ -446,6 +450,9 @@ for d in dso:
 if tilted < 50:  # a moved or renamed column would otherwise leave them all level without a word
     sys.exit(f'only {tilted} galaxies have a position angle')
 print(f'  {tilted} galaxies with a position angle')
+short_first = [d['id'] for d in dso if d['dim'][1] > d['dim'][0]]
+if short_first:
+    sys.exit(f'sizes with the short axis first: {short_first}')
 dump('dso.json', {'dso': dso, 'doubles': doubles})
 print(f'  {len(dso)} deep-sky objects, {len(doubles)} doubles')
 
