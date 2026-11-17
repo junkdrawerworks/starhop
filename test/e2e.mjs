@@ -2336,8 +2336,8 @@ check('a finder chart for something low shows it at nightfall, not in the sunset
 // "from Mirach through μ And", "about 6.7° from β Com").
 const hopCap = page => page.$eval('#finder', c => c.parentElement.querySelector('.cap').textContent);
 const hopStars = cap => {
-  const m = /From (.+?) through (.+?) and /.exec(cap) || /[\d.]+° from (.+?), toward (.+?)(?: \(a little off the line\))?\./.exec(cap) ||
-    /(?:a third of the way|halfway) from (.+?) to (.+?)(?: \(a little off the line\))?, [\d.]+° from /.exec(cap) || /About [\d.]+° from (.+?) —/.exec(cap);
+  const m = /From (.+?) through (.+?) and /.exec(cap) || /[\d.]+° from (.+?), toward (.+?)(?: \(a little off the line\)|, a little off the line)?\./.exec(cap) ||
+    /(?:a third of the way|halfway) from (.+?) to (.+?)(?: \(a little off the line\)|, a little off the line)?, [\d.]+° from /.exec(cap) || /About [\d.]+° from (.+?) —/.exec(cap);
   return m ? m.slice(1).filter(Boolean).map(n => n.replace(/ \([^)]*\)$/, '')) : []; // Telum, not "Telum (γ Sge)"
 };
 const CHICAGO = { name: 'Chicago, IL', lat: 41.85, lon: -87.65, tz: 'America/Chicago' };
@@ -2370,7 +2370,10 @@ check('A star-hop gives the letter after a name the IAU adopted from 2024 on', a
   for (const [loc, time, id, re] of [
     [AUSTIN, '2026-10-13T21:00:00-05:00', 'M27', /^Star-hop: About a third of the way from Telum \(γ Sge\) to Almighzal \(η Cyg\), [\d.]+° from Telum\./],
     [AUSTIN, '2026-11-15T19:00:00-06:00', 'M57', /^Star-hop: 0\.8° from Sheliak, toward Sulafat\./],
-    [AUSTIN, '2026-11-17T20:00:00-06:00', 'M31', /Star-hop: From Mirach through μ And and about as far again, 3\.9° past μ And\./]]) {
+    [AUSTIN, '2026-11-17T20:00:00-06:00', 'M31', /Star-hop: From Mirach through μ And and about as far again, 3\.9° past μ And\./],
+    // 'a little off the line' goes between commas after a bracketed letter, not into a second pair of brackets
+    [AUSTIN, '2026-11-15T21:00:00-06:00', 'M29', /^Star-hop: 1\.8° from Sadr, toward Tianjinnan \(ζ Cyg\), a little off the line\./],
+    [AUSTIN, '2026-11-15T21:00:00-06:00', 'M110', /^Star-hop: About a third of the way from μ And to Kaffalmusalsala \(κ And\), a little off the line, 4\.5° from μ And\./]]) {
     const { ctx, page, problems } = await open({ loc, time });
     try {
       await openCard(page, id);

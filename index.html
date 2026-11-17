@@ -1449,10 +1449,12 @@ html.red .chart canvas{background:#050000}
       }
     }
     if (best) {
+      // after a name with its letter in brackets, 'a little off the line' goes between commas, not in brackets of its own
       var A1 = best.a.full, B1 = best.b.full, lineOff = best.off > 0.8 ? ' (a little off the line)' : '', txt;
+      var offB = lineOff && /\)$/.test(B1) ? ', a little off the line' : lineOff;
       if (best.kind === 'through') txt = 'From ' + A1 + ' through ' + B1 + ' and ' + (best.f < 1.35 ? 'a little beyond' : best.f < 1.75 ? 'half as far again' : 'about as far again') + lineOff + ', ' + degs(sep(best.b.v, tv)) + ' past ' + best.b.name + '.';
-      else if (best.da < 2 || best.f < 0.18) txt = degs(best.da) + ' from ' + A1 + ', toward ' + B1 + lineOff + '.';
-      else txt = (FRACW(best.f) + A1 + ' to ' + B1).replace(/^./, function (c) { return c.toUpperCase(); }) + lineOff + ', ' + degs(best.da) + ' from ' + best.a.name + '.';
+      else if (best.da < 2 || best.f < 0.18) txt = degs(best.da) + ' from ' + A1 + ', toward ' + B1 + offB + '.';
+      else txt = (FRACW(best.f) + A1 + ' to ' + B1).replace(/^./, function (c) { return c.toUpperCase(); }) + offB + ', ' + degs(best.da) + ' from ' + best.a.name + '.';
       // the dashed line runs from the first star past the target to the second, or through the second to the target
       return { text: txt, a: best.a.v, b: best.kind === 'through' ? tv : best.b.v, stars: [best.a.i, best.b.i], hop: best };
     }
