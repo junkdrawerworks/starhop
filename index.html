@@ -2633,6 +2633,7 @@ html.red .chart canvas{background:#050000}
     var h = '<div class="hd"><h2>Your log<small>' + (list.length ? plural(list.length, 'entry', 'entries') + ', newest first' : 'Nothing in it yet') + '</small></h2><button class="btn sec sm" type="button" data-close>Done</button></div><div class="bd">';
     if (!list.length) h += '<p class="lede">Mark what you see as seen on its card, and it’s kept here with the night and time, where you were and your telescope.</p>';
     else h += '<div class="btnrow"><button class="btn sec" type="button" id="logCopy">Copy as text</button><button class="btn sec" type="button" id="logCsv">Download CSV</button></div>' +
+      '<p class="hint" style="margin:0">Your log is kept only in this browser on this device, so add Starhop to your Home Screen to keep it, and download the CSV now and then as a backup.</p>' +
       '<p class="hint" style="margin:0">The CSV has a row for each entry, with the columns the Astronomical League’s Messier Program asks observers to keep: date and time, latitude and longitude, seeing and transparency, aperture, power and a description. The League counts only objects you find yourself, with a finder or a Telrad, not with a phone app.</p>' +
       '<div class="logl">' + list.map(function (x) {
         var e = x.e;
