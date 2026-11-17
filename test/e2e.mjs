@@ -2875,7 +2875,8 @@ check('A saved telescope without a view guesses it from its name', async () => {
 });
 
 // The eyepiece sketch drew the target alone, M31 without M32 and M110 beside it, and every glow as bright as its
-// magnitude, so a Hard M33 from the suburbs was an obvious 70′ patch; galaxies were tilted at a made-up angle.
+// magnitude, so a Hard M33 from the suburbs was an obvious 70′ patch; galaxies were tilted at a made-up angle (they now
+// lie at their own, below).
 check('The eyepiece sketch shows what shares the field, faded as hard as each one is', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
   const nbrs = () => page.waitForFunction(() => document.getElementById('eyepiece').__nbrs).then(h => h.jsonValue());
@@ -2900,6 +2901,28 @@ check('The eyepiece sketch shows what shares the field, faded as hard as each on
     await openCard(page, 'M33');
     const dark = await page.waitForFunction(() => document.getElementById('eyepiece').__glow).then(h => h.jsonValue());
     assert.ok(sub < dark * 0.6, `a Hard M33 is drawn fainter than from a dark site: ${sub} against ${dark}`);
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// Galaxies were drawn level in the sketch, whatever their slant on the sky, so at 9:20 pm on 17 November 2026 in Austin,
+// with north nearly straight up, the Andromeda Galaxy lay flat across the view and M32, 24′ south of its centre, sat
+// off its edge. Each galaxy is now turned to OpenNGC's position angle for its long axis (M31's is 35°, from north
+// through east), with the sketch's own turn and flip, which puts M32 on its long side, nearer its long axis than across.
+check('A galaxy in the eyepiece sketch lies at its slant on the sky, with M32 along the Andromeda Galaxy', async () => {
+  const { dso } = JSON.parse(await readFile(join(root, 'data/dso.json'), 'utf8')), byId = Object.fromEntries(dso.map(d => [d.id, d]));
+  assert.deepEqual([byId.M31.pa, byId.M32.pa, byId.M110.pa, byId['NGC 4565'].pa], [35, 170, 170, 135], 'OpenNGC’s position angles');
+  assert.deepEqual(dso.filter(d => d.kind === 'galaxy' && d.pa == null).map(d => d.id), ['PGC 17223'], 'only the Large Magellanic Cloud has none');
+  const { ctx, page, problems } = await open({ time: '2026-11-17T21:20:00-06:00' });
+  try {
+    await openCard(page, 'M31');
+    const ep = await page.waitForFunction(() => { const c = document.getElementById('eyepiece'); return c.__nbrs && { tilt: c.__tilt, frame: c.__frame, nbrs: c.__nbrs, w: c.getBoundingClientRect().width }; }).then(h => h.jsonValue());
+    const pa = 35 * Math.PI / 180, want = [0, 1].map(j => Math.cos(pa) * ep.frame.n[j] + Math.sin(pa) * ep.frame.e[j]), axis = [Math.cos(ep.tilt), Math.sin(ep.tilt)];
+    assert.ok(Math.abs(axis[0] * want[0] + axis[1] * want[1]) > 0.995, `the long axis points along 35° on the sky: drawn at ${ep.tilt}, sky's ${Math.atan2(want[1], want[0])}`);
+    assert.ok(Math.abs(ep.frame.n[1]) > 0.95, 'north is nearly straight up or down, so a level galaxy would leave M32 off its edge');
+    const m32 = ep.nbrs.find(q => q.id === 'M32'), dx = m32.x - ep.w / 2, dy = m32.y - ep.w / 2;
+    const along = Math.abs(dx * axis[0] + dy * axis[1]), across = Math.abs(-dx * axis[1] + dy * axis[0]);
+    assert.ok(along > across * 1.2, `M32 sits along the galaxy, not off its edge: ${along.toFixed(0)} px along, ${across.toFixed(0)} px across`);
     assert.deepEqual(problems, []);
   } finally { await ctx.close(); }
 });

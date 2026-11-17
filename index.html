@@ -2971,12 +2971,13 @@ html.red .chart canvas{background:#050000}
     g.font = '700 11px "Atkinson Hyperlegible", sans-serif'; g.fillStyle = tcol('#A7AFC6', 0.9); g.textAlign = 'left'; g.fillText(stamp, 8, f.h - 8);
   }
   // A cluster, nebula or galaxy as the eyepiece sketch draws it at (x, y): a glow, or a cluster's stars, at its size,
-  // as bright as its magnitude and faded by fade (fadeOf). A galaxy is drawn untilted, as its angle isn't known here.
-  // A hard one keeps only its core: its outer glow fades twice over. Returns the glow's centre alpha, its radius and the
-  // Double Cluster's two halves.
+  // as bright as its magnitude and faded by fade (fadeOf). A galaxy's long axis lies along its position angle (pa, from
+  // north through east), turned and flipped with the sketch; one with no angle is drawn level. A hard one keeps only its
+  // core: its outer glow fades twice over. Returns the glow's centre alpha, its radius, the angle its long axis is drawn
+  // at on the screen and the Double Cluster's two halves.
   function glow(g, o, x, y, scale, fade, sky2px) {
     var a = Math.max(3, (o.dim[0] || 4) / 2 * scale), b2 = Math.max(2, (o.dim[1] || o.dim[0] || 4) / 2 * scale);
-    var bright = (o.mag != null ? clamp((10.5 - o.mag) / 7, 0.18, 0.75) : 0.3) * fade, out = { a: bright, r: a };
+    var bright = (o.mag != null ? clamp((10.5 - o.mag) / 7, 0.18, 0.75) : 0.3) * fade, out = { a: bright, r: a, tilt: 0 };
     if (o.kind === 'cluster') {
       var seed = 0; for (var q = 0; q < o.id.length; q++) seed = (seed * 31 + o.id.charCodeAt(q)) >>> 0;
       var rnd = function () { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -2991,7 +2992,12 @@ html.red .chart canvas{background:#050000}
     } else {
       var cc = o.kind === 'galaxy' ? '#D8DEF0' : o.type === 'Planetary nebula' ? '#B7E8DD' : '#C9E0E0';
       var gr = g.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, col(cc, bright)); gr.addColorStop(o.kind === 'galaxy' ? 0.35 : 0.7, col(cc, bright * 0.45 * fade)); gr.addColorStop(1, col(cc, 0));
-      g.save(); g.translate(x, y); g.scale(a, b2); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 1, 0, 2 * Math.PI); g.fill(); g.restore();
+      if (o.kind === 'galaxy' && o.pa != null) { // where a step along the long axis lands in the sketch
+        var e0 = unit(cross([0, 0, 1], o.v)), n0 = cross(o.v, e0), pa = o.pa * D2R, st = D2R / 60, p0 = sky2px(o.v);
+        var p1 = sky2px(unit([0, 1, 2].map(function (j) { return o.v[j] + (Math.cos(pa) * n0[j] + Math.sin(pa) * e0[j]) * st; })));
+        if (p0 && p1) out.tilt = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+      }
+      g.save(); g.translate(x, y); g.rotate(out.tilt); g.scale(a, b2); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 1, 0, 2 * Math.PI); g.fill(); g.restore();
     }
     return out;
   }
@@ -3082,7 +3088,7 @@ html.red .chart canvas{background:#050000}
       else cap += ' · not split at this power';
     } else if (o.k !== 'star' && o.type !== 'Asterism') { // M73 is a few faint stars, not a cluster
       var gl = glow(g, o, cx0, cy0, scale, fadeOf(o), sky2px);
-      c.__glow = gl.a; if (gl.groups) c.__groups = gl.groups; // tests read how bright it is drawn and where the Double Cluster's halves went
+      c.__glow = gl.a; c.__tilt = gl.tilt; if (gl.groups) c.__groups = gl.groups; // tests read how bright it is drawn, at what slant, and where the Double Cluster's halves went
       if (gl.groups) { var halves = String(o.cat).split(' and '); if (halves.length === gl.groups.length) gl.groups.forEach(function (gq, i) { tags.push([halves[i], gq[0], gq[1], gq[2], 0.9]); }); }
       cap += ' · a sketch, not a photo — expect it fainter';
     } else if (o.stars) { // Kemble's Cascade: its stars, most fainter than the map's

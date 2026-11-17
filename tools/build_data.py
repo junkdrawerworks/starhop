@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Starhop's data files from d3-celestial (BSD-3) and city-timezones (MIT).
+"""Build Starhop's data files from d3-celestial (BSD-3), city-timezones (MIT) and OpenNGC (CC BY-SA 4.0).
 
 Coordinates come out as J2000 right ascension and declination in degrees (RA 0..360). Star names are checked
 against the IAU Working Group on Star Names' list in tools/wgsn.tsv.
@@ -7,9 +7,11 @@ against the IAU Working Group on Star Names' list in tools/wgsn.tsv.
     mkdir -p tools/src && cd tools/src
     npm pack d3-celestial@0.7.35 city-timezones@1.3.4
     for f in *.tgz; do mkdir -p "${f%.tgz}" && tar xzf "$f" -C "${f%.tgz}"; done
+    mkdir -p OpenNGC-v20231203 && curl -sSL -o OpenNGC-v20231203/NGC.csv \
+        https://raw.githubusercontent.com/mattiaverga/OpenNGC/v20231203/database_files/NGC.csv
     cd ../.. && python3 tools/build_data.py
 """
-import json, math, re, sys
+import csv, json, math, re, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -428,6 +430,21 @@ dso.append({'id': 'Kemble 1', 'cat': 'Kemble 1', 'name': 'Kemble’s Cascade', '
             'dim': [r(2 * half * 60, 1), 10.0], 'ra': r(ra_of(mid[0]), 3), 'dec': r(mid[1], 3), 'stars': sorted(chain)})
 if len(chain) < 5:
     sys.exit(f"Kemble's Cascade: only {len(chain)} stars found")
+# Which way each galaxy's long axis points on the sky, its position angle in degrees from north through east, for the
+# eyepiece sketch. They're OpenNGC's (github.com/mattiaverga/OpenNGC, release v20231203, NGC.csv; CC BY-SA 4.0), found by
+# NGC number (M51 by NGC 5194). A galaxy OpenNGC gives no angle for, as for the Large Magellanic Cloud, which has no
+# NGC number, is drawn level.
+ongc = {row['Name']: row for row in csv.DictReader(open(HERE / 'src/OpenNGC-v20231203/NGC.csv', encoding='utf-8'), delimiter=';')}
+tilted = 0
+for d in dso:
+    m = re.match(r'(NGC|IC)\s*(\d+)', d['cat']) if d['kind'] == 'galaxy' else None
+    row = ongc.get(f'{m.group(1)}{int(m.group(2)):04d}') if m else None
+    if row and row['PosAng'].strip():
+        d['pa'] = int(float(row['PosAng']))
+        tilted += 1
+if tilted < 50:  # a moved or renamed column would otherwise leave them all level without a word
+    sys.exit(f'only {tilted} galaxies have a position angle')
+print(f'  {tilted} galaxies with a position angle')
 dump('dso.json', {'dso': dso, 'doubles': doubles})
 print(f'  {len(dso)} deep-sky objects, {len(doubles)} doubles')
 

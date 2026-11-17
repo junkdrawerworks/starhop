@@ -31,7 +31,7 @@ The sizes and magnitudes of the NGC objects added in November 2026 (the southern
 
 ## OpenNGC
 
-The Tarantula Nebula's size and magnitude, the Turtle Nebula's (NGC 6210) visual magnitude, and the Needle Galaxy's (NGC 4565) position and the ratio of its axes come from OpenNGC by Mattia Verga (https://github.com/mattiaverga/OpenNGC, `NGC.csv`, read November 2026), released under the Creative Commons Attribution-ShareAlike 4.0 license (CC BY-SA 4.0); OpenNGC draws them from the NASA/IPAC Extragalactic Database, HyperLEDA and SIMBAD.
+The Tarantula Nebula's size and magnitude, the Turtle Nebula's (NGC 6210) visual magnitude, the Needle Galaxy's (NGC 4565) position and the ratio of its axes, and the position angles of the galaxies' long axes (the `pa` in `dso.json`, from release v20231203) come from OpenNGC by Mattia Verga (https://github.com/mattiaverga/OpenNGC, `NGC.csv`, read November 2026), released under the Creative Commons Attribution-ShareAlike 4.0 license (CC BY-SA 4.0); OpenNGC draws them from the NASA/IPAC Extragalactic Database, HyperLEDA and SIMBAD.
 
 ## Open cluster catalogues
 
