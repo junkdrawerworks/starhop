@@ -3180,7 +3180,7 @@ html.red .chart canvas{background:#050000}
       '<div class="fld" data-only="scope"><span>Barlow</span><p class="hint">A Barlow lens goes in front of an eyepiece and doubles or triples its power.</p><div class="opts" id="bwOpts" role="group" aria-label="Barlow"></div></div>' +
       '<div class="fld" data-only="scope"><span>What you see through it</span><div class="opts" id="vwOpts" role="group" aria-label="What you see through it"></div></div>' +
       '<div class="fld" data-only="scope"><span>Your finder</span><div class="opts" id="fdOpts" role="group" aria-label="Your finder"></div></div>' +
-      '<div class="fld"><span>Your sky</span><p class="hint">' + (curPlace() ? 'Kept with ' + esc(curPlace().name) + ', one of your places. ' : '') + 'Each sky’s Bortle class goes by the faintest star you see by eye, as Bortle’s scale gives it (Sky &amp; Telescope, February 2001).</p><div class="opts" id="skyOpts"></div></div>' +
+      '<div class="fld"><span>Your sky</span><p class="hint">' + (curPlace() ? 'Kept with ' + esc(curPlace().name) + ', one of your places. ' : '') + 'Each sky’s Bortle class goes by the faintest star you see by eye, as Bortle’s scale gives it (Sky &amp; Telescope, February 2001). Light-pollution maps go by sky brightness and often put the same sky a class or two darker (Suburbs at about 5), so pick by what you see.</p><div class="opts" id="skyOpts"></div></div>' +
       '<div class="card" id="scStats"></div></div>');
     // Until a telescope is set, the example's name stays out of the field, so one typed in by hand isn't saved under it.
     $('scName').value = sc.set ? sc.name || '' : ''; $('scAp').value = sc.ap; $('scFl').value = ts.fl; $('bnMag').value = bn.mag; $('bnFov').value = bn.fov;
