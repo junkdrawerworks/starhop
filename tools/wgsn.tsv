@@ -1,7 +1,7 @@
 # Star names adopted by the IAU Working Group on Star Names (WGSN). build_data.py gives each star
 # d3-celestial names the WGSN's name for it, and drops a name the WGSN never adopted for that star.
 # From the IAU Catalog of Star Names on the WGSN's site, https://exopla.net/star-names/modern-iau-star-names/,
-# as of 2026-10-16 (its newest names were adopted on 2026-09-22). Mesarthim's HIP number, blank there, is from
+# as of 2026-11-17 (its newest names were adopted on 2026-10-15). Mesarthim's HIP number, blank there, is from
 # the catalog's text edition of 2022-04-04: https://www.pas.rochester.edu/~emamajek/WGSN/IAU-CSN.txt
 # IAU star names are free to use and in the public domain. "-" marks a star with no HIP number.
 # HIP	name	designation	constellation	adopted
@@ -21,6 +21,7 @@
 53524	Aiolos	HD 95086	Car	2023-08-01
 94481	Aladfar	η Lyr	Lyr	2017-09-05
 90004	Alasia	HD 168746	Ser	2019-12-17
+85829	Alawaidh	ν2 Draconis	Dra	2026-05-13
 10064	Alaybasan	β Tri	Tri	2025-11-07
 94141	Albaldah	π Sgr	Sgr	2017-09-05
 102618	Albali	ε Aqr	Aqr	2016-09-12
@@ -52,6 +53,7 @@
 23416	Almaaz	ε Aur	Aur	2017-02-01
 9640	Almach	γ And	And	2016-07-20
 98110	Almighzal	η Cyg	Cyg	2026-07-16
+9347	Alnaamaat	υ Cet	Cet	2026-10-15
 109268	Alnair	α Gru	Gru	2016-07-20
 88635	Alnasl	γ2 Sgr	Sgr	2016-08-21
 26311	Alnilam	ε Ori	Ori	2016-07-20
@@ -93,6 +95,7 @@
 95771	Anser	α Vul	Vul	2017-06-30
 80763	Antares	α Sco	Sco	2016-06-30
 99473	Antinous	θ Aql	Aql	2024-06-06
+3031	Anunitu	ε And	And	2026-10-15
 66006	Apamvatsa	74 Vir	Vir	2025-10-16
 10670	Apdu	γ Tri	Tri	2025-11-13
 72845	Arcalís	HD 131496	Boo	2019-12-17
@@ -130,6 +133,7 @@
 87937	Barnard's Star	V2500 Oph	Oph	2017-02-01
 8645	Baten Kaitos	ζ Cet	Cet	2016-09-12
 -	Batsũ̀	LHS 3844	Ind	2023-08-01
+10324	Bawy	ξ1 Cet	Cet	2026-10-15
 -	Beehive Proplyd	HH 540	Ori	2026-06-13
 20535	Beemim	υ3 Eri	Eri	2017-06-30
 19587	Beid	ο1 Eri	Eri	2016-09-12
@@ -171,6 +175,7 @@
 -	Chasoň	HAT-P-5	Lyr	2019-12-17
 99894	Chechia	HD 192699	Aql	2019-12-17
 54879	Chertan	θ Leo	Leo	2016-07-20
+11345	Chugao	ρ Cet	Cet	2026-10-15
 1547	Citadelle	HD 1502	Psc	2019-12-17
 33719	Citalá	HD 52265	Mon	2019-12-17
 3479	Cocibolca	HD 4208	Scl	2019-12-17
@@ -233,6 +238,7 @@
 87261	Fuyue	G Sco	Sco	2017-06-30
 61084	Gacrux	γ Cru	Cru	2016-07-20
 21881	Gaja	τ Tau	Tau	2026-02-22
+5364	Gajahmina	η Cet	Cet	2026-10-15
 42446	Gakyid	HD 73534	Cnc	2019-12-17
 9598	Gang	50 Cas	Cas	2025-12-25
 62452	Gar	GJ 486	Vir	2023-08-01
@@ -318,6 +324,7 @@
 61359	Kraz	β Crv	Crv	2018-06-01
 -	Krios	HD 240429	Cas	2026-03-22
 -	Kronos	HD 240430	Cas	2026-03-22
+3092	Kuda	δ And	And	2026-10-15
 4463	Kui	η And	And	2025-04-06
 65109	Kulou	ι Cen	Cen	2025-02-17
 108917	Kurhah	ξ Cep	Cep	2016-09-12
@@ -509,6 +516,7 @@
 86228	Sargas	θ Sco	Sco	2016-08-21
 84379	Sarin	δ Her	Her	2016-09-12
 17358	Sarvvis	δ Per	Per	2025-12-25
+12387	Sawyqed	δ Ceti	Cet	2026-10-15
 21594	Sceptrum	53 Eri	Eri	2017-06-30
 113881	Scheat	β Peg	Peg	2016-06-30
 3179	Schedar	α Cas	Cas	2016-08-21
@@ -578,11 +586,14 @@
 112122	Tiaki	β Gru	Gru	2017-09-05
 86414	Tianbang	ι Her	Her	2026-06-20
 91117	Tianbian	α Sct	Sct	2026-06-18
+6537	Tiancang	θ Cet	Cet	2026-10-15
 98823	Tianfu	τ Aql	Aql	2024-05-16
 111188	Tiangang	β PsA	PsA	2026-09-17
 26451	Tianguan	ζ Tau	Tau	2017-06-30
+4147	Tianhun	20 Cet	Cet	2026-10-15
 81693	Tianji	ζ Her	Her	2026-05-14
 104732	Tianjinnan	ζ Cyg	Cyg	2026-07-16
+841	Tianjiu	22 And	And	2026-10-15
 4427	Tiansi	γ Cas	Cas	2025-11-13
 62423	Tianyi	7 Dra	Dra	2017-06-30
 88116	Tianyue	4 Sgr	Sgr	2026-08-13
@@ -618,6 +629,7 @@
 35550	Wasat	δ Gem	Gem	2016-08-21
 -	Wattle	WASP-19	Vel	2023-08-01
 27628	Wazn	β Col	Col	2016-07-20
+12719	Weixiu	35 Ari	Ari	2026-10-15
 34444	Wezen	δ CMa	CMa	2016-07-20
 -	Wouri	WASP-69	Aqr	2023-08-01
 5348	Wurren	ζ Phe	Phe	2017-11-17
@@ -644,4 +656,5 @@
 72622	Zubenelgenubi	α2 Lib	Lib	2016-08-21
 76333	Zubenelhakrabi	γ Lib	Lib	2017-09-05
 74785	Zubeneschamali	β Lib	Lib	2016-08-21
+10306	Zuogeng	η Ari	Ari	2026-10-15
 97365	Zuoqi	δ Sge	Sge	2026-06-18
