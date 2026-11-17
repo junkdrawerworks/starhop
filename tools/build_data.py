@@ -42,9 +42,10 @@ names = json.load(open(D / 'starnames.json'))
 
 # Every star the IAU Working Group on Star Names names goes by that name, which can differ from d3-celestial's (Navi
 # is Tiansi, Rutilicus is Tianji, and Markab and Tarazed were on two stars each), and many stars d3-celestial gives no
-# name at all have one now (ε Per is Áldu, ζ Cyg Tianjinnan). A name the WGSN never adopted for that star (Sinistra,
-# Regor, or Double Double, d3-celestial's nickname for ε1 Lyr) gives way to the star's Bayer or Flamsteed label, which
-# any atlas has.
+# name at all have one now (ε Per is Áldu, ζ Cyg Tianjinnan). A name the WGSN never adopted for that star gives way to
+# the WGSN's own name for it (d3-celestial's "Double Double", the nickname of the whole Epsilon Lyrae system, to
+# Pongaponga for ε1 Lyr) or, where it has none, to the star's Bayer or Flamsteed label, which any atlas has (Sinistra,
+# Regor).
 wgsn_of = {}  # HIP number -> the WGSN's name for its brightest component, its designation and constellation
 for line in open(HERE / 'wgsn.tsv', encoding='utf-8'):
     if line.strip() and not line.startswith('#'):
