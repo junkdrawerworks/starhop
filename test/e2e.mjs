@@ -2343,9 +2343,10 @@ const hopStars = cap => {
 const CHICAGO = { name: 'Chicago, IL', lat: 41.85, lon: -87.65, tz: 'America/Chicago' };
 
 // Of the 411 stars a star-hop can start or end at, 148 have only a Bayer or Flamsteed label, and the chart labelled only
-// stars with a proper name, so M13's "from η Her" started at an unlabelled star.
+// stars with a proper name, so M13's "from η Her" started at an unlabelled star. M27's hop goes by the IAU's names for
+// γ Sge and η Cyg, which d3-celestial left unnamed, and M31's through μ And, which the IAU hasn't named.
 check('the stars a star-hop names are labelled on its chart', async () => {
-  for (const [loc, time, id, want] of [[CHICAGO, '2026-10-16T21:15:00-05:00', 'M13', ['η Her', 'Tianji']], [AUSTIN, '2026-10-13T21:00:00-05:00', 'M27', ['γ Sge', 'η Cyg']]]) {
+  for (const [loc, time, id, want] of [[CHICAGO, '2026-10-16T21:15:00-05:00', 'M13', ['η Her', 'Tianji']], [AUSTIN, '2026-10-13T21:00:00-05:00', 'M27', ['Telum', 'Almighzal']], [AUSTIN, '2026-11-17T20:00:00-06:00', 'M31', ['Mirach', 'μ And']]]) {
     const { ctx, page, problems } = await open({ loc, time });
     try {
       await openCard(page, id);
@@ -4021,37 +4022,41 @@ check('Deep-sky names read as names, with curly apostrophes', async () => {
 });
 
 // A star brighter than 4.6 can be tapped, and its card goes by its name or label, or "A magnitude 4.5 star" with neither. The build
-// gives Bayer letters down to 4.5 and Flamsteed numbers down to 4.0, which leaves 126 tappable stars with no label (16 of
-// them have neither in d3-celestial), so one more is a star that lost its only label, as ξ Sco did with "Grafias".
+// gives Bayer letters down to 4.5, Flamsteed numbers down to 4.0 and every star the IAU names its name, which leaves 115
+// tappable stars with no label (14 of them have neither in d3-celestial), so one more is a star that lost its only label,
+// as ξ Sco did with "Grafias".
 check('star labels in the data are all real designations, and no tappable star loses its label', async () => {
   const { s, n } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8'));
   assert.deepEqual(Object.entries(n).filter(([, v]) => v.some(x => /undefined/.test(x))), [], 'labels with "undefined" in them');
   const bare = [];
   for (let i = 0; i < s.length / 4; i++) if (s[i * 4 + 2] < 4.6 && !(n[i] && (n[i][0] || n[i][1]))) bare.push(i);
-  assert.equal(bare.length, 126, 'tappable stars with no label');
+  assert.equal(bare.length, 115, 'tappable stars with no label');
   assert.deepEqual(n[await starAt(241.09, -11.37)], ['', 'ξ Sco', 'Sco'], 'ξ Sco (HIP 78727)');
 });
 
 // d3-celestial gave some traditional names to several stars: Markab to α Peg and κ1 Pup, Tarazed to γ and η Aql,
 // Alnair to α Gru and ζ Cen, which put "Alnair" in Omega Centauri's star-hop. Each star d3-celestial names now goes by
 // the IAU's name for it (η Aql is Pagru, ζ Cen Leepwal, ζ Her Tianji, γ Cas Tiansi), or by its letter where the IAU
-// never adopted the name (ν Oph was "Sinistra", γ2 Vel "Regor").
+// never adopted the name (ν Oph was "Sinistra", γ2 Vel "Regor"). So does every star the IAU names that d3-celestial
+// gave no name at all (ε Per is Áldu, ζ Cyg Tianjinnan, ε1 Lyr Pongaponga rather than "Double Double"), and a star
+// d3-celestial has no names for goes by the IAU's designation for it (Tonglingxing, HR 2527).
 check('each star name is on one star only, the one the IAU gives it to, and the stars keep their order', async () => {
   const { s, n } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')), on = {};
   for (const [i, v] of Object.entries(n)) if (v[0]) (on[v[0]] = on[v[0]] || []).push(v[1] || '#' + i);
   assert.deepEqual(Object.entries(on).filter(([, stars]) => stars.length > 1), [], 'names on more than one star');
   const named = des => Object.values(n).find(v => v[1] === des)[0];
-  for (const [des, name] of [['α Peg', 'Markab'], ['κ1 Pup', ''], ['γ Aql', 'Tarazed'], ['η Aql', 'Pagru'], ['α Gru', 'Alnair'], ['ζ Cen', 'Leepwal'], ['ζ Her', 'Tianji'], ['γ Cas', 'Tiansi'], ['ν Oph', ''], ['γ2 Vel', ''], ['ε1 Lyr', '']]) assert.equal(named(des), name, des);
+  for (const [des, name] of [['α Peg', 'Markab'], ['κ1 Pup', ''], ['γ Aql', 'Tarazed'], ['η Aql', 'Pagru'], ['α Gru', 'Alnair'], ['ζ Cen', 'Leepwal'], ['ζ Her', 'Tianji'], ['γ Cas', 'Tiansi'], ['ν Oph', ''], ['γ2 Vel', ''], ['ε1 Lyr', 'Pongaponga'], ['ε Per', 'Áldu'], ['γ Hya', 'Naga'], ['δ Per', 'Sarvvis'], ['ζ Cyg', 'Tianjinnan'], ['δ And', 'Kuda'], ['BE Cam', 'Custos'], ['HR 2527', 'Tonglingxing']]) assert.equal(named(des), name, des);
   // Stars marked as seen are kept by their place in this list, so a rebuild that reorders it needs to move those marks.
   // Mira, added at the end, moved none of them.
   assert.equal(createHash('sha256').update(JSON.stringify(s.slice(0, 5044 * 4))).digest('hex').slice(0, 16), 'a010c8abcddc38b6', 'the star list changed order or content');
 });
 
 // d3-celestial spells some names its own way, and gave ε1 Lyr the nickname of the whole Epsilon Lyrae system. Where the
-// IAU's Working Group on Star Names gives the same star the same name spelled differently, its spelling is used.
-check('Star names follow the IAU’s spelling, and ε1 Lyr goes by its letter', async () => {
+// IAU's Working Group on Star Names gives the same star the same name spelled differently, its spelling is used, and ε1
+// Lyr goes by the IAU's name for it, Pongaponga (adopted 18 June 2026).
+check('Star names follow the IAU’s spelling, and ε1 Lyr goes by the IAU’s name, not a nickname', async () => {
   const { n } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')), named = des => Object.values(n).find(v => v[1] === des)[0];
-  for (const [des, name] of [['α Cas', 'Schedar'], ['μ Cep', 'Garnet Star'], ['λ Vir', 'Khambalia'], ['σ CMa', 'Nganurganity'], ['ε1 Lyr', '']]) assert.equal(named(des), name, des);
+  for (const [des, name] of [['α Cas', 'Schedar'], ['μ Cep', 'Garnet Star'], ['λ Vir', 'Khambalia'], ['σ CMa', 'Nganurganity'], ['ε1 Lyr', 'Pongaponga']]) assert.equal(named(des), name, des);
 });
 
 // "The Milky Way casts shadows" is how Bortle's scale (Sky & Telescope, February 2001) describes its darkest class, 1,

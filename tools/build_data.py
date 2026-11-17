@@ -38,23 +38,21 @@ stars = json.load(open(D / 'stars.6.json'))['features']
 names = json.load(open(D / 'starnames.json'))
 
 
-# A star d3-celestial names goes by the name the IAU Working Group on Star Names gives it, which can differ from
-# d3-celestial's (Navi is Tiansi, Rutilicus is Tianji, and Markab and Tarazed were on two stars each). A name the WGSN
-# never adopted for that star (Sinistra, Regor) gives way to the star's Bayer or Flamsteed label, which any atlas has.
-wgsn_of = {}  # HIP number -> the WGSN's name for its brightest component
+# Every star the IAU Working Group on Star Names names goes by that name, which can differ from d3-celestial's (Navi
+# is Tiansi, Rutilicus is Tianji, and Markab and Tarazed were on two stars each), and many stars d3-celestial gives no
+# name at all have one now (ε Per is Áldu, ζ Cyg Tianjinnan). A name the WGSN never adopted for that star (Sinistra,
+# Regor, or Double Double, d3-celestial's nickname for ε1 Lyr) gives way to the star's Bayer or Flamsteed label, which
+# any atlas has.
+wgsn_of = {}  # HIP number -> the WGSN's name for its brightest component, its designation and constellation
 for line in open(HERE / 'wgsn.tsv', encoding='utf-8'):
     if line.strip() and not line.startswith('#'):
-        hip, nm, desig = line.split('\t')[:3]
+        hip, nm, desig, con = line.split('\t')[:4]
         if not re.search(r' [B-Z]$', desig):  # ε Boo B's name isn't ε Boo's
-            wgsn_of.setdefault(hip, nm)
-NOT_NAMES = {'Double Double'}  # d3-celestial's name for ε1 Lyr is the nickname of the whole Epsilon Lyrae system
+            wgsn_of.setdefault(hip, (nm, desig, con))
 
 
-def proper_name(hip, n):
-    nm = n.get('name') or ''
-    if not nm or nm in NOT_NAMES:
-        return ''
-    return wgsn_of.get(hip, '')
+def proper_name(hip):
+    return wgsn_of.get(hip, ('',))[0]
 
 
 rows = []
@@ -74,8 +72,11 @@ for i, (mag, hip, ra, dec, bv) in enumerate(rows):
     idx_of_hip[str(hip)] = i
     n = names.get(str(hip))
     if not n:
+        if str(hip) in wgsn_of:  # a star d3-celestial has no names for at all goes by its WGSN designation (HR 2527)
+            nm, desig, con = wgsn_of[str(hip)]
+            labels[i] = [nm, desig, con]
         continue
-    proper = proper_name(str(hip), n)
+    proper = proper_name(str(hip))
     bayer = n.get('bayer') or ''
     if bayer.startswith('undefined'):  # d3-celestial lost one Greek letter: HIP 20535 (43 Eri) is upsilon-3 Eridani
         bayer = 'υ' + bayer[len('undefined'):]
@@ -84,6 +85,8 @@ for i, (mag, hip, ra, dec, bv) in enumerate(rows):
     if hip == 78727 and not bayer:  # d3-celestial gives xi Scorpii only "Grafias", which it also gives zeta-2 Sco, and no letter or constellation
         bayer, con = 'ξ', 'Sco'
     lab = (bayer or flam) + (' ' + con if con else '') if (bayer or flam) else ''
+    if proper and not lab:  # a named star with no Greek letter or number goes by the WGSN's designation (BE Cam)
+        lab = wgsn_of[str(hip)][1]
     if proper or (lab and (n.get('name') or (bayer and mag <= 4.5) or (flam and mag <= 4.0))):
         labels[i] = [proper, lab, con]
 # Mira (ο Cet, HIP 10826) brightens and fades between magnitude 2.0 and 10.1 over 331.96 days (General Catalogue of
@@ -101,7 +104,7 @@ for f in json.load(open(D / 'stars.8.json'))['features']:
         flat += [r(ra_of(lon)), r(lat), hi, r(f['properties']['bv'])]
         idx_of_hip[str(f['id'])] = i
         n = names[str(f['id'])]
-        labels[i] = [proper_name(str(f['id']), n), n['bayer'] + ' ' + n['c'], n['c']]
+        labels[i] = [proper_name(str(f['id'])), n['bayer'] + ' ' + n['c'], n['c']]
         variable[i] = [hi, lo, days]
 if len(variable) != len(VARIABLES):
     sys.exit('variable stars not found')

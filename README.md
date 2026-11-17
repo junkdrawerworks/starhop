@@ -109,7 +109,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - [OpenNGC](https://github.com/mattiaverga/OpenNGC) by Mattia Verga (CC BY-SA 4.0), the open-cluster catalogues of Dias et al. (2002) and Kharchenko et al. (2009) through VizieR: a few numbers NGC 2000.0 and d3-celestial lack, for the Needle Galaxy, the Tarantula and Turtle nebulae and Stock 2.
 - The [Washington Double Star Catalog](http://www.astro.gsu.edu/wds/) (U.S. Naval Observatory): the double stars' separations, position angles and magnitudes. This research has made use of the Washington Double Star Catalog maintained at the U.S. Naval Observatory.
 - [city-timezones](https://github.com/kevinroberts/city-timezones) 1.3.4 (MIT): 7,300 cities with their time zones.
-- The [IAU Catalog of Star Names](https://exopla.net/star-names/modern-iau-star-names/) (public domain), kept in `tools/wgsn.tsv`: a star d3-celestial names goes by the name the IAU gives it (ζ Her is Tianji, not Rutilicus), and one whose name the IAU never adopted goes by its Bayer or Flamsteed label (ν Oph).
+- The [IAU Catalog of Star Names](https://exopla.net/star-names/modern-iau-star-names/) (public domain), kept in `tools/wgsn.tsv`: every star the IAU names goes by that name (ζ Her is Tianji, not Rutilicus, and ε Per, which d3-celestial left unnamed, is Áldu), and one whose d3-celestial name the IAU never adopted goes by its Bayer or Flamsteed label (ν Oph).
 
 The double-star notes and object descriptions were written for Starhop. The steps to rebuild are at the top of the build script, and [data/SOURCES.md](data/SOURCES.md) has the licenses.
 
