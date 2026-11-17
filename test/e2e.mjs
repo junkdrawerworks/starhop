@@ -2338,7 +2338,7 @@ const hopCap = page => page.$eval('#finder', c => c.parentElement.querySelector(
 const hopStars = cap => {
   const m = /From (.+?) through (.+?) and /.exec(cap) || /[\d.]+° from (.+?), toward (.+?)(?: \(a little off the line\))?\./.exec(cap) ||
     /(?:a third of the way|halfway) from (.+?) to (.+?)(?: \(a little off the line\))?, [\d.]+° from /.exec(cap) || /About [\d.]+° from (.+?) —/.exec(cap);
-  return m ? m.slice(1).filter(Boolean) : [];
+  return m ? m.slice(1).filter(Boolean).map(n => n.replace(/ \([^)]*\)$/, '')) : []; // Telum, not "Telum (γ Sge)"
 };
 const CHICAGO = { name: 'Chicago, IL', lat: 41.85, lon: -87.65, tz: 'America/Chicago' };
 
@@ -2352,9 +2352,32 @@ check('the stars a star-hop names are labelled on its chart', async () => {
       await openCard(page, id);
       await page.waitForFunction(() => document.getElementById('finder').__labels);
       const cap = await hopCap(page), names = hopStars(cap), labels = (await finderLabels(page)).labels.map(l => l.t);
-      if (id === 'M13') assert.match(cap, /^Star-hop: About a third of the way from η Her to Tianji, 2\.5° from η Her\./);
+      if (id === 'M13') assert.match(cap, /^Star-hop: About a third of the way from η Her to Tianji \(ζ Her\), 2\.5° from η Her\./);
       for (const n of want) assert.ok(names.includes(n), `${id}'s star-hop names ${n}: ${cap}`);
       for (const n of names) assert.ok(labels.includes(n), `${id}'s chart labels ${n}, which its star-hop names (it has ${labels.join(', ')})`);
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
+// Star-hops name every star the IAU names by that name, and 153 of those names, adopted from 2024 on, are new to older
+// charts, books and most observers, who know the stars by letter: M27's hop read "from Telum to Almighzal", which are γ
+// Sge and η Cyg. A hop now gives the letter after such a name the first time it names it; Mirach, Sheliak and the
+// other long-familiar names stand alone, and the chart labels names only.
+check('A star-hop gives the letter after a name the IAU adopted from 2024 on', async () => {
+  const { n } = JSON.parse(await readFile(join(root, 'data/stars.json'), 'utf8')), by = name => Object.values(n).find(v => v[0] === name);
+  assert.deepEqual([by('Telum'), by('Almighzal'), by('Tianji'), by('Mirach'), by('Vega')], [['Telum', 'γ Sge', 'Sge', 1], ['Almighzal', 'η Cyg', 'Cyg', 1], ['Tianji', 'ζ Her', 'Her', 1], ['Mirach', 'β And', 'And'], ['Vega', 'α Lyr', 'Lyr']]);
+  for (const [loc, time, id, re] of [
+    [AUSTIN, '2026-10-13T21:00:00-05:00', 'M27', /^Star-hop: About a third of the way from Telum \(γ Sge\) to Almighzal \(η Cyg\), [\d.]+° from Telum\./],
+    [AUSTIN, '2026-11-15T19:00:00-06:00', 'M57', /^Star-hop: 0\.8° from Sheliak, toward Sulafat\./],
+    [AUSTIN, '2026-11-17T20:00:00-06:00', 'M31', /Star-hop: From Mirach through μ And and about as far again, 3\.9° past μ And\./]]) {
+    const { ctx, page, problems } = await open({ loc, time });
+    try {
+      await openCard(page, id);
+      await page.waitForFunction(() => document.getElementById('finder').__labels);
+      const cap = await hopCap(page), labels = (await finderLabels(page)).labels.map(l => l.t);
+      assert.match(cap, re);
+      for (const t of labels) assert.doesNotMatch(t, /\(/, `${id}'s chart labels ${t}`);
       assert.deepEqual(problems, []);
     } finally { await ctx.close(); }
   }
@@ -2452,7 +2475,7 @@ const designation = async name => { const n = JSON.parse(await readFile(join(roo
 check('Star-hops take the classic routes: the Ring between β and γ Lyrae, Andromeda through μ And, M13 between η and ζ Her', async () => {
   const { ctx, page, problems } = await open({ time: '2026-11-15T19:00:00-06:00' });
   try {
-    for (const [id, want, re] of [['M57', ['β Lyr', 'γ Lyr'], /^Star-hop: 0\.8° from Sheliak, toward Sulafat\./], ['M31', ['β And', 'μ And'], /^Visible without a telescope from your sky: a misty patch at the centre of the chart\. Star-hop: From Mirach through μ And and about as far again, 3\.9° past μ And\./], ['M13', ['η Her', 'ζ Her'], /^Star-hop: About a third of the way from η Her to Tianji, 2\.5° from η Her\./]]) {
+    for (const [id, want, re] of [['M57', ['β Lyr', 'γ Lyr'], /^Star-hop: 0\.8° from Sheliak, toward Sulafat\./], ['M31', ['β And', 'μ And'], /^Visible without a telescope from your sky: a misty patch at the centre of the chart\. Star-hop: From Mirach through μ And and about as far again, 3\.9° past μ And\./], ['M13', ['η Her', 'ζ Her'], /^Star-hop: About a third of the way from η Her to Tianji \(ζ Her\), 2\.5° from η Her\./]]) {
       await openCard(page, id);
       await page.waitForFunction(() => document.getElementById('finder').__labels);
       const cap = await hopCap(page), stars = [];

@@ -1405,13 +1405,15 @@ html.red .chart canvas{background:#050000}
 
   // ---------- star-hopping: describe where a target sits among bright stars ----------
   // The stars to hop from are ones you can see by eye from your sky (brighter than its faintest), named or lettered, to
-  // magnitude 4.5, and not Mira, which is often too faint to see.
+  // magnitude 4.5, and not Mira, which is often too faint to see. A name the IAU adopted from 2024 on (its label's fourth
+  // item) is new to older charts and books, which know the star by its letter, so a hop's first mention of it gives the
+  // letter too (full): "from Telum (γ Sge)". The chart labels it by name alone.
   var ANCHORS = {};
   function anchors() {
     var lim = Math.min(4.5, sky().nelm);
     if (ANCHORS[lim]) return ANCHORS[lim];
     var out = ANCHORS[lim] = [];
-    Object.keys(NAMES).forEach(function (k) { var i = +k, mag = STARS[i * 4 + 2], n = NAMES[i]; if ((n[0] || n[1]) && mag < lim && !VARS[i]) out.push({ i: i, name: n[0] || n[1], mag: mag, v: SVEC[i] }); });
+    Object.keys(NAMES).forEach(function (k) { var i = +k, mag = STARS[i * 4 + 2], n = NAMES[i]; if ((n[0] || n[1]) && mag < lim && !VARS[i]) out.push({ i: i, name: n[0] || n[1], full: n[0] && n[3] && n[1] && n[1] !== n[0] ? n[0] + ' (' + n[1] + ')' : n[0] || n[1], mag: mag, v: SVEC[i] }); });
     return out;
   }
   var HOP_LEG = 8; // the longest first leg: a few finderscope fields from a star you can see
@@ -1447,17 +1449,17 @@ html.red .chart canvas{background:#050000}
       }
     }
     if (best) {
-      var A1 = best.a.name, B1 = best.b.name, lineOff = best.off > 0.8 ? ' (a little off the line)' : '', txt;
-      if (best.kind === 'through') txt = 'From ' + A1 + ' through ' + B1 + ' and ' + (best.f < 1.35 ? 'a little beyond' : best.f < 1.75 ? 'half as far again' : 'about as far again') + lineOff + ', ' + degs(sep(best.b.v, tv)) + ' past ' + B1 + '.';
+      var A1 = best.a.full, B1 = best.b.full, lineOff = best.off > 0.8 ? ' (a little off the line)' : '', txt;
+      if (best.kind === 'through') txt = 'From ' + A1 + ' through ' + B1 + ' and ' + (best.f < 1.35 ? 'a little beyond' : best.f < 1.75 ? 'half as far again' : 'about as far again') + lineOff + ', ' + degs(sep(best.b.v, tv)) + ' past ' + best.b.name + '.';
       else if (best.da < 2 || best.f < 0.18) txt = degs(best.da) + ' from ' + A1 + ', toward ' + B1 + lineOff + '.';
-      else txt = (FRACW(best.f) + A1 + ' to ' + B1).replace(/^./, function (c) { return c.toUpperCase(); }) + lineOff + ', ' + degs(best.da) + ' from ' + A1 + '.';
+      else txt = (FRACW(best.f) + A1 + ' to ' + B1).replace(/^./, function (c) { return c.toUpperCase(); }) + lineOff + ', ' + degs(best.da) + ' from ' + best.a.name + '.';
       // the dashed line runs from the first star past the target to the second, or through the second to the target
       return { text: txt, a: best.a.v, b: best.kind === 'through' ? tv : best.b.v, stars: [best.a.i, best.b.i], hop: best };
     }
     var k = -1; dist.forEach(function (d, n) { if (k < 0 || d < dist[k]) k = n; });
     if (k < 0) return null;
     var nn = near[k], d = dist[k];
-    return { text: 'About ' + degs(d) + ' from ' + nn.name + ' — about ' + (d / 10 < 0.75 ? 'half a fist' : d / 10 < 1.3 ? 'one fist' : (Math.round(d / 5) / 2) + ' fists') + ' at arm’s length. Follow the dashed line on the chart.', a: nn.v, b: tv, stars: [nn.i], hop: { a: nn, da: d, kind: 'near' } };
+    return { text: 'About ' + degs(d) + ' from ' + nn.full + ' — about ' + (d / 10 < 0.75 ? 'half a fist' : d / 10 < 1.3 ? 'one fist' : (Math.round(d / 5) / 2) + ' fists') + ' at arm’s length. Follow the dashed line on the chart.', a: nn.v, b: tv, stars: [nn.i], hop: { a: nn, da: d, kind: 'near' } };
   }
 
   // ---------- main map interaction ----------

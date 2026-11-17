@@ -46,12 +46,19 @@ names = json.load(open(D / 'starnames.json'))
 # the WGSN's own name for it (d3-celestial's "Double Double", the nickname of the whole Epsilon Lyrae system, to
 # Pongaponga for ε1 Lyr) or, where it has none, to the star's Bayer or Flamsteed label, which any atlas has (Sinistra,
 # Regor).
-wgsn_of = {}  # HIP number -> the WGSN's name for its brightest component, its designation and constellation
+wgsn_of = {}  # HIP number -> the WGSN's name for its brightest component, its designation, constellation and adoption date
 for line in open(HERE / 'wgsn.tsv', encoding='utf-8'):
     if line.strip() and not line.startswith('#'):
-        hip, nm, desig, con = line.split('\t')[:4]
+        hip, nm, desig, con, adopted = line.rstrip('\n').split('\t')[:5]
         if not re.search(r' [B-Z]$', desig):  # ε Boo B's name isn't ε Boo's
-            wgsn_of.setdefault(hip, (nm, desig, con))
+            wgsn_of.setdefault(hip, (nm, desig, con, adopted))
+# Names the WGSN adopted from 2024 on are new to older charts and books, which know those stars by their letters, so a
+# star-hop gives the letter after the name ("from Telum (γ Sge)"). Such a star's label carries a fourth item, 1.
+NEW_NAMES = '2024-01-01'
+
+
+def new_name(hip):
+    return hip in wgsn_of and wgsn_of[hip][3] >= NEW_NAMES
 
 
 def proper_name(hip):
@@ -76,8 +83,8 @@ for i, (mag, hip, ra, dec, bv) in enumerate(rows):
     n = names.get(str(hip))
     if not n:
         if str(hip) in wgsn_of:  # a star d3-celestial has no names for at all goes by its WGSN designation (HR 2527)
-            nm, desig, con = wgsn_of[str(hip)]
-            labels[i] = [nm, desig, con]
+            nm, desig, con = wgsn_of[str(hip)][:3]
+            labels[i] = [nm, desig, con] + ([1] if new_name(str(hip)) else [])
         continue
     proper = proper_name(str(hip))
     bayer = n.get('bayer') or ''
@@ -91,7 +98,7 @@ for i, (mag, hip, ra, dec, bv) in enumerate(rows):
     if proper and not lab:  # a named star with no Greek letter or number goes by the WGSN's designation (BE Cam)
         lab = wgsn_of[str(hip)][1]
     if proper or (lab and (n.get('name') or (bayer and mag <= 4.5) or (flam and mag <= 4.0))):
-        labels[i] = [proper, lab, con]
+        labels[i] = [proper, lab, con] + ([1] if proper and new_name(str(hip)) else [])
 # Mira (ο Cet, HIP 10826) brightens and fades between magnitude 2.0 and 10.1 over 331.96 days (General Catalogue of
 # Variable Stars), so d3-celestial's single magnitude, 6.47, its average, leaves it out of the stars here and Cetus's
 # line bends at an empty point. It goes at the end of the list, where it moves no other star (seen marks are kept by
