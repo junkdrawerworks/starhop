@@ -4630,6 +4630,91 @@ check('On a touch phone the sky and the timeline keep clear of the screen’s si
   }
 });
 
+// A Back that comes while a finger is on the sky, or just after the browser took a touch away from it (as Android's back
+// gesture does when a finger near the screen's side is taken for it), is taken for a slip: Starhop stays as it was. A
+// finger down adds a step to the history for it, and a second after the finger lifts the step is gone again, so the
+// rest of the time Back does what it always has: on the map with nothing open it leaves (the installed app closes).
+check('A Back mid-drag on the sky, or just after a touch was taken, stays in Starhop', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    await page.goto(base + 'icon.svg'); // somewhere to go Back to
+    await page.goto(base);
+    await ready(page);
+    await page.click('#tonightSec'); // a tap first, as a person's would be
+    const start = page.url(), steps = await page.evaluate(() => history.length);
+    const guarded = () => page.evaluate(() => !!history.state);
+    const cdp = await ctx.newCDPSession(page);
+    const box = await page.locator('#sky').boundingBox();
+    const at = (dx = 0) => [{ x: box.x + box.width / 2 + dx, y: box.y + box.height / 2 }];
+    const touch = (type, touchPoints = []) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
+    const facing = () => page.evaluate(() => JSON.stringify(document.getElementById('sky').__hits().slice(0, 5).map(h => [h.obj.name || h.obj.id, Math.round(h.x)])));
+    assert.equal(await guarded(), false, 'with no finger on the sky the history should have no extra step');
+    // A finger down adds the step. Back in the middle of a drag: Starhop stays, and the drag goes on.
+    await touch('touchStart', at()); await touch('touchMove', at(20));
+    assert.equal(await guarded(), true, 'a finger down on the sky should add a step to the history');
+    await page.evaluate(() => history.back());
+    await page.waitForTimeout(300);
+    assert.equal(page.url(), start, 'Back in the middle of a drag should stay in Starhop');
+    const was = await facing();
+    await touch('touchMove', at(160)); await touch('touchEnd');
+    await page.waitForTimeout(100);
+    assert.notEqual(await facing(), was, 'the drag should go on turning the sky after a Back taken for a slip');
+    // The browser takes the touch (pointercancel) and a Back follows: Starhop stays.
+    await touch('touchStart', at()); await touch('touchCancel');
+    await page.evaluate(() => history.back());
+    await page.waitForTimeout(300);
+    assert.equal(page.url(), start, 'Back just after a touch was taken should stay in Starhop');
+    // A second on, the step is gone again, and Back leaves in one press.
+    await page.waitForFunction(() => !history.state, null, { timeout: 3000 }).catch(() => assert.fail('the extra step should be gone a second after the finger was taken'));
+    await page.waitForTimeout(200);
+    assert.equal(await page.evaluate(() => history.length), steps + 1, 'it should leave one step forward at most, as a Back does');
+    await page.evaluate(() => { setTimeout(() => history.back()); });
+    await page.waitForURL(/icon\.svg$/, { timeout: 5000 }).catch(() => assert.fail('Back a while after a touch was taken should leave in one press'));
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
+// While pointing, the same: a Back mid-drag (correcting the compass) or just after a touch was taken keeps Point on, and
+// the drag goes on to correct it. Stop still ends Point at once, and a second after the finger lifts, Back ends Point in
+// one press as it always has, and stays in Starhop.
+check('A Back mid-drag on the sky, or just after a touch was taken, keeps Point on', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', init: fakeWakeLock });
+  const pointing = () => page.evaluate(() => document.documentElement.classList.contains('pointing'));
+  try {
+    await ctx.grantPermissions(['accelerometer', 'gyroscope', 'magnetometer']);
+    const start = page.url();
+    await point(page);
+    const cdp = await ctx.newCDPSession(page);
+    const box = await page.locator('#sky').boundingBox();
+    const at = (dx = 0) => [{ x: box.x + box.width / 2 + dx, y: box.y + box.height / 2 }];
+    const touch = (type, touchPoints = []) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints });
+    await touch('touchStart', at()); await touch('touchMove', at(20));
+    await page.evaluate(() => history.back());
+    await page.waitForTimeout(300);
+    assert.equal(await pointing(), true, 'Back in the middle of a drag should keep Point on');
+    await touch('touchMove', at(80)); await touch('touchEnd');
+    assert.equal(await page.isVisible('#ptFix'), true, 'the drag should go on to correct the compass');
+    await touch('touchStart', at()); await touch('touchCancel');
+    await page.evaluate(() => history.back());
+    await page.waitForTimeout(300);
+    assert.equal(await pointing(), true, 'Back just after a touch was taken should keep Point on');
+    // Stop still ends it at once, even then, and its steps come off.
+    await touch('touchStart', at()); await touch('touchCancel');
+    await page.click('#ptBtn');
+    await page.waitForFunction(() => !document.documentElement.classList.contains('pointing'), null, { timeout: 5000 }).catch(() => assert.fail('Stop just after a touch was taken should end Point'));
+    await page.waitForFunction(() => !history.state, null, { timeout: 5000 }).catch(() => assert.fail('Stop should leave no step behind'));
+    // A second after a touch was taken, Back ends Point in one press, and stays in Starhop.
+    await point(page);
+    await touch('touchStart', at()); await touch('touchCancel');
+    await page.waitForTimeout(1100);
+    await page.evaluate(() => history.back());
+    await page.waitForFunction(() => !document.documentElement.classList.contains('pointing'), null, { timeout: 5000 }).catch(() => assert.fail('Back a while after a touch was taken should end Point'));
+    assert.equal(page.url(), start);
+    await page.waitForFunction(() => !history.state, null, { timeout: 5000 }).catch(() => assert.fail('ending Point should leave no step behind'));
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 const only = process.argv[2];
 let failed = 0, ran = 0;
 for (const [name, fn] of checks) {

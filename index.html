@@ -475,6 +475,7 @@ html.red .chart canvas{background:#050000}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <p class="sr" id="say" aria-live="polite"></p>
 <script src="js/astronomy.browser.min.js"></script>
+<script src="js/edge-guard.js"></script>
 <script>
 (function () {
   'use strict';
@@ -2504,8 +2505,41 @@ html.red .chart canvas{background:#050000}
   // card opened while pointing closes first, then Point ends. Done, the backdrop, Escape and Stop go back over the
   // entry themselves while it is still the current one; one left under another is skipped once Back reaches it.
   // Swapping one sheet for another, or redrawing it, adds nothing.
-  var HIST = { id: Date.now().toString(36), n: 0, cur: '', pt: '', back: false, later: [] };
+  var HIST = { id: Date.now().toString(36), n: 0, cur: '', pt: '', drag: '', back: false, later: [] };
   try { history.scrollRestoration = 'manual'; } catch (e) { } // going back over the entry mustn't scroll the page
+  // A finger dragging the sky (looking around, or correcting the compass while pointing) or the timeline near the
+  // screen's side can set off Android's back gesture (or Chrome's swipe to go back), which takes the touch and then
+  // goes Back, and on the map with nothing open that closed Starhop. A web page can't keep those gestures off its
+  // edges, so while a finger is down on one of them, and for a second after it lifts or is taken, there is one more
+  // step in the history (HIST.drag) for a slip to use up. A Back that comes while the finger is down, or within a
+  // second of the browser taking it, is a slip: whatever it took off goes back on, as it was. Any other Back in that
+  // second goes on to do what it would have done (end Point, or leave Starhop), and a second on the step comes off
+  // again, so the rest of the time Back is as it always was. Only a finger adds it: a mouse sets off no gesture. Done,
+  // Escape and Stop are never slips (see HIST.back).
+  var GUARD = guardEdges({ surfaces: [cv, tl], history: false }), SLIP = 1000;
+  var DRAG = { t: 0, fingers: 0, up: -1e9 };
+  function dragDown(e) {
+    if (e.pointerType !== 'touch') return;
+    DRAG.fingers++; clearTimeout(DRAG.t);
+    if (!HIST.drag && !HIST.back && $('sheet').hidden) HIST.drag = histPush();
+  }
+  function dragUp(e) {
+    if (e.pointerType !== 'touch' || !DRAG.fingers) return;
+    DRAG.fingers--; DRAG.up = performance.now(); dragOffSoon();
+  }
+  function dragOffSoon() {
+    clearTimeout(DRAG.t);
+    DRAG.t = setTimeout(function () {
+      if (!HIST.drag) return;
+      if (DRAG.fingers || GUARD.slip() || performance.now() - DRAG.up < SLIP) { dragOffSoon(); return; }
+      var k = HIST.drag; HIST.drag = '';
+      histBack(k); // left under a card a tap opened, it's skipped once Back reaches it
+    }, SLIP + 20);
+  }
+  [cv, tl].forEach(function (el) {
+    el.addEventListener('pointerdown', dragDown);
+    el.addEventListener('pointerup', dragUp); el.addEventListener('pointercancel', dragUp);
+  });
   function histPush() { try { var k = HIST.id + ':' + (++HIST.n); history.pushState({ starhopSheet: k }, ''); return k; } catch (e) { return ''; } }
   function histNum(k) { return typeof k === 'string' && k.indexOf(HIST.id + ':') === 0 ? +k.slice(HIST.id.length + 1) : 0; }
   function histBack(k) { if (k && history.state && history.state.starhopSheet === k) { HIST.back = true; history.back(); } }
@@ -2519,6 +2553,16 @@ html.red .chart canvas{background:#050000}
   }
   window.addEventListener('popstate', function () {
     var at = histNum(history.state && history.state.starhopSheet), sheet = !$('sheet').hidden;
+    if (!HIST.back) {
+      // what Back took off, lowest first: a slip puts it all back on, in the same order
+      var took = [['pt', PT.on], ['cur', sheet], ['drag', true]].filter(function (w) { return w[1] && histNum(HIST[w[0]]) > at; })
+        .sort(function (a, b) { return histNum(HIST[a[0]]) - histNum(HIST[b[0]]); }).map(function (w) { return w[0]; });
+      if (took.length && GUARD.slip()) { took.forEach(function (w) { HIST[w] = histPush(); }); return; }
+      if (took.indexOf('drag') >= 0) {
+        HIST.drag = ''; clearTimeout(DRAG.t);
+        if (took.length === 1) { history.back(); return; } // only the drag's step: Back goes on to what lay under it
+      }
+    }
     // Back took off whatever entries lie above the one it reached
     if (!HIST.back) {
       if (sheet && !(histNum(HIST.cur) && histNum(HIST.cur) <= at)) closeSheet(true);
@@ -2526,7 +2570,7 @@ html.red .chart canvas{background:#050000}
     }
     HIST.back = false;
     sheet = !$('sheet').hidden;
-    if (at && at !== (sheet ? histNum(HIST.cur) : -1) && at !== (PT.on ? histNum(HIST.pt) : -1)) { HIST.back = true; history.back(); return; } // left behind
+    if (at && at !== (sheet ? histNum(HIST.cur) : -1) && at !== (PT.on ? histNum(HIST.pt) : -1) && at !== histNum(HIST.drag)) { HIST.back = true; history.back(); return; } // left behind
     var later = HIST.later; HIST.later = [];
     later.forEach(function (k) { if (k === 'sheet' && !$('sheet').hidden) pushSheet(); else if (k === 'point' && PT.on) pushPoint(); });
   });

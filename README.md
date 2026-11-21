@@ -89,6 +89,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 
 - `index.html`: the whole app: the sky map, the night's timeline, tonight's summary, the targets and their ratings, the object cards with their finder charts, star-hops and eyepiece views, and the telescope and location sheets. Your settings are kept in the browser's localStorage.
 - `js/astronomy.browser.min.js`: [Astronomy Engine](https://github.com/cosinekitty/astronomy) 2.1.19 (MIT), served from here.
+- `js/edge-guard.js`: keeps a swipe near the side of a phone's screen (Android's back gesture) from leaving Starhop, or ending Point, mid-drag. Shared with the other junkdrawer.works projects.
 - `data/`: the stars, constellations, deep-sky objects, Milky Way and cities, built by `tools/build_data.py`. [data/SOURCES.md](data/SOURCES.md) has their licenses.
 - `fonts/`: Atkinson Hyperlegible, DM Mono and IM Fell English (SIL Open Font License), served from here so nothing loads from elsewhere.
 - `sw.js`: keeps the page, the library, the data files and the fonts for using offline, and opens from them when the network doesn't answer within a few seconds.
