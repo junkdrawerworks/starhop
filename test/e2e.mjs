@@ -4608,6 +4608,28 @@ check('A sideways swipe never reaches the browser’s swipe to go Back', async (
   } finally { await ctx.close(); }
 });
 
+// On a phone's touch screen, what a finger drags keeps clear of the screen's sides, where Android's back gesture starts:
+// the timeline starts 24 px in, and the sky takes no touch in the 24 px at either side (a swipe there is the phone's own
+// Back), though it's drawn to the edges and the buttons over it work as before. With a mouse, nothing starts at the side.
+check('On a touch phone the sky and the timeline keep clear of the screen’s sides', async () => {
+  for (const [width, height, phone] of [[320, 568, true], [360, 740, true], [390, 844, true], [1280, 800, false]]) {
+    const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00', size: [width, height], phone });
+    try {
+      const got = await page.evaluate(() => {
+        const side = q => { const b = document.querySelector(q).getBoundingClientRect(); return Math.round(Math.min(b.left, innerWidth - b.right)); };
+        const s = document.getElementById('sky').getBoundingClientRect(), y = s.top + s.height / 2;
+        const sky = x => document.elementFromPoint(x, y)?.id === 'sky';
+        const buttons = [...document.querySelectorAll('.skybox .overlay button')].filter(b => b.offsetParent)
+          .every(b => { const r = b.getBoundingClientRect(); return b.contains(document.elementFromPoint(r.left + 2, r.top + r.height / 2)) && b.contains(document.elementFromPoint(r.right - 2, r.top + r.height / 2)); });
+        return { timeline: side('#tlc'), sky: side('#sky'), hits: [sky(s.left + 2), sky(s.left + 23), sky(s.left + 25), sky(s.right - 25), sky(s.right - 23), sky(s.right - 2)], buttons };
+      });
+      if (phone) assert.deepEqual(got, { timeline: 24, sky: 0, hits: [false, false, true, true, false, false], buttons: true }, `at ${width} px what a finger drags should keep 24 px from the screen's sides`);
+      else assert.deepEqual(got, { timeline: 16, sky: 0, hits: [true, true, true, true, true, true], buttons: true }, 'with a mouse the page should be as it was');
+      assert.deepEqual(problems, []);
+    } finally { await ctx.close(); }
+  }
+});
+
 const only = process.argv[2];
 let failed = 0, ran = 0;
 for (const [name, fn] of checks) {

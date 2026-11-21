@@ -404,6 +404,16 @@ html.red .chart canvas{background:#050000}
 }
 /* narrower still there's no room for both words, and the place matters more: the telescope is its icon again */
 @media (max-width:340px){#scopeBtn .t{display:none}}
+/* On a phone's touch screen, what a finger drags keeps 24 px from the screen's sides, clear of where Android's back
+   gesture starts: the timeline comes in from the page's 16 px margin, and the sky takes no touch in the 24 px at either
+   side, so a swipe there is the phone's own Back rather than a look around cut short. The sky is still drawn to the
+   edges, and the buttons over it work as before. */
+@media (pointer:coarse) and (max-width:560px){
+  #tlc{margin-inline:8px;width:calc(100% - 16px)}
+  .skybox::before,.skybox::after{content:'';position:absolute;top:0;bottom:0;width:24px;z-index:1;touch-action:none}
+  .skybox::before{left:0}.skybox::after{right:0}
+  .skybox .overlay{z-index:2}
+}
 /* a phone zoomed to 200% or so: the brand keeps its mark and leaves its room to the place, and a target row puts its
    rating under its lines, which would otherwise have room for a letter at a time */
 @media (max-width:300px){
