@@ -62,6 +62,9 @@ html.red{
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0;background:var(--bg);color:var(--ink)}
+/* a swipe sideways never starts the browser's Back or Forward (Chrome's overscroll navigation): a finger dragging the
+   sky or the timeline past the side of the screen would otherwise leave Starhop */
+html,body{overscroll-behavior-x:none}
 /* Chromium's own blue tap flash and the system's selection, placeholder, scrollbar and menu colours ignore the palette,
    so night vision would show them unchanged: each comes from the palette instead. */
 html{-webkit-tap-highlight-color:transparent;scrollbar-color:var(--line2) var(--bg)}

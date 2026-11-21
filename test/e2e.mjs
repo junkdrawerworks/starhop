@@ -4596,6 +4596,18 @@ check('A dark winter night in Austin lists the Needle Galaxy, Kemble’s Cascade
   } finally { await ctx.close(); }
 });
 
+// A swipe sideways is nobody's, so it can't run on into Chrome's swipe to go Back or Forward: the page doesn't overscroll
+// sideways, the sky takes every touch, and the timeline takes a sideways drag (the page still scrolls up and down over it).
+check('A sideways swipe never reaches the browser’s swipe to go Back', async () => {
+  const { ctx, page, problems } = await open({ time: '2026-11-15T21:00:00-06:00' });
+  try {
+    const look = await page.evaluate(() => ['html', 'body', '.skybox', '#tlc'].map(q => { const c = getComputedStyle(document.querySelector(q)); return [q, c.overscrollBehaviorX, c.touchAction]; }));
+    assert.deepEqual(look.slice(0, 2).map(([q, o]) => [q, o]), [['html', 'none'], ['body', 'none']], 'the page should not overscroll sideways');
+    assert.deepEqual(look.slice(2).map(([q, , t]) => [q, t]), [['.skybox', 'none'], ['#tlc', 'pan-y']], 'the sky should take every touch, and the timeline a sideways drag');
+    assert.deepEqual(problems, []);
+  } finally { await ctx.close(); }
+});
+
 const only = process.argv[2];
 let failed = 0, ran = 0;
 for (const [name, fn] of checks) {
